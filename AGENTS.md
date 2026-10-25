@@ -129,5 +129,6 @@ the device now runs Planet Gemian from `boot` + `userdata`.
 | `bin/p0-dump.sh` | read-only P0 collector, run as root on the Cosmo under Gemian 4.4 |
 | `docs/p0-backup.md` | mtkclient backup of the device-unique partitions (before any flash) |
 | `docs/hardware-map.md` | SoC/board map, mainline status, plan P0–P7 |
+| `docs/bringup-checklist.md` | every hardware block: bus/address, mainline status, progress |
 | `docs/session-log.md` | dated log of every session |
 | `build/`, `out/` | build tree and artifacts (gitignored) |
