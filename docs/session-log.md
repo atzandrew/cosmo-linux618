@@ -301,3 +301,16 @@
   42:00:15:19:83:01/00; init: usb0 10.15.19.83, udhcpd hands .84, busybox
   telnetd. `boot.img` sha256
   `eee30d39bc6ad5696afbe01cec62d46dd5e4438e1dc01615d12d6c2d13e8308c`.
+
+## 2026-10-25 — try9 result; try10 = mmsys for the DISP domain, diagnostics
+
+- try9 (`eee30d39…308c`) photo `20261025_102718.jpg`: **eMMC up**
+  (`mmcblk0`, `mmcblk0p1`–`p40`, `mmcblk0boot0/1`): the PMIC IRQ fix
+  brought up MT6358 and its regulators. Power controller now defers at
+  `power-domain@7: failed to get clk at index 1` (DISP domain clocks come
+  from the mmsys driver; `MTK_MMSYS` was `m`). USB: `no usb0 after 20 s`,
+  `udc:` empty (mtu3 never registered a UDC; reason not on screen).
+- try10: `MTK_CMDQ=y`, `MTK_CMDQ_MBOX=y`, `MTK_MMSYS=y` (MMSYS is capped
+  by CMDQ in Kconfig); init mounts debugfs and prints `devices_deferred`
+  and the usb/mtu3/phy/power-controller/mmsys dmesg lines. `boot.img`
+  sha256 `fcedf1f10e9fb92309b3920c7e69b508d5d550f4095f7664ff82b84e4bf4005c`.

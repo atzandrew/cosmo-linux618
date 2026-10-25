@@ -26,6 +26,14 @@ dmesg | grep -iE 'error|fail|unable|deferred' | tail -n 25 > /dev/tty0 2>/dev/nu
 # Full dmesg into pmsg (ramoops) as well, for reading back from Gemian.
 dmesg > /dev/pmsg0 2>/dev/null
 
+# Bring-up diagnostics on glass: why devices wait, and the USB/phy story.
+mkdir -p /sys/kernel/debug
+mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
+say "--- devices_deferred ---"
+cat /sys/kernel/debug/devices_deferred > /dev/tty0 2>/dev/null
+say "--- usb/mtu3/phy/power lines ---"
+dmesg | grep -iE 'mtu3|ssusb|11201000|t-phy|tphy|udc|gadget|g_ether|power-controller|mmsys|cmdq|gce' | tail -n 20 > /dev/tty0 2>/dev/null
+
 # Bring-up network over USB: g_ether (CDC ECM). The Cosmo is 10.15.19.83;
 # udhcpd hands the host 10.15.19.84 (no router or DNS, so the host keeps
 # its own default route). Shell: telnet 10.15.19.83 (cable-only, no auth).
