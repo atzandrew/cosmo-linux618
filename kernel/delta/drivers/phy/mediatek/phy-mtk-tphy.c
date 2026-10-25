@@ -139,8 +139,6 @@
 
 #define U3P_U3_PHYA_REG1	0x004
 #define P3A_RG_CLKDRV_AMP		GENMASK(31, 29)
-/* MT6771 (v2): U3 analog 0.9 V power on, vendor RG_SSUSB_VUSB09_ON */
-#define P3A_RG_VUSB09_ON		BIT(29)
 
 #define U3P_U3_PHYA_REG6	0x018
 #define P3A_RG_TX_EIDLE_CM		GENMASK(31, 28)
@@ -763,15 +761,6 @@ static void u3_phy_instance_init(struct mtk_tphy *tphy,
 	void __iomem *phya = u3_banks->phya;
 	void __iomem *phyd = u3_banks->phyd;
 
-	/*
-	 * Cosmo (MT6771): the vendor PHY init sets this before anything else;
-	 * without it the U3 PHY gives no 125 MHz clock and mtu3 times out
-	 * ("clks of sts1 are not stable", -110).
-	 */
-	if (tphy->pdata->version == MTK_PHY_V2) {
-		mtk_phy_set_bits(phya + U3P_U3_PHYA_REG1, P3A_RG_VUSB09_ON);
-		udelay(250);
-	}
 	dev_info(tphy->dev, "cosmo: u3 PHYA_REG1 0x%x PHYD_TOP1 0x%x CHIP_CTLD 0x%x CHIP_CTLE 0x%x force_mode %d\n",
 		 readl(phya + U3P_U3_PHYA_REG1), readl(phyd + U3P_U3_PHYD_TOP1),
 		 readl(u3_banks->chip + U3P_U3_CHIP_GPIO_CTLD),
