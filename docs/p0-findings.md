@@ -69,8 +69,15 @@ vendor-only (mainline ignores it). Keep `bootopt=` (Gemini lesson).
   `&tcpc_pd`, …). The vendor base DTB carries `__symbols__`.
 - **Consequence:** applied to our mainline DTB, the fixups cannot resolve
   (no `__symbols__`, different labels), so `ufdt_apply_overlay()` fails.
-  What LK does next (boot the base DTB, or halt) is **not** answered by
-  the log. The failure paths exist in LK strings (`ufdt_apply_overlay()
+  **Answered 2026-10-25 (first boot of our image, LK log read from
+  `expdb`):** LK panics:
+  `ERROR: ufdt_overlay_do_fixups():No node __symbols__ in main dtb.` →
+  `ufdt_apply_overlay() failed!` →
+  `panic (caller 0x5602c2d3): ASSERT at (app/mt_boot/fdt_op.c:212): 0`,
+  then the LK watchdog resets (~23 s loop, black screen, kernel never
+  starts). Fix: base DTB built with `-@` and a no-op overlay in `dtbo`
+  (`dtbo/cosmo-noop.dts`, `bin/build-dtbo.sh`). Earlier text kept for the
+  record: what LK does next was not answered by the log. The failure paths exist in LK strings (`ufdt_apply_overlay()
   failed!`, `load overlay dtbo failed !`); the control flow needs LK
   disassembly or a test.
 - LK also *reads* the merged DTB for its own use before booting:

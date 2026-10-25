@@ -49,7 +49,7 @@ and PLL offsets. Mainline has no `mt6771` anything; the board rides on
 Offline answers from the stock firmware (2026-10-25): `docs/p0-findings.md`.
 Live answers from Planet Gemian 4.4 on the device (2026-10-25), same doc.
 Short form: Q1 overlay comes from `dtbo` (no `odmdtbo`), fails on our DTB,
-LK behaviour on failure **still open**; Q2 **answered** (0x7df70000,
+LK **asserts** on failure (fdt_op.c:212): our DTB needs `-@` and `dtbo` needs the no-op overlay; Q2 **answered** (0x7df70000,
 1080×2160, stride 4352, a8b8g8r8); Q3 **answered** (LK adds `mblock-*`
 reserved nodes; carry them in our DTS); Q4 answered (boot, header v1,
 Image.gz+DTB, keep `bootopt=`). Panel is **NT36672**, not SSD2092.

@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * No-op DT overlay for the Cosmo's `dtbo` partition.
+ *
+ * LK always applies the overlay in `dtbo` to the DTB appended to the
+ * kernel, and asserts if that fails (app/mt_boot/fdt_op.c:212, LK log
+ * 2026-10-25). The stock overlay targets ~280 vendor labels our mainline
+ * DTB does not have, so `dtbo` holds this overlay instead: one fragment
+ * on "/" (no label fixups) that only adds a marker property. LK still
+ * requires /__symbols__ in the base DTB, hence -@ for the board DTB.
+ *
+ * Built and packed into a DT table by bin/build-dtbo.sh.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			planet,lk-dtbo = "cosmo-noop";
+		};
+	};
+};

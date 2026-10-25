@@ -147,3 +147,26 @@
   from sizes and cmdline. `fdtoverlay` of the stock `dtbo` onto our DTB
   fails (`FDT_ERR_BADOFFSET`, no `__symbols__`), as expected: the first
   boot tests what LK does then.
+
+## 2026-10-25 — first boot attempt: LK asserts on the overlay
+
+- Flashed `boot` = `boot.img` sha256 `15c6fb1d…5289` (`mtk w boot`, sector
+  1095680, OK). Result: black screen, no vibration, preloader every ~23 s
+  (USB log 09:18:40, 09:19:05, 09:19:30).
+- `mtk r expdb` (read-only) → LK log for these boots:
+  `Kernel(1) zimage_size:0xe694ee,dtb_addr:…(dtb_size:0xd89d)` (ours),
+  `real mdtbo index=0`, then
+  `ERROR: ufdt_overlay_do_fixups():No node __symbols__ in main dtb.`,
+  `ufdt_apply_overlay() failed!`,
+  `panic … ASSERT at (app/mt_boot/fdt_op.c:212): 0`. AGENTS.md Q1 answered.
+- Fix: `DTC_FLAGS_mt6771-cosmo-communicator := -@` (delta Makefile) and a
+  no-op overlay for `dtbo` (`dtbo/cosmo-noop.dts`, one fragment on `/`,
+  marker `planet,lk-dtbo = "cosmo-noop"`), packed as a DT table like stock
+  (3 entries → one blob at offset 128, page 2048, v0) by
+  `bin/mkdtboimg.py` / `bin/build-dtbo.sh`. Offline: `fdtoverlay` applies
+  it to the new DTB (70,557 bytes) cleanly.
+- New images: `Image.gz-dtb` `d6441ae0…dc95`, `boot.img`
+  `14364cd4eaa3df393ab6b606921318203951569db19a6fa85bb8d30b7ae566de`,
+  `dtbo.img` `c854cfe933e3e1142b7c04f62bdbd3e50cc8de6e075be0c7d605bfa13cfdfb6c`.
+- Consequence: with the no-op `dtbo`, Gemian\x27s vendor DTB loses its
+  overlay; restoring Gemian = stock `dtbo` + Gemian `boot`.

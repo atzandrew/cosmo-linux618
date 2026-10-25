@@ -2,6 +2,9 @@
 dtb-$(CONFIG_ARCH_MEDIATEK) += mt2712-evb.dtb
 dtb-$(CONFIG_ARCH_MEDIATEK) += mt6755-evb.dtb
 dtb-$(CONFIG_ARCH_MEDIATEK) += mt6771-cosmo-communicator.dtb
+# LK refuses to apply the dtbo overlay to a base DTB without /__symbols__
+# (app/mt_boot/fdt_op.c:212 assert, 2026-10-25).
+DTC_FLAGS_mt6771-cosmo-communicator := -@
 dtb-$(CONFIG_ARCH_MEDIATEK) += mt6779-evb.dtb
 dtb-$(CONFIG_ARCH_MEDIATEK) += mt6795-evb.dtb
 dtb-$(CONFIG_ARCH_MEDIATEK) += mt6795-sony-xperia-m5.dtb
