@@ -13,6 +13,16 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null
 say() { echo "$*" > /dev/tty0 2>/dev/null; echo "cosmo-init: $*" > /dev/kmsg 2>/dev/null; }
 
 say "===== Cosmo mainline bring-up: initramfs reached ====="
+
+# Bring-up life signal that needs neither the display nor the firmware's
+# PSCI reset: open the SoC watchdog and never feed it. mtk_wdt resets the
+# board ~31 s later; a reset within ~45 s of the orange screen proves this
+# init ran (2026-10-25).
+for w in /dev/watchdog0 /dev/watchdog; do
+	if [ -e $w ]; then
+		echo x > $w 2>/dev/null && { say "watchdog $w armed, not fed: reset in ~31 s"; break; }
+	fi
+done
 say "$(uname -a)"
 say "cmdline: $(cat /proc/cmdline)"
 say "cpus online: $(cat /sys/devices/system/cpu/online)"

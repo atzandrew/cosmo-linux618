@@ -223,3 +223,16 @@
   status output, so the console survives in ramoops for `mtk da peek`.
   `boot.img` sha256
   `0f1571391437b1e5fa98d622ecc197513239141cd7f2e789da3c692e76588161`.
+
+## 2026-10-25 — fifth attempt: no self-reboot
+
+- Flashed `boot` = `0f157139…8161` (panic=5, init `reboot -f` after 15 s).
+  Orange frame; no reset in >60 s (preloader 09:40:54, nothing after).
+- `expdb` holds no LK entry for try3–5: LK only persists its log there when
+  LK itself crashes (or the vendor kernel saves it), so a clean LK handoff
+  leaves no record. Consistent with LK jumping to our kernel.
+- Two readings left: (a) the kernel hangs before init; (b) init runs but
+  `reboot -f`/panic reboot do not work (mainline restarts via PSCI
+  SYSTEM_RESET first; the vendor ATF may not implement it).
+- Next: init opens `/dev/watchdog` and never feeds it (mtk_wdt, ~31 s), a
+  reset path independent of PSCI and the display.
