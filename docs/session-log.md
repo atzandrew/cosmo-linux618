@@ -424,3 +424,24 @@
 - Which of the try13–try15 changes are still needed is not yet tested
   (VUSB09_ON bit, VA09 write, HOST/PCIE_PDN clears). Candidates for
   removal one at a time now that there is a shell and log channel.
+
+## 2026-10-25 — try18: kexec test loop
+
+- try18 (`88b01b35…`, `c93f401`): mtk_wdt stop() is a no-op while
+  `kexec_in_progress` (watchdog stays armed across kexec); initramfs has
+  kexec-tools 2.0.32 (dynamic, with its libraries) and `/bin/kx`.
+- Flashed hands-free: mtk queued on Dragon, `reboot -f` over telnet. The
+  watchdog restart (priority 130) resets the board and mtk catches the
+  preloader. After the write the board stays in download mode until a
+  manual power-key reset. `mtk reset` powers the board OFF: do not use.
+- PSCI: CPU_OFF works (`psci: CPU7 killed`); CPU_ON of the same CPU in
+  the same kernel fails ("failed to come online"). A kexec kernel still
+  brings all 8 CPUs up.
+- Transfer: the Dragon firewall blocks connections from the Cosmo; push
+  instead: on the Cosmo `nc -l -p 9000 > /tmp/f &`, on Dragon
+  `cat f > /dev/tcp/10.15.19.83/9000`.
+- **Watchdog escape across kexec, OBSERVED:** `kx /tmp/Image
+  /tmp/initrd.cpio.gz cosmo.wdtest=1` at 13:53:21; board reset by itself
+  at 13:54:23 (jump ~25 s, then the 31 s timeout), no buttons.
+- **Normal kexec, OBSERVED:** `kx` at 14:15:48; new kernel back on USB at
+  14:16:27 without the preloader, 8 CPUs online. One cycle is ~40 s.
