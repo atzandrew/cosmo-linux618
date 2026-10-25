@@ -32,24 +32,6 @@ say "mmc: $(ls /sys/class/block 2>/dev/null | grep -c mmcblk0p) eMMC partitions 
 say "deferred: $(cat /sys/kernel/debug/devices_deferred 2>/dev/null | wc -l) (debugfs may be absent)"
 dmesg | grep -iE 'error|fail|unable|deferred' | tail -n 25 > /dev/tty0 2>/dev/null
 
-# Layer test: LK leaves two OVL layers on (layer 0 = fb at 0x7df70000,
-# layer 3 = DAL at 0x7e878000, on top). fbcon draws into the first. Fill
-# rows 1400-2100 of every other framebuffer with noise: a noise band on
-# glass means that layer is the visible one and this init is running.
-for fb in /sys/class/graphics/fb*; do
-	n=${fb##*/}
-	say "$n: $(cat $fb/name 2>/dev/null) $(cat $fb/virtual_size 2>/dev/null) stride $(cat $fb/stride 2>/dev/null)"
-done
-i=0
-for fb in /dev/fb*; do
-	if [ $i -gt 0 ]; then
-		stride=$(cat /sys/class/graphics/${fb##*/}/stride 2>/dev/null)
-		[ -n "$stride" ] && dd if=/dev/urandom of=$fb bs=$stride seek=1400 count=700 2>/dev/null \
-			&& say "noise band written to $fb"
-	fi
-	i=$((i+1))
-done
-
 # Full dmesg into pmsg (ramoops) as well, for reading back from Gemian.
 dmesg > /dev/pmsg0 2>/dev/null
 

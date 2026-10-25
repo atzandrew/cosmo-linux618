@@ -62,12 +62,18 @@
 		bootargs = "console=tty0 console=ttyS0,921600n1";
 
 		/*
-		 * LK's framebuffer, scanned out by LK's display path (no DSI
-		 * touch: panel rule). Measured on Gemian 4.4, 2026-10-25: base
-		 * 0x7df70000 (also the LK log's fb_base, and LK reserves
-		 * 0x7df70000 +0x1f90000 no-map as mblock-7-framebuffer), 1080x2160,
-		 * stride 4352 (1088 px), 32 bpp R/G/B/A at bit 0/8/16/24.
-		 * reg = one buffer (4352 * 2160).
+		 * LK's framebuffer = OVL layer 0, scanned out by LK's display
+		 * path (no DSI touch: panel rule). Base 0x7df70000 (LK fb_base;
+		 * LK reserves 0x7df70000 +0x1f90000 no-map as
+		 * mblock-7-framebuffer), 1080x2160, stride 4352 (1088 px).
+		 * Format a8r8g8b8 = LK's eBGRA8888 (B,G,R,A in memory): proven on
+		 * glass 2026-10-25 by the fbpaint probe (0xffff0000 showed red).
+		 * Gemian's fbdev var info (red at bit 0) was wrong.
+		 * LK also leaves OVL layer 3 (0x7e878000, pitch 4320) enabled
+		 * above it; it is transparent until something writes alpha
+		 * there. No power-domains: simpledrm then binds as soon as its
+		 * driver registers (earliest console); pd_ignore_unused keeps
+		 * the display domain on. reg = one buffer (4352 * 2160).
 		 */
 		framebuffer@7df70000 {
 			compatible = "simple-framebuffer";
@@ -75,27 +81,9 @@
 			width = <1080>;
 			height = <2160>;
 			stride = <4352>;
-			format = "a8b8g8r8";
-			/* keep the display power domain on while simpledrm owns it */
-			power-domains = <&spm MT8183_POWER_DOMAIN_DISP>;
+			format = "a8r8g8b8";
 		};
 
-		/*
-		 * LK's second enabled OVL layer (layer 3, the DAL text layer):
-		 * "ovl0, layer=3 … pitch=4320, fmt=eBGRA8888, addr=7e878000,
-		 * aen=1, alpha=255" above layer 0 in LK's log. Inside LK's
-		 * mblock-7-framebuffer reservation. Exposed so bring-up can
-		 * tell which layer is visible after handoff (2026-10-25).
-		 */
-		framebuffer@7e878000 {
-			compatible = "simple-framebuffer";
-			reg = <0 0x7e878000 0 0x8e6200>;
-			width = <1080>;
-			height = <2160>;
-			stride = <4320>;
-			format = "a8b8g8r8";
-			power-domains = <&spm MT8183_POWER_DOMAIN_DISP>;
-		};
 	};
 
 	/*

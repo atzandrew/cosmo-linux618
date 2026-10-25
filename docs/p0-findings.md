@@ -206,3 +206,19 @@ LK scans out the first buffer.
 
 Still open: LK behaviour when the overlay fails on our DTB (Q1), UART pads
 (Q5).
+
+## Display at handoff, proven on glass (2026-10-25, fbpaint probe)
+
+`fbpaint/fbpaint.S` packed as a kernel: screen turned green (layer 0
+filled), then a top-down wipe to red (layer 3 filled).
+- LK jumps to the payload; LK's display path keeps scanning out.
+- OVL layer 0 = 0x7df70000, stride 4352: visible.
+- OVL layer 3 = 0x7e878000, stride 4320: above layer 0 but transparent
+  as LK leaves it; it covers layer 0 once opaque pixels are written.
+  Same arrangement as the Gemini (gemini-nixos docs/display.md: layer 0 =
+  LK fb, layer 3 = page 1).
+- Pixel format: 0xffff0000 showed **red**, so memory order is B,G,R,A =
+  DRM `a8r8g8b8` (LK calls it eBGRA8888). The Gemian fbdev var info
+  (red at bit 0) is wrong. Write alpha 0xff.
+- A ~100-byte gzip "kernel" makes LK die before the logo (black, ~6 s
+  loop); a payload padded to a normal kernel size boots.

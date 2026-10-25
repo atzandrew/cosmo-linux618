@@ -250,3 +250,11 @@
   a probe artifact (only the kernel size differs from try6, which reaches
   the orange frame); v2 pads the probe to the real `Image.gz` size with
   seeded incompressible filler.
+- fbpaint v2 (padded, `boot.img` `4f060ddc…02a7`): **green, then a wipe
+  to red**. Handoff and display work; layer 0 visible, layer 3 transparent
+  above it; format is a8r8g8b8 (details in `docs/p0-findings.md`). So the
+  Linux image hangs before init, before any console.
+- Next (try7): simplefb format a8r8g8b8, no `power-domains` on it (binds as
+  soon as simpledrm registers), layer-3 fb + noise test removed, cmdline
+  `initcall_debug panic=0`. `boot.img` sha256
+  `c6def8d1711dfdbfb39f2b1c8646b8bf21901ff0da8dca834583563b31444a76`.
