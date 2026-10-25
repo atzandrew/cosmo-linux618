@@ -322,3 +322,10 @@
   the device; drain-to-reboot is an absolute failure state. Build guard:
   `bin/build-boot-img.sh` refuses a DTB without
   `mediatek,long-press-mode = <1>`.
+- try9 could not be escaped: 20 s+ power holds, unplugged 30-40 s holds and
+  power+volume combos all failed (MT6358 long-press reset disabled by
+  mtk-pmic-keys; no input, USB or working reboot in that image). The board
+  is left to run the battery down; the PMIC UVLO and the pack protection
+  end it in hardware. On the next USB connection Dragon restores Gemian
+  (stock `dtbo` + Gemian `boot`) so the battery recharges under the vendor
+  charger driver before bring-up continues with try10 (long-press fixed).
