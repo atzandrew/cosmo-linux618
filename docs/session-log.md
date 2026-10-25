@@ -314,3 +314,7 @@
   by CMDQ in Kconfig); init mounts debugfs and prints `devices_deferred`
   and the usb/mtu3/phy/power-controller/mmsys dmesg lines. `boot.img`
   sha256 `fcedf1f10e9fb92309b3920c7e69b508d5d550f4095f7664ff82b84e4bf4005c`.
+- try9 stayed up and **a 20 s power-key hold did not reset it**:
+  mtk-pmic-keys writes LP_DISABLE to the MT6358 long-press reset when
+  `mediatek,long-press-mode` is absent, and PSCI reset does not work
+  either. try10 now sets `&mt6358keys { mediatek,long-press-mode = <1>; }`.

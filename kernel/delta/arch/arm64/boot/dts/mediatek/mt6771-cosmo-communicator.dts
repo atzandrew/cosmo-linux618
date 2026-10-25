@@ -455,6 +455,16 @@
  * scpsys power controller fails to probe ("power-domain@2: failed to get
  * power supply", on glass 2026-10-25).
  */
+/*
+ * Keep the PMIC's hardware long-press reset on. mtk-pmic-keys writes
+ * LP_DISABLE when this property is absent, which left a hung boot with no
+ * way out by the power key (2026-10-25; the vendor firmware keeps it on).
+ */
+&mt6358keys {
+	mediatek,long-press-mode = <1>;
+	power-off-time-sec = <0>;
+};
+
 &mfg_async {
 	domain-supply = <&mt6358_vsram_gpu_reg>;
 };
