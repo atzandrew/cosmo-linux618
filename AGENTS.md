@@ -1,0 +1,79 @@
+# AGENTS.md — cosmo-linux618: mainline Linux 6.18 LTS on the Cosmo Communicator
+
+Read this first, then `docs/hardware-map.md` and `docs/session-log.md`.
+
+Sister projects (same owner, same methods — reuse their code and lessons):
+- `atzandrew/gemini-nixos` — Gemini PDA (MT6797) on 6.6. Its kernel delta
+  (`devices/planet-geminipda/kernel/delta/`) holds the SSD2092 panel driver,
+  the CONSYS gen3 Wi-Fi + BTIF/`hci_stp` Bluetooth port, AW9523 GPIO, power
+  reset/off drivers. Its `docs/` are the best reference for LK behaviour.
+- `atzandrew/gemini-debian` — Debian 13 + Plasma 6 rootfs builder for the Gemini.
+
+## Status (2026-10-24)
+
+Phase **P1 skeleton**, nothing built for or flashed to the device yet.
+- `kernel/BASE` pins v6.18.58 (`2926d88bb7fc`).
+- `kernel/delta/` = DTS Makefile line + `mt6771-cosmo-communicator.dts`
+  (CPUs/GIC/timer via mt8183.dtsi, UART0, eMMC at HS200, MT6358).
+- DTB compiles clean with `W=1` against v6.18.58 (checked in a sandbox
+  with host dtc; the full Image build has not been run yet).
+
+## Why this works: MT6771 == MT8183
+
+The Cosmo's MT6771 shares MT8183's register map (97 of 108 `mt8183.dtsi`
+nodes at identical addresses), pin table (192 pins, 840 functions, 0 diffs)
+and PLL offsets. Mainline has no `mt6771` anything; the board rides on
+`mt8183.dtsi` and MT8183 drivers. Full map + per-block mainline status:
+`docs/hardware-map.md`.
+
+## Rules
+
+1. **Base + file-tree delta, no patch files.** Upstream is pinned in
+   `kernel/BASE`; every changed or added kernel file lives at its kernel-relative
+   path under `kernel/delta/` as a whole file. `bin/build-kernel.sh` resets the
+   base to pristine, copies the delta over, merges `kernel/config/cosmo.config`,
+   and fails if Kconfig drops any requested option.
+2. **Record before you forget.** Every fact learned from source, a build or the
+   device goes in a doc with a date and a receipt (`file:line`, command output,
+   commit). Every session adds an entry to `docs/session-log.md`; every flash
+   logs kernel release + image sha256.
+3. **Panel rule (inherited from the Gemini).** LK initialises the panel. Do not
+   enable the mediatek DSI/display pipeline or send panel init until the panel
+   ID and init path are confirmed; first boots use LK's framebuffer
+   (simpledrm on a `simple-framebuffer` node). A bad DSI init can damage the
+   panel.
+4. **Never flash something you cannot identify or undo.** P0 backups first.
+
+## Open questions blocking first boot (P0 — answer from the device)
+
+1. **LK applies a DT overlay.** The stock 4.4 build appends only the base
+   `mt6771.dtb` to `Image.gz`; the board DT (`k71v1_64_bsp.dts`, `/plugin/`)
+   is built as an overlay and LK applies it from the `odmdtbo` partition
+   (defconfig: `BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES`). LK will try to apply
+   that vendor overlay to *our* DTB. Find out what LK does when the apply
+   fails (boot anyway? halt?), and whether we need a neutral overlay or an
+   LK-side switch. The Gemini (MT6797) did not have this step.
+2. **LK framebuffer** address, size, stride and format, for the
+   `simple-framebuffer` node. Dump from Gemian 4.4 (`/proc/iomem`,
+   `/sys/class/graphics/fb0/*`, `dmesg | grep -i fb`).
+3. **LK fdt fixups:** which `/reserved-memory` nodes (ATF, TEE, SSPM, SCP)
+   and `/chosen` properties LK injects. Dump `/proc/device-tree` on 4.4.
+4. **Boot image:** which partition Gemian boots, header version, kernel/ramdisk
+   offsets, and any cmdline LK requires (the Gemini needed `bootopt=` kept).
+5. **Console path:** is UART0 (GPIO95/96, 921600) reachable on any pad?
+   Otherwise the first sign of life is the framebuffer.
+6. First boots should pass `clk_ignore_unused pd_ignore_unused
+   regulator_ignore_unused` so the kernel does not turn off LK's display
+   clocks/power or MT6358 rails it doesn't know about yet.
+
+## Where things live
+
+| Path | What |
+|---|---|
+| `kernel/BASE` | upstream pin (tag, commit, URL) |
+| `kernel/delta/` | changed/added kernel files, kernel-relative |
+| `kernel/config/cosmo.config` | config fragment over arm64 defconfig |
+| `bin/build-kernel.sh` | build (`dtbs` arg = DTB only) → `out/` |
+| `docs/hardware-map.md` | SoC/board map, mainline status, plan P0–P7 |
+| `docs/session-log.md` | dated log of every session |
+| `build/`, `out/` | build tree and artifacts (gitignored) |

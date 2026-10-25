@@ -1,0 +1,5 @@
+# Pinned upstream base for the Cosmo kernel (sourced by bin/build-kernel.sh).
+# Bump = change all three, rebuild, and log it in docs/session-log.md.
+BASE_TAG=v6.18.58
+BASE_COMMIT=2926d88bb7fc4608fd942453d929c39e4e5ec006
+BASE_URL=https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
