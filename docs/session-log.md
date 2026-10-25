@@ -86,3 +86,19 @@
   Q1 updated, `bin/p0-dump.sh` falls back to `dtbo`). `boot` is 32 MiB, so
   the 15 MB Image.gz-dtb fits with room for a ramdisk.
 - Nothing written to the device.
+
+## 2026-10-25 — P0 offline: lk, boot, dtbo, expdb read and analysed
+
+- Read-only mtk run (`mtk r lk,lk2,boot,dtbo,expdb …`); first attempt
+  exited at once ("Please disconnect, start mtkclient and reconnect": the
+  Cosmo was still in preloader from the previous run), second caught
+  preloader after a reboot. All five read, no errors. Dumps (with
+  SHA256SUMS) on the flashing and build hosts under `~/cosmo-p0/20261025/`,
+  not in the repo.
+- Results in `docs/p0-findings.md`. Headlines: boot = Android header v1,
+  `Image.gz`+appended DTB at 0x40080000, DTB window 0x54000000/512 KiB,
+  ramdisk window 16 MiB; LK applies the overlay from `dtbo` (3 identical
+  entries, 280 label-based fragments) and its failure path on our DTB is
+  unknown; LK fb at 0x7df70000; panel NT36672; DRAM 6 GiB; LK `sbc_en = 0`
+  but `lock_state 0x4` and `verifiedbootstate=green`.
+- Nothing written to the device.

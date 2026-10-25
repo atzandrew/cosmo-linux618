@@ -33,7 +33,7 @@ What 6.6 would buy: one shared base with the Gemini today, flash-proven toolchai
 | Charger/PMU | MT6370 (charger, backlight, flash LED, RGB LED, LDO, DSV, TCPC) | ✅ all sub-drivers incl. `tcpci_mt6370` |
 | 2nd USB-C | FUSB302 | ✅ `fusb302` |
 | Fuel gauge | MT6358 gauge (vendor `GAUGE_VERSION=30`) | ❌ none — start voltage-derived like Gemini |
-| Panel | SSD2092 (or NT36672 variant), 1080×2160, rot 270 | Gemini's `panel-solomon-ssd2092` + init table. **Cosmo's live SSD2092 init table is byte-identical to the Gemini's** (184/184 non-gamma commands; the two 0xC3 gamma packets are the ones the Gemini splits) |
+| Panel | SSD2092 (or NT36672 variant), 1080×2160, rot 270. **This unit: NT36672** (LK log 2026-10-25, `docs/p0-findings.md`) | Gemini's `panel-solomon-ssd2092` + init table. **Cosmo's live SSD2092 init table is byte-identical to the Gemini's** (184/184 non-gamma commands; the two 0xC3 gamma packets are the ones the Gemini splits) |
 | Touch | SSD20xx or NT36xxx | SSD2092 from Gemini delta; `novatek-nvt-ts` (nt36672a) upstream |
 | Keyboard | AW9523 + AW9524 expanders | `pinctrl-aw9523` upstream; AW9524 to check |
 | GPU | Mali-G72 MP3 (Bifrost, vendor r14p0) | ✅ panfrost, `mediatek,mt8183b-mali` |
