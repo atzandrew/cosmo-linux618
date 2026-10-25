@@ -768,6 +768,10 @@ static void u3_phy_instance_init(struct mtk_tphy *tphy,
 		mtk_phy_set_bits(phya + U3P_U3_PHYA_REG1, P3A_RG_VUSB09_ON);
 		udelay(250);
 	}
+	dev_info(tphy->dev, "cosmo: u3 PHYA_REG1 0x%x PHYD_TOP1 0x%x CHIP_CTLD 0x%x CHIP_CTLE 0x%x force_mode %d\n",
+		 readl(phya + U3P_U3_PHYA_REG1), readl(phyd + U3P_U3_PHYD_TOP1),
+		 readl(u3_banks->chip + U3P_U3_CHIP_GPIO_CTLD),
+		 readl(u3_banks->chip + U3P_U3_CHIP_GPIO_CTLE), instance->type_force_mode);
 
 	if (instance->type_force_mode) {
 		/* force phy as usb mode, default is pcie rc mode */
