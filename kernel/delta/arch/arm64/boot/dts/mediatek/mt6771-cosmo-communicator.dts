@@ -482,6 +482,11 @@
 &ssusb {
 	dr_mode = "peripheral";
 	maximum-speed = "high-speed";
+	/*
+	 * USB 2 only: without this mtu3 also waits for the U3 MAC clock
+	 * (IPPC STS1 bit 16), which never starts here (try15: STS1 0x1000d0f).
+	 */
+	mediatek,u3p-dis-msk = <0x1>;
 	vusb33-supply = <&mt6358_vusb_reg>;
 	status = "okay";
 };
