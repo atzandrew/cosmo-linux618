@@ -14,15 +14,6 @@ say() { echo "$*" > /dev/tty0 2>/dev/null; echo "cosmo-init: $*" > /dev/kmsg 2>/
 
 say "===== Cosmo mainline bring-up: initramfs reached ====="
 
-# Bring-up life signal that needs neither the display nor the firmware's
-# PSCI reset: open the SoC watchdog and never feed it. mtk_wdt resets the
-# board ~31 s later; a reset within ~45 s of the orange screen proves this
-# init ran (2026-10-25).
-for w in /dev/watchdog0 /dev/watchdog; do
-	if [ -e $w ]; then
-		echo x > $w 2>/dev/null && { say "watchdog $w armed, not fed: reset in ~31 s"; break; }
-	fi
-done
 say "$(uname -a)"
 say "cmdline: $(cat /proc/cmdline)"
 say "cpus online: $(cat /sys/devices/system/cpu/online)"
@@ -35,12 +26,7 @@ dmesg | grep -iE 'error|fail|unable|deferred' | tail -n 25 > /dev/tty0 2>/dev/nu
 # Full dmesg into pmsg (ramoops) as well, for reading back from Gemian.
 dmesg > /dev/pmsg0 2>/dev/null
 
-# Bring-up: nothing is visible on glass yet, so prove life by a warm
-# reboot after 15 s; RAM survives it and ramoops holds this boot's
-# console for `mtk da peek` (docs/session-log.md, 2026-10-25).
-REBOOT_AFTER=15
-say "rebooting in $REBOOT_AFTER s (bring-up ramoops capture)"
-sleep $REBOOT_AFTER
-say "rebooting now"
-sync
-reboot -f
+while true; do
+	sleep 30
+	say "alive, uptime $(cut -d' ' -f1 /proc/uptime) s"
+done

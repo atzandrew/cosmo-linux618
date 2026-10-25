@@ -258,3 +258,17 @@
   soon as simpledrm registers), layer-3 fb + noise test removed, cmdline
   `initcall_debug panic=0`. `boot.img` sha256
   `c6def8d1711dfdbfb39f2b1c8646b8bf21901ff0da8dca834583563b31444a76`.
+
+## 2026-10-25 — try7: **Linux boots on glass**
+
+- `boot.img` `c6def8d1…4a76` (simplefb a8r8g8b8 without power-domains,
+  initcall_debug). On glass: kernel console scrolls (initcall_debug), then
+  shutdown messages from the init\x27s bring-up self-reboot/watchdog.
+  First mainline 6.18 kernel output on the Cosmo.
+- Why earlier images showed nothing: the console had `power-domains =
+  <&spm DISP>`, so simpledrm waited for the scpsys power-domain driver;
+  without it the console binds as soon as simpledrm registers. (Whether
+  scpsys probes at all is to be read from the log.)
+- try8: init stays up (no self-reboot, no unfed watchdog) and prints its
+  status every 30 s; `initcall_debug` dropped. `boot.img` sha256
+  `f1b993a6b711834cf5a9fdbc44b95031732e29d91ab3a18dc76d453b7993e020`.
