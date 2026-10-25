@@ -272,3 +272,13 @@
 - try8: init stays up (no self-reboot, no unfed watchdog) and prints its
   status every 30 s; `initcall_debug` dropped. `boot.img` sha256
   `f1b993a6b711834cf5a9fdbc44b95031732e29d91ab3a18dc76d453b7993e020`.
+- try7 photo (`20261025_095831.jpg`, kept outside the repo): 8 Tux logos
+  (8 CPUs online), console upright in landscape with `fbcon=rotate:3`,
+  init ran (its `reboot -f` shutdown sequence at 26.7 s). The sequence
+  ends at `PM: Calling printk_kthreads_shutdown` and the board never
+  resets: **mainline restart (PSCI SYSTEM_RESET first) does not work with
+  the vendor ATF**. So try5/try6 "no restart" were a broken reset, not a
+  hang before init. TODO: restart via the mtk-wdt restart handler.
+- LK\x27s orange-state text ("Your device has been unlocked…", "Orange
+  State") stays on top of the console: it is drawn on OVL layer 3, which
+  LK leaves enabled. TODO: clear layer 3 to transparent at boot.
