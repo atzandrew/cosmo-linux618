@@ -222,3 +222,37 @@ filled), then a top-down wipe to red (layer 3 filled).
   (red at bit 0) is wrong. Write alpha 0xff.
 - A ~100-byte gzip "kernel" makes LK die before the logo (black, ~6 s
   loop); a payload padded to a normal kernel size boots.
+
+## MT6358 power-key long-press reset (2026-10-25)
+
+Receipt: `gemian/cosmo-linux-kernel-4.4` @ a741a2e,
+`drivers/misc/mediatek/include/mt-plat/mt6771/include/mach/upmu_hw.h:3165-3194`.
+`MT6358_TOP_RST_MISC` (PMIC 0x14c):
+
+| bits | vendor field |
+|---|---|
+| 0 | `RG_WDTRSTB_EN` (SoC watchdog may reset the PMIC) |
+| 1 | `RG_WDTRSTB_MODE` |
+| 4 | `RG_WDTRSTB_FB_EN` |
+| 5 | `RG_WDTRSTB_DEB` |
+| 8 | `RG_HOMEKEY_RST_EN` |
+| 9 | `RG_PWRKEY_RST_EN` |
+| 10 | `RG_PWRRST_TMR_DIS` |
+| 13:12 | `RG_PWRKEY_RST_TD` (long-press time) |
+
+Stock preloader writes `0x1325` (`[pmic_wdt_set] TOP_RST_MISC=0x1325`):
+WDTRSTB_EN, bit 2, WDTRSTB_DEB, HOMEKEY_RST_EN, **PWRKEY_RST_EN**, TD = 1.
+Measured under Gemian: power-key hold resets after **~8 s**.
+
+**Mainline bug (v6.18.58 `drivers/input/keyboard/mtk-pmic-keys.c:109-119`):**
+`mt6358_regs` uses the MT6397 layout: PWRKEY_RST = bit 6, HOMEKEY_RST =
+bit 5, long-press time = bits 9:8. On the MT6358 that clears the real
+power-key and home-key reset enables (bits 9:8) and the watchdog deglitch
+(bit 5) whatever `mediatek,long-press-mode` says. That stranded try9
+(mode absent) and try10 (mode = 1). The only mainline writer of
+`TOP_RST_MISC` is this driver.
+
+Bring-up decision: `&mt6358keys { status = "disabled"; }`, so Linux never
+writes `TOP_RST_MISC` and the stock 8 s long-press reset stays. A fixed
+driver (MT6358 masks: rst_en pwr = BIT(9), home = BIT(8), time =
+GENMASK(13,12)) can come later as a delta file and an upstream report.

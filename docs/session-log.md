@@ -351,3 +351,11 @@
 - AGENTS.md rule 5 amended: two observed-working escapes, escape-only
   first boot, no standing approvals. Recovery: battery connector + Gemian
   restore (queued).
+- Root cause of both strandings found offline (vendor `upmu_hw.h`): mainline
+  `mtk-pmic-keys` has the wrong MT6358 bit layout and clears
+  `RG_PWRKEY_RST_EN` (bit 9). Details: `docs/p0-findings.md`. Reference:
+  stock long-press reset = ~8 s (measured under Gemian). After try10 the
+  board did reset after 4-5 long holds, probably not via the PMIC (its
+  enable was cleared); MT6370 manual reset suspected, unproven.
+- Nothing built or flashed. Next image only after review: mt6358keys
+  disabled, timer failsafe added, escape-only first boot.
