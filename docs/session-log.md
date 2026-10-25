@@ -445,3 +445,15 @@
   at 13:54:23 (jump ~25 s, then the 31 s timeout), no buttons.
 - **Normal kexec, OBSERVED:** `kx` at 14:15:48; new kernel back on USB at
   14:16:27 without the preloader, 8 CPUs online. One cycle is ~40 s.
+
+## 2026-10-25 — try19: USB fix trimmed to two changes
+
+- try19 (`bcde573f…`, `1129a80`): without the VUSB09_ON write, the VA09
+  STRUP write and the HOST/PCIE_PDN clears. Cold boot (flash + power-key
+  reset): host enumerates at 14:23:45, `udc: 11201000.usb`, 8 CPUs.
+- U3 PHYA_REG1 reads 0x60000007 at Linux start without our write: bit 29
+  (VUSB09_ON) is already set before Linux, as VA09 is (STRUP_CON5 0x300).
+- Needed for USB device mode on the Cosmo: `mediatek,u3p-dis-msk = <1>`
+  (DTS) and the U2PHYDTM1 FORCE_VBUSVALID/AVALID/SESSEND bits (tphy).
+  Still carried, diagnostics only: the mtu3 IPPC dump on clock failure and
+  the tphy `cosmo: u3 ...` line.
