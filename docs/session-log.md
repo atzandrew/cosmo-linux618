@@ -374,3 +374,17 @@
   escape-test `boot-wdtest.img` (adds `cosmo.wdtest=1`)
   `3083ddf30f6c11e7e8c342ad0c15eb13c324bfd0275d237860f43f49e8808a5a`.
   Delta: 3 files (DTS, DTS Makefile, `mtk_wdt.c`).
+
+## 2026-10-25 — try11 escape test: BOTH ESCAPES OBSERVED
+
+- Flashed no-op `dtbo` + `boot-wdtest.img` (`3083ddf3…8a5a`). Each reset
+  shows on Dragon as two preloader windows ~6 s apart.
+- **Watchdog (timer) escape, observed twice, no buttons:** boot 1 reset by
+  itself (preloader 11:36:45); boot 2 (from 11:36:54) reset by itself at
+  11:38:23, ~80 s after init armed the watchdog (longer than the 31 s
+  timeout; probably the two-stage WDT mode, not investigated).
+- **Power-key escape, observed:** boot 3 (from 11:38:31), power held as
+  soon as ESCAPE TEST showed: reset at 11:38:57, ~26 s into the boot,
+  far ahead of the ~80 s watchdog. Stock `TOP_RST_MISC` untouched by Linux.
+- Paused here. Next (needs explicit yes): flash the normal `try11-boot.img`
+  (`425937dc…f65d`).
