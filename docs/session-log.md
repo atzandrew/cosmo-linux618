@@ -245,3 +245,8 @@
 - Next: `fbpaint` probe (`fbpaint/fbpaint.S`, `bin/build-fbpaint.sh`)
   in place of the kernel: paints LK layer 0 green and layer 3 blue, then
   parks. `out/fbpaint/boot.img` sha256 printed by the script.
+- fbpaint v1 (100-byte gzip): black screen, vibration, preloader every ~6 s:
+  LK dies before the logo. `expdb` had no usable entry for it. Treated as
+  a probe artifact (only the kernel size differs from try6, which reaches
+  the orange frame); v2 pads the probe to the real `Image.gz` size with
+  seeded incompressible filler.
