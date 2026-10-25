@@ -206,3 +206,20 @@
   writes a noise band into rows 1400-2100 of every fb after fb0.
   `boot.img` sha256
   `2943617bb5712da8070dcc8e77ca209b2ab9c17dd9784d9285a82920d6dd8c01`.
+
+## 2026-10-25 — fourth attempt: still the orange frame; RAM read via mtk
+
+- Flashed `boot` = `2943617b…8c01` (second simplefb + noise band).
+  Result: orange frame unchanged, no text, no noise band, no reset.
+- No reset for minutes although LK arms its WDT ("mtk_wdt_mode_config LK
+  mode value=5d"): either LK disarms it before the jump, or the kernel is
+  alive and pinging it (mtk_wdt sets WDOG_HW_RUNNING).
+- `mtk da peek 0x54410000 0xe0000` after a 10 s power-key reset: 94 %
+  0xff, 8 distinct byte values, no ramoops `DBGC` signature: RAM does not
+  survive a power-key reset (or ramoops never initialised; not
+  distinguishable from this).
+- Next image: cmdline `panic=5 panic_on_oops=1 softlockup_panic=1`
+  (was `panic=0`); initramfs warm-reboots (`reboot -f`) 15 s after its
+  status output, so the console survives in ramoops for `mtk da peek`.
+  `boot.img` sha256
+  `0f1571391437b1e5fa98d622ecc197513239141cd7f2e789da3c692e76588161`.

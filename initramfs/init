@@ -43,7 +43,12 @@ done
 # Full dmesg into pmsg (ramoops) as well, for reading back from Gemian.
 dmesg > /dev/pmsg0 2>/dev/null
 
-while true; do
-	sleep 30
-	say "alive, uptime $(cut -d' ' -f1 /proc/uptime) s"
-done
+# Bring-up: nothing is visible on glass yet, so prove life by a warm
+# reboot after 15 s; RAM survives it and ramoops holds this boot's
+# console for `mtk da peek` (docs/session-log.md, 2026-10-25).
+REBOOT_AFTER=15
+say "rebooting in $REBOOT_AFTER s (bring-up ramoops capture)"
+sleep $REBOOT_AFTER
+say "rebooting now"
+sync
+reboot -f
