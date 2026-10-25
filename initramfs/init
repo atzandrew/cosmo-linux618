@@ -32,6 +32,53 @@ if grep -qw cosmo.wdtest=1 /proc/cmdline; then
 	while true; do sleep 60; done
 fi
 
+# ---- Root filesystem handoff (Debian on userdata) -------------------------
+# Boots /sbin/init from the ext4 on `userdata` when it looks like a system.
+# Tripwire: before the handoff, "COSMO-TRY" is written at 8 MiB into the raw
+# `cache` partition; the root system's cosmo-boot-ok.service overwrites it
+# with "COSMO-OK" once it is up. If a boot finds COSMO-TRY still there (the
+# last handoff never reported in, e.g. it hung and was reset with the power
+# key), this boot stays here in the rescue initramfs (USB + telnet) and the
+# next one tries again. cosmo.noroot on the cmdline also stays here.
+part() { # GPT name -> /dev/mmcblk0pN
+	for b in /sys/class/block/mmcblk0p*; do
+		grep -qx "PARTNAME=$1" "$b/uevent" 2>/dev/null && { echo "/dev/${b##*/}"; return; }
+	done
+}
+FLAG_SEEK=16384 # 512-byte sectors = 8 MiB into cache (boot log uses 0-4 MiB)
+flag_get() { dd if="$1" bs=512 skip=$FLAG_SEEK count=1 2>/dev/null | head -c 9; }
+flag_set() { printf '%s' "$2" | dd of="$1" bs=512 seek=$FLAG_SEEK count=1 conv=sync,notrunc 2>/dev/null; sync; }
+try_root() {
+	grep -qw cosmo.noroot /proc/cmdline && { say "cosmo.noroot: staying in the initramfs"; return; }
+	ROOTDEV=$(part userdata); CACHEDEV=$(part cache)
+	[ -n "$ROOTDEV" ] && [ -n "$CACHEDEV" ] || { say "userdata/cache not found: staying here"; return; }
+	if [ "$(flag_get "$CACHEDEV")" = "COSMO-TRY" ]; then
+		say "last root boot never reported in: RESCUE initramfs (next boot tries again)"
+		flag_set "$CACHEDEV" "COSMO-RSC"
+		return
+	fi
+	mkdir -p /newroot
+	mount -t ext4 -o rw,noatime "$ROOTDEV" /newroot 2>/dev/null || { say "no ext4 root on $ROOTDEV: staying here"; return; }
+	if [ ! -x /newroot/sbin/init ] || [ ! -f /newroot/etc/os-release ]; then
+		say "$ROOTDEV has no /sbin/init or os-release: staying here"
+		umount /newroot
+		return
+	fi
+	flag_set "$CACHEDEV" "COSMO-TRY"
+	say "booting $(. /newroot/etc/os-release; echo "$PRETTY_NAME") from $ROOTDEV"
+	feed
+	# Hand the watchdog to systemd (RuntimeWatchdogSec): closing without the
+	# magic character leaves it running, so a hang before systemd opens it
+	# still resets the board.
+	exec 3>&-
+	for m in /dev /proc /sys; do
+		mkdir -p "/newroot$m"
+		mount -o move "$m" "/newroot$m" 2>/dev/null || umount -l "$m" 2>/dev/null
+	done
+	exec switch_root /newroot /sbin/init
+}
+try_root
+
 say "$(uname -a)"
 say "cmdline: $(cat /proc/cmdline)"
 say "cpus online: $(cat /sys/devices/system/cpu/online)"

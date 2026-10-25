@@ -4,7 +4,8 @@
 #   bin/build-kernel.sh            # fetch base if needed, overlay delta, build
 #   bin/build-kernel.sh dtbs       # just the DTB (quick check)
 #
-# Output: out/Image.gz, out/mt6771-cosmo-communicator.dtb, out/Image.gz-dtb
+# Output: out/Image.gz, out/mt6771-cosmo-communicator.dtb, out/Image.gz-dtb,
+# out/modroot/lib/modules/<release> (stripped modules)
 # (Image.gz with the DTB appended, as the stock 4.4 build produces it for LK).
 # Boot-image packing is NOT done here yet: the LK boot contract is open (P0).
 set -euo pipefail
@@ -81,5 +82,11 @@ fi
 cp "$OBJ/arch/arm64/boot/Image.gz" "$OUT/"
 cp "$OBJ/arch/arm64/boot/dts/$DTB" "$OUT/"
 cat "$OUT/Image.gz" "$OUT/$(basename "$DTB")" > "$OUT/Image.gz-dtb"
+# Modules for the root filesystem (gemini-debian DEVICE=cosmo picks them up
+# from out/modroot/lib/modules/<release>).
+rm -rf "$OUT/modroot"
+"${MK[@]}" INSTALL_MOD_PATH="$OUT/modroot" INSTALL_MOD_STRIP=1 modules_install >/dev/null
+rm -f "$OUT"/modroot/lib/modules/*/build "$OUT"/modroot/lib/modules/*/source
+echo "modules: $(du -sh "$OUT/modroot" | cut -f1) in out/modroot"
 echo "built $(cat "$OBJ/include/config/kernel.release")"
 sha256sum "$OUT/Image.gz-dtb"
