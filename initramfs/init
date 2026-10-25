@@ -26,6 +26,26 @@ dmesg | grep -iE 'error|fail|unable|deferred' | tail -n 25 > /dev/tty0 2>/dev/nu
 # Full dmesg into pmsg (ramoops) as well, for reading back from Gemian.
 dmesg > /dev/pmsg0 2>/dev/null
 
+# Bring-up network over USB: g_ether (CDC ECM). The Cosmo is 10.15.19.83;
+# udhcpd hands the host 10.15.19.84 (no router or DNS, so the host keeps
+# its own default route). Shell: telnet 10.15.19.83 (cable-only, no auth).
+mkdir -p /dev/pts && mount -t devpts devpts /dev/pts
+say "block: $(ls /sys/class/block 2>/dev/null | tr '\n' ' ')"
+n=0
+while [ ! -e /sys/class/net/usb0 ] && [ $n -lt 20 ]; do sleep 1; n=$((n+1)); done
+if [ -e /sys/class/net/usb0 ]; then
+	ifconfig usb0 10.15.19.83 netmask 255.255.255.0 up
+	printf '%s\n' "start 10.15.19.84" "end 10.15.19.84" "interface usb0" \
+		"max_leases 1" "lease_file /tmp/udhcpd.leases" \
+		"option subnet 255.255.255.0" > /tmp/udhcpd.conf
+	touch /tmp/udhcpd.leases
+	udhcpd /tmp/udhcpd.conf && say "udhcpd on usb0"
+	telnetd -l /bin/sh && say "telnetd up: telnet 10.15.19.83"
+else
+	say "no usb0 after 20 s"
+fi
+say "udc: $(ls /sys/class/udc 2>/dev/null | tr '\n' ' ')"
+
 while true; do
 	sleep 30
 	say "alive, uptime $(cut -d' ' -f1 /proc/uptime) s"

@@ -440,6 +440,40 @@
 
 };
 
+/*
+ * MT6358 interrupt: GPIO 182, level high. Vendor DT: main_pmic pmic_irq
+ * "interrupts = <0xb6 0x04 ...>" on pio; same as mt8183-kukui.dtsi. Without
+ * it the MFD fails ("IRQ index 0 not found", on glass 2026-10-25), so no
+ * MT6358 regulators, and the eMMC never gets its supplies.
+ */
+&pmic {
+	interrupts-extended = <&pio 182 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+/*
+ * GPU power-domain supplies, as mt8183-kukui.dtsi. Missing, the whole
+ * scpsys power controller fails to probe ("power-domain@2: failed to get
+ * power supply", on glass 2026-10-25).
+ */
+&mfg_async {
+	domain-supply = <&mt6358_vsram_gpu_reg>;
+};
+
+&mfg {
+	domain-supply = <&mt6358_vgpu_reg>;
+};
+
+/*
+ * USB device mode for bring-up networking (g_ether, CDC ECM). The SoC port
+ * is the one the preloader enumerates on. High speed only for now.
+ */
+&ssusb {
+	dr_mode = "peripheral";
+	maximum-speed = "high-speed";
+	vusb33-supply = <&mt6358_vusb_reg>;
+	status = "okay";
+};
+
 &mmc0 {
 	/* vendor cust_mt6771_msdc.dtsi: 8-bit, 200 MHz, HS200/HS400 1.8 V, VEMC */
 	status = "okay";

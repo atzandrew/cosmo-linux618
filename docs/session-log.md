@@ -282,3 +282,22 @@
 - LK\x27s orange-state text ("Your device has been unlocked…", "Orange
   State") stays on top of the console: it is drawn on OVL layer 3, which
   LK leaves enabled. TODO: clear layer 3 to transparent at boot.
+
+## 2026-10-25 — try8 status screen; try9 = PMIC IRQ, domain supplies, USB net
+
+- try8 (`f1b993a6…e020`) photo `20261025_101108.jpg` (outside the repo):
+  init alive (30 s ticks to >180 s), MemTotal 5617908 kB, drm card0
+  (simpledrm), **0 eMMC partitions**. Errors: `mt6397 1000d000.pwrap:pmic:
+  error -ENXIO: IRQ index 0 not found`; `mtk-power-controller …
+  power-domain@2: failed to get power supply` (the whole scpsys power
+  controller fails, so anything with power-domains defers, e.g.
+  13000000.syscon); `mtk-socinfo … error -ENOENT` (no socinfo efuse data,
+  harmless); `cpu0: failed to get proc regulator`; cpuidle not registered
+  (cpuidle.off=1). `regulator: Not disabling unused regulators`.
+- try9: `&pmic` interrupt = pio 182 level-high (vendor `pmic_irq`
+  `<0xb6 0x04>`, same as Kukui); `&mfg_async`/`&mfg` domain-supply as
+  Kukui; `&ssusb` peripheral, high-speed, vusb33 from MT6358; config
+  `USB_ETH=y` (CDC ECM, no RNDIS); cmdline g_ether MACs
+  42:00:15:19:83:01/00; init: usb0 10.15.19.83, udhcpd hands .84, busybox
+  telnetd. `boot.img` sha256
+  `eee30d39bc6ad5696afbe01cec62d46dd5e4438e1dc01615d12d6c2d13e8308c`.
