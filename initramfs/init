@@ -1,6 +1,7 @@
 #!/bin/busybox sh
 # Cosmo bring-up initramfs (P1): prove the kernel is alive, on glass and in
-# pstore. No root switch, no writes to the eMMC.
+# pstore. No root switch. The only eMMC write is the boot log into the
+# raw `cache` partition (unused by Gemian), read back with mtk.
 /bin/busybox --install -s /bin
 export PATH=/bin
 mkdir -p /proc /sys /dev /tmp
@@ -88,14 +89,38 @@ printf '\033[2J\033[H' > /dev/tty0 2>/dev/null
 	echo "--- devices_deferred ---"
 	head -n 8 /sys/kernel/debug/devices_deferred 2>/dev/null
 	echo "--- dmesg usb/phy (no sync_state) ---"
-	dmesg | grep -iE 'mtu3|ssusb|11201000|t-phy|tphy|vusb|udc|gadget|g_ether|usb' \
-		| grep -v sync_state | tail -n 12
+	dmesg | grep -iE 'mtu3|11201000|tphy|t-phy|VA09|g_ether|udc' | grep -v sync_state | tail -n 14
 } > /dev/tty0 2>/dev/null
+
+# Boot log to the raw `cache` partition (4 MiB, zero-padded), so it can be
+# read with `mtk ro 4747952128 4194304 <file>` (cache = sector 9273344)
+# from Dragon instead of photographing the
+# screen. Written only if the partition name checks out.
+log_to_emmc() {
+	for b in /sys/class/block/mmcblk0p*; do
+		grep -qx 'PARTNAME=cache' $b/uevent 2>/dev/null || continue
+		{
+			echo "COSMO-LOG $1 uptime $(cut -d' ' -f1 /proc/uptime)"
+			echo "--- udc: $(ls /sys/class/udc 2>/dev/null | tr '\n' ' ')"
+			cat /sys/kernel/debug/devices_deferred 2>/dev/null
+			echo "--- dmesg"
+			dmesg
+			echo "COSMO-LOG-END"
+			head -c 4194304 /dev/zero
+		} | head -c 4194304 > /dev/${b##*/} && sync
+		say "boot log ($1) written to ${b##*/} (cache)"
+		return
+	done
+	say "cache partition not found - no log written"
+}
+log_to_emmc first
+feed
 
 i=0
 while true; do
 	feed
 	sleep 5
 	i=$((i+1))
+	[ $i -eq 8 ] && log_to_emmc late
 	[ $((i % 6)) -eq 0 ] && echo "cosmo-init: alive, uptime $(cut -d' ' -f1 /proc/uptime) s" > /dev/kmsg
 done
