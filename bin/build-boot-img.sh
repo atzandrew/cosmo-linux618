@@ -31,8 +31,8 @@ file -L "$BUSYBOX" | grep -q "aarch64.*statically linked" \
 # DTB must keep the MT6358 power-key long-press reset enabled.
 DTB="$OUT/mt6771-cosmo-communicator.dtb"
 DTC="$ROOT/build/obj/scripts/dtc/dtc"
-if ! "$DTC" -q -I dtb -O dts "$DTB" 2>/dev/null \
-	| grep -q "mediatek,long-press-mode = <0x01>"; then
+DTS_TEXT="$("$DTC" -q -I dtb -O dts "$DTB")"
+if [[ "$DTS_TEXT" != *"mediatek,long-press-mode = <0x01>"* ]]; then
 	echo "REFUSING: $DTB lacks mediatek,long-press-mode = <1> (AGENTS.md rule 5)" >&2
 	exit 1
 fi
