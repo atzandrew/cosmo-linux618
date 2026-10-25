@@ -8,7 +8,7 @@ mtkclient, and userdata holds nothing worth keeping on a fresh device.
 These partitions hold the IMEI, radio and sensor calibration, MAC
 addresses and the lock state. **Never commit them to a repo.**
 
-Written 2026-10-24, not yet run. Tool: mtkclient V2.1.4 (`/usr/bin/mtk` on
+Written 2026-10-24; run 2026-10-25 (session log). Tool: mtkclient V2.1.4 (`/usr/bin/mtk` on
 the flashing host); syntax checked against `mtk <cmd> --help` of that
 version, not yet against a Cosmo.
 
@@ -25,7 +25,13 @@ version, not yet against a Cosmo.
 | `seccfg` | bootloader lock state |
 | GPT | layout reference (`printgpt` text + `gpt` dump) |
 
-Names follow MediaTek's MT6771 Android layout and may differ on this unit:
+Taken 2026-10-25 from the stock-Android unit: all eight present (GPT
+receipt below). Other partitions on that unit and why they are not kept:
+`sec1`, `otp` (security/OTP areas, restorable or unused), `frp`, `para`,
+`boot_para`, `expdb` (logs), `metadata`, `flashinfo`; the rest are firmware
+from the stock image.
+
+Names follow MediaTek's MT6771 Android layout and may differ on another unit:
 check `printgpt.txt` first, keep any other partition that sounds
 per-device (calibration, serial, keys), and drop names that don't exist.
 

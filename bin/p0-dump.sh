@@ -187,7 +187,8 @@ PY
 fi
 
 # --- odmdtbo (P0 Q1) ---
-ODM="${PARTDEV[odmdtbo]:-}"
+# Gemian-era layouts name it odmdtbo; the stock Android 9 GPT names it dtbo.
+ODM="${PARTDEV[odmdtbo]:-${PARTDEV[dtbo]:-}}"
 if [[ -n "$ODM" ]]; then
 	sz="$(blockdev --getsize64 "$ODM")"
 	echo "odmdtbo $ODM size $sz" >"$OUT/odmdtbo/info.txt"

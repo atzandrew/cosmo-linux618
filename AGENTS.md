@@ -50,7 +50,9 @@ and PLL offsets. Mainline has no `mt6771` anything; the board rides on
    `mt6771.dtb` to `Image.gz`; the board DT (`k71v1_64_bsp.dts`, `/plugin/`)
    is built as an overlay and LK applies it from the `odmdtbo` partition
    (defconfig: `BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES`). LK will try to apply
-   that vendor overlay to *our* DTB. Find out what LK does when the apply
+   that vendor overlay to *our* DTB. On the stock-Android unit (GPT read
+   2026-10-25) there is **no `odmdtbo` partition**; the overlay partition
+   is the Android-9 `dtbo` (8 MiB). Check which one LK actually reads. Find out what LK does when the apply
    fails (boot anyway? halt?), and whether we need a neutral overlay or an
    LK-side switch. The Gemini (MT6797) did not have this step.
 2. **LK framebuffer** address, size, stride and format, for the
