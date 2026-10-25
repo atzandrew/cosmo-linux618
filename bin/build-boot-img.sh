@@ -53,6 +53,18 @@ mkdir -p "$RD"/{bin,dev,proc,sys,tmp}
 cp "$BUSYBOX" "$RD/bin/busybox"
 cp "$ROOT/initramfs/init" "$RD/init"
 chmod 755 "$RD/init" "$RD/bin/busybox"
+# kexec (dynamic, from the build host) + its libraries, and the kx helper:
+# lets a running kernel boot the next test kernel without a flash.
+KEXEC="${KEXEC:-/usr/sbin/kexec}"
+if [[ -x "$KEXEC" ]]; then
+	cp -L "$KEXEC" "$RD/bin/kexec"
+	for lib in $(ldd "$KEXEC" | awk '/=>/ {print $3} /ld-linux/ {print $1}'); do
+		mkdir -p "$RD$(dirname "$lib")"
+		cp -L "$lib" "$RD$lib"
+	done
+	cp "$ROOT/initramfs/kx" "$RD/bin/kx"
+	chmod 755 "$RD/bin/kexec" "$RD/bin/kx"
+fi
 ( cd "$RD" && find . | LC_ALL=C sort | cpio -o -H newc --owner=0:0 --quiet ) \
 	| gzip -9n > "$OUT/initramfs.cpio.gz"
 

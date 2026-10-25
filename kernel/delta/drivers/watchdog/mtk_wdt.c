@@ -30,6 +30,7 @@
 #include <linux/reset-controller.h>
 #include <linux/types.h>
 #include <linux/watchdog.h>
+#include <linux/kexec.h>
 #include <linux/interrupt.h>
 
 #define WDT_MAX_TIMEOUT		31
@@ -303,6 +304,15 @@ static int mtk_wdt_stop(struct watchdog_device *wdt_dev)
 	struct mtk_wdt_dev *mtk_wdt = watchdog_get_drvdata(wdt_dev);
 	void __iomem *wdt_base = mtk_wdt->wdt_base;
 	u32 reg;
+
+	/*
+	 * Cosmo: keep the watchdog running across kexec, so a kexec'd kernel
+	 * that hangs still resets the board (the new kernel's mtk_wdt sees EN
+	 * and feeds it until init takes over). Reboot and shutdown still stop
+	 * it as before.
+	 */
+	if (kexec_in_progress)
+		return 0;
 
 	reg = readl(wdt_base + WDT_MODE);
 	reg &= ~WDT_MODE_EN;

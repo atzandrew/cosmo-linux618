@@ -1,0 +1,13 @@
+#!/bin/busybox sh
+# kx <Image or Image.gz> <initrd.cpio.gz> [extra cmdline]
+# Boot a new kernel from the running one (kexec). Reuses the running
+# cmdline and the device tree LK handed over (/sys/firmware/fdt). The SoC
+# watchdog stays armed across the jump, so a hang still resets the board.
+# Secondary CPUs do not come back after CPU_OFF on this firmware: the new
+# kernel runs on CPU0 only.
+set -e
+[ -f "$1" ] && [ -f "$2" ] || { echo "usage: kx <Image[.gz]> <initrd> [extra cmdline]"; exit 1; }
+kexec -l "$1" --initrd="$2" --reuse-cmdline ${3:+--append="$3"}
+echo "kx: loaded, jumping"
+sync
+kexec -e
