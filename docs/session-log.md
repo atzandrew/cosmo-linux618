@@ -388,3 +388,39 @@
   far ahead of the ~80 s watchdog. Stock `TOP_RST_MISC` untouched by Linux.
 - Paused here. Next (needs explicit yes): flash the normal `try11-boot.img`
   (`425937dc…f65d`).
+
+## 2026-10-25 — try11–try17: USB networking works
+
+- try11 normal image (`425937dc…f65d`): stable past 80 s with init feeding
+  the watchdog. mtu3 probe failed: `clks of sts1 are not stable!`, -110.
+- RAM readback of ramoops after a power-key reset: blank (94 % 0xff, no
+  `DBGC`). Not a usable log channel after a cold reset.
+- try12 (`e9ebbd57…`): init prints a one-page USB report after the usb0
+  wait (kernel console quieted).
+- try13 (`e9307882…`, `be6649b`): tphy sets U3 PHYA REG1 bit 29
+  (`RG_SSUSB_VUSB09_ON`, vendor phy_init_soc). Same failure.
+- Gemian (stock 4.4) reference, read-only: `regulator ext_pmic2 enable` at
+  0.23 s, `ldo_va09_status` 1 (900 mV), PMIC STRUP_CON5 (0xa1e) = 0x322.
+  `cache` (p37) is not mounted under Gemian.
+- try14 (`2f4c2b1c…`, `c424a1d`): mt6358-regulator sets STRUP_CON5 bits
+  1 and 5 (read-modify-write, stock value). Log showed `before 0x300`:
+  VA09 was already on from LK (status bits 8/9 set), so not the cause.
+  New log channel: init writes dmesg to the raw `cache` partition
+  (name-checked, 4 MiB) at ~22 s and ~60 s; read from Dragon with
+  `mtk ro 4747952128 4194304 <file>` after a power-key reset. Works.
+- try15 (`7822bc11…`, `d1c750c`): mtu3 clears PW_CTRL1 HOST_PDN and
+  PW_CTRL3 PCIE_PDN (vendor order) and dumps IPPC on failure:
+  want 0x10501, STS1 0x1000d0f. SYSPLL, REF and SYS125 up; only the U3 MAC
+  clock (bit 16) missing. Clock gates checked against vendor clk-mt6771:
+  identical to mainline mt8183 (infra2 bits 1 and 11).
+- try16 (`23b5c0e7…`, `b347c41`): `mediatek,u3p-dis-msk = <1>` (port is
+  USB 2 only). UDC `11201000.usb` registers, g_ether ready, D+ pulled up,
+  but the host never enumerated.
+- try17 (`e94d8c34…`, `5bbf1e4`): tphy sets the U2PHYDTM1 force enables
+  for VBUSVALID/AVALID/SESSEND (bits 13/12/10), as the vendor init does.
+  **Host enumerates** `0525:a4a1` "Ethernet Gadget" (cdc_ether), DHCP
+  gives the host 10.15.19.84, `telnet 10.15.19.83` gives a root shell,
+  `current_speed` high-speed.
+- Which of the try13–try15 changes are still needed is not yet tested
+  (VUSB09_ON bit, VA09 write, HOST/PCIE_PDN clears). Candidates for
+  removal one at a time now that there is a shell and log channel.
