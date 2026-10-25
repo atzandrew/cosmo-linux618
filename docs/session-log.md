@@ -335,3 +335,19 @@
   Dragon, mtk caught the preloader (10:59:21) and restored stock `dtbo`
   (`532e6060…3d5a`, sector 1177600) + Gemian `boot` (`74561559…2ba2b`,
   sector 1095680). Next: boot Gemian, recharge under the vendor charger.
+
+## 2026-10-25 — try10 stranded the board again
+
+- Flashed no-op `dtbo` + try10 (`5c8b0493…e98c`). Boot as before, `no usb0
+  after 20 s`. **The 10 s power-key hold did not reset it**: the
+  `mediatek,long-press-mode = <1>` fix was never verified before use.
+  Evidence pointing at the cause: stock preloader log
+  `[pmic_wdt_set] TOP_RST_MISC=0x1325` (bit 5 set, bit 6 clear) versus
+  mainline mt6358_regs (PWRKEY_RST = bit 6, HOMEKEY_RST = bit 5). To be
+  confirmed against the vendor MT6358 register definitions.
+- No timer failsafe was in the image (the unfed-watchdog signal from try6
+  was removed in try8; try6 also never produced a watchdog reset, so that
+  path is unproven too).
+- AGENTS.md rule 5 amended: two observed-working escapes, escape-only
+  first boot, no standing approvals. Recovery: battery connector + Gemian
+  restore (queued).

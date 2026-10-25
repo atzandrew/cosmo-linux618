@@ -55,6 +55,22 @@ and PLL offsets. Mainline has no `mt6771` anything; the board rides on
    first boot of any new kernel config, check the long press really
    resets before relying on that image. Treat any change touching PMIC
    keys, watchdog or reset paths as risky and say so before flashing.
+   **Amended 2026-10-25 after a second stranding (try10):** the
+   `mediatek,long-press-mode = <1>` "fix" did not reset the board either
+   (stock `TOP_RST_MISC` = 0x1325 has bit 5 set, bit 6 clear; mainline
+   assumes the power-key reset enable is bit 6). Therefore:
+   - An escape counts only after it has been **seen to fire** on the
+     device. Configured or read-from-source is not an escape.
+   - Every experimental image carries **two independent escapes**: the
+     hardware long-press reset and a **timer failsafe** (the SoC watchdog
+     resets the board unless the boot keeps proving itself healthy).
+   - The first boot of any new kernel config does nothing but prove both
+     escapes, with the Gemian restore queued and the manual recovery
+     (unplug the battery connector) ready.
+   - Never remove a failsafe to make a test more convenient.
+   - Every flash other than the known-good restore needs an explicit yes
+     to a written pre-flash check (change, risk flags, escapes and whether
+     each has been observed working). No standing approvals.
 
 ## Open questions blocking first boot (P0 — answer from the device)
 
