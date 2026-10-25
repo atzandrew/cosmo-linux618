@@ -31,7 +31,7 @@ What 6.6 would buy: one shared base with the Gemini today, flash-proven toolchai
 | SoC | MT6771 (Helio P70: 4×A73 + 4×A53) | via `mt8183.dtsi` |
 | PMIC | MT6358 | ✅ mfd, regulators, RTC, keys, codec (same as Kukui Chromebooks) |
 | Charger/PMU | MT6370 (charger, backlight, flash LED, RGB LED, LDO, DSV, TCPC) | ✅ all sub-drivers incl. `tcpci_mt6370` |
-| 2nd USB-C | FUSB302 | ✅ `fusb302` |
+| 2nd USB-C | **FUSB301A** (i2c3 @0x25, stock dtbo; corrected 2026-10-25) | ❌ no mainline driver (not an FUSB302) |
 | Fuel gauge | MT6358 gauge (vendor `GAUGE_VERSION=30`) | ❌ none — start voltage-derived like Gemini |
 | Panel | SSD2092 (or NT36672 variant), 1080×2160, rot 270. **This unit: NT36672** (LK log 2026-10-25, `docs/p0-findings.md`) | Gemini's `panel-solomon-ssd2092` + init table. **Cosmo's live SSD2092 init table is byte-identical to the Gemini's** (184/184 non-gamma commands; the two 0xC3 gamma packets are the ones the Gemini splits) |
 | Touch | SSD20xx or NT36xxx | SSD2092 from Gemini delta; `novatek-nvt-ts` (nt36672a) upstream |
