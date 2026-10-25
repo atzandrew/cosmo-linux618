@@ -456,13 +456,15 @@
  * power supply", on glass 2026-10-25).
  */
 /*
- * Keep the PMIC's hardware long-press reset on. mtk-pmic-keys writes
- * LP_DISABLE when this property is absent, which left a hung boot with no
- * way out by the power key (2026-10-25; the vendor firmware keeps it on).
+ * Keys driver OFF: mainline mtk-pmic-keys uses the wrong MT6358 bit layout
+ * for TOP_RST_MISC and clears RG_PWRKEY_RST_EN (bit 9) whatever the DT says
+ * (vendor upmu_hw.h; docs/p0-findings.md). That stranded the board twice
+ * (2026-10-25). Disabled, nothing in Linux writes TOP_RST_MISC and the
+ * stock 0x1325 from the preloader stays: power-key hold resets in ~8 s.
+ * AGENTS.md rule 5; bin/build-boot-img.sh refuses a DTB where it is on.
  */
 &mt6358keys {
-	mediatek,long-press-mode = <1>;
-	power-off-time-sec = <0>;
+	status = "disabled";
 };
 
 &mfg_async {

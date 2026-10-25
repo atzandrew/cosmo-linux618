@@ -18,22 +18,27 @@ BUSYBOX="${BUSYBOX:-/usr/bin/busybox}"
 #    lists ttyS0 last).
 #  - *_ignore_unused: keep LK's display clocks, power and PMIC rails on.
 #  - cpuidle.off=1 until the vendor ATF's PSCI suspend is checked.
-#  - panic=0: keep a panic on glass (the screen is the only console).
+#  - panic=10 + panic_on_oops + softlockup_panic: faults become panics; a
+#    panic stays on glass until the reset. PSCI reboot does not work with
+#    the vendor ATF, so the hardware watchdog (fed only while healthy) is
+#    what actually resets the board (AGENTS.md rule 5).
 #  - g_ether.*: fixed MACs for the bring-up USB network (init gives
 #    the Cosmo 10.15.19.83 and hands the host .84 by DHCP).
-CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused cpuidle.off=1 fbcon=rotate:3 fbcon=font:TER16x32 consoleblank=0 loglevel=8 panic=0 panic_on_oops=1 softlockup_panic=1 g_ether.dev_addr=42:00:15:19:83:01 g_ether.host_addr=42:00:15:19:83:00"
+CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused cpuidle.off=1 fbcon=rotate:3 fbcon=font:TER16x32 consoleblank=0 loglevel=8 panic=10 panic_on_oops=1 softlockup_panic=1 g_ether.dev_addr=42:00:15:19:83:01 g_ether.host_addr=42:00:15:19:83:00"
 
 file -L "$BUSYBOX" | grep -q "aarch64.*statically linked" \
 	|| { echo "$BUSYBOX is not a static aarch64 binary" >&2; exit 1; }
 [[ -f "$OUT/Image.gz-dtb" ]] || { echo "run bin/build-kernel.sh first" >&2; exit 1; }
 
-# AGENTS.md rule 5: never pack an image that can strand the device. The
-# DTB must keep the MT6358 power-key long-press reset enabled.
+# AGENTS.md rule 5: never pack an image that can strand the device.
+# mainline mtk-pmic-keys clears the MT6358 power-key reset enable, so the
+# keys node must be disabled (and no long-press property may appear).
 DTB="$OUT/mt6771-cosmo-communicator.dtb"
 DTC="$ROOT/build/obj/scripts/dtc/dtc"
 DTS_TEXT="$("$DTC" -q -I dtb -O dts "$DTB")"
-if [[ "$DTS_TEXT" != *"mediatek,long-press-mode = <0x01>"* ]]; then
-	echo "REFUSING: $DTB lacks mediatek,long-press-mode = <1> (AGENTS.md rule 5)" >&2
+KEYS="$(awk '/compatible = "mediatek,mt6358-keys"/{f=1} f&&/status =/{print; exit}' <<<"$DTS_TEXT")"
+if [[ "$KEYS" != *'"disabled"'* || "$DTS_TEXT" == *"long-press-mode"* ]]; then
+	echo "REFUSING: mt6358-keys must be disabled and no long-press-mode set (AGENTS.md rule 5)" >&2
 	exit 1
 fi
 

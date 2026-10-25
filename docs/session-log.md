@@ -359,3 +359,8 @@
   enable was cleared); MT6370 manual reset suspected, unproven.
 - Nothing built or flashed. Next image only after review: mt6358keys
   disabled, timer failsafe added, escape-only first boot.
+- Group A fixes in source (nothing built for the device): `&mt6358keys`
+  disabled (stock TOP_RST_MISC kept); build guard now requires that and
+  forbids `long-press-mode`; cmdline `panic=10` instead of `panic=0`.
+  Still open before any flash: driver audit against stock, watchdog
+  failsafe (LK handoff state + init feeding), escape-test image.
