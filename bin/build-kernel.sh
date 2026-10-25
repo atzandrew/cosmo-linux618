@@ -16,9 +16,18 @@ SRC="$ROOT/build/src"
 OBJ="$ROOT/build/obj"
 OUT="$ROOT/out"
 DTB=mediatek/mt6771-cosmo-communicator.dtb
-CROSS_COMPILE="${CROSS_COMPILE-aarch64-linux-gnu-}"
+# Native gcc on an arm64 host (hydra); cross gcc elsewhere. Override with
+# CROSS_COMPILE=... if needed.
+if [[ "$(uname -m)" == aarch64 ]]; then
+	CROSS_COMPILE="${CROSS_COMPILE-}"
+else
+	CROSS_COMPILE="${CROSS_COMPILE-aarch64-linux-gnu-}"
+fi
 JOBS="${JOBS:-$(nproc)}"
-MK=(make -C "$SRC" O="$OBJ" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" -j"$JOBS")
+# LOCALVERSION= (set but empty) stops setlocalversion adding "-dirty": the
+# delta always leaves the base tree modified. The release stays
+# <version>-cosmo (CONFIG_LOCALVERSION in cosmo.config).
+MK=(make -C "$SRC" O="$OBJ" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" LOCALVERSION= -j"$JOBS")
 
 fetch_base() {
 	if [[ ! -d "$SRC/.git" ]]; then

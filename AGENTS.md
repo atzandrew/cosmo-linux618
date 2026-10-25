@@ -11,12 +11,12 @@ Sister projects (same owner, same methods — reuse their code and lessons):
 
 ## Status (2026-10-24)
 
-Phase **P1 skeleton**, nothing built for or flashed to the device yet.
+Phase **P1 skeleton**: full kernel builds on hydra (6.18.58-cosmo, 2026-10-24); nothing flashed to the device yet.
 - `kernel/BASE` pins v6.18.58 (`2926d88bb7fc`).
 - `kernel/delta/` = DTS Makefile line + `mt6771-cosmo-communicator.dts`
   (CPUs/GIC/timer via mt8183.dtsi, UART0, eMMC at HS200, MT6358).
 - DTB compiles clean with `W=1` against v6.18.58 (checked in a sandbox
-  with host dtc; the full Image build has not been run yet).
+  with host dtc). Full Image.gz-dtb build: see docs/session-log.md.
 
 ## Why this works: MT6771 == MT8183
 
@@ -74,6 +74,8 @@ and PLL offsets. Mainline has no `mt6771` anything; the board rides on
 | `kernel/delta/` | changed/added kernel files, kernel-relative |
 | `kernel/config/cosmo.config` | config fragment over arm64 defconfig |
 | `bin/build-kernel.sh` | build (`dtbs` arg = DTB only) → `out/` |
+| `bin/p0-dump.sh` | read-only P0 collector, run as root on the Cosmo under Gemian 4.4 |
+| `docs/p0-backup.md` | mtkclient backup of the device-unique partitions (before any flash) |
 | `docs/hardware-map.md` | SoC/board map, mainline status, plan P0–P7 |
 | `docs/session-log.md` | dated log of every session |
 | `build/`, `out/` | build tree and artifacts (gitignored) |

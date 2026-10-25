@@ -44,7 +44,7 @@ What 6.6 would buy: one shared base with the Gemini today, flash-proven toolchai
 
 ## Plan
 
-**P0 — Safety and receipts (before any flash).** Full eMMC dump with mtkclient (preloader, LK, nvram/nvdata/protect* for IMEI and radio calibration). From running Gemian 4.4, capture `/proc/device-tree`, `dmesg`, `/proc/iomem`, `/proc/cmdline`, boot.img header and LK's framebuffer address/format. Document the boot contract (Image.gz + appended DTB as the 4.4 build does; which partition LK boots for Linux; any LK cmdline must-keeps — the Gemini's `bootopt=` lesson). Find a debug UART if reachable.
+**P0 — Safety and receipts (before any flash).** mtkclient backup of the device-unique partitions only (nvram/nvdata/nvcfg/protect*/proinfo/persist/seccfg: IMEI and calibration); the rest is restorable from the stock Planet image (`docs/p0-backup.md`). From running Gemian 4.4, capture `/proc/device-tree`, `dmesg`, `/proc/iomem`, `/proc/cmdline`, boot.img header and LK's framebuffer address/format. Document the boot contract (Image.gz + appended DTB as the 4.4 build does; which partition LK boots for Linux; any LK cmdline must-keeps — the Gemini's `bootopt=` lesson). Find a debug UART if reachable.
 
 **P1 — Skeleton kernel.** New repo, same model as gemini-nixos: hash-pinned v6.18.y tarball + plain file-tree delta, no patches. `mt6771-cosmo-communicator.dts` including `mt8183.dtsi`: memory, UART, `simple-framebuffer` on LK's buffer (no DSI touch — the panel-burn rule), eMMC, pwrap + MT6358, power key. Goal: console on glass + initramfs shell, then USB gadget CDC-ECM (`mtu3`) for SSH.
 

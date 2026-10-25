@@ -15,8 +15,12 @@ MT8183 that mainline already supports well.
 
 ## Build
 
-Needs an arm64 cross toolchain (`aarch64-linux-gnu-gcc`), plus `flex`,
-`bison`, `bc`, `libssl-dev`, `libelf-dev`.
+Needs gcc for arm64 (native on an arm64 host, otherwise the cross
+`aarch64-linux-gnu-gcc`), plus `flex`, `bison`, `bc` and the OpenSSL and
+libelf headers:
+
+- Debian/Ubuntu: `flex bison bc libssl-dev libelf-dev`
+- Fedora: `flex bison bc openssl-devel elfutils-libelf-devel`
 
 ```sh
 bin/build-kernel.sh dtbs   # device tree only (fast check)
