@@ -170,3 +170,22 @@
   `dtbo.img` `c854cfe933e3e1142b7c04f62bdbd3e50cc8de6e075be0c7d605bfa13cfdfb6c`.
 - Consequence: with the no-op `dtbo`, Gemian\x27s vendor DTB loses its
   overlay; restoring Gemian = stock `dtbo` + Gemian `boot`.
+
+## 2026-10-25 — second attempt: overlay passes, LK asserts on bootargs
+
+- Flashed `dtbo` = no-op table (`c854cfe9…6c`) and `boot` =
+  `14364cd4…66de` (`mtk w dtbo,boot`, sectors 1177600 / 1095680). Loop
+  again (~25 s). `expdb` is a **ring buffer**: the newest LK entries are
+  not at the end; match entries by `zimage_size`.
+- LK log for this image (`zimage_size:0xe6cfee`, `dtbo_size: 179`):
+  `Overlay takes 5 ms` (the no-op overlay applies), then
+  `panic … ASSERT at (app/mt_boot/bootargs.c:96): fdt_bootargs`: LK
+  needs `/chosen/bootargs` (vendor value = the stock cmdline head).
+- Fix: `bootargs = "console=tty0 console=ttyS0,921600n1"`. Also added, from
+  the next LK steps on a good boot (Gemian `pl_lk`): `lk-i2c5` container
+  (`id = <5>`) with `subpmic_pmu@34`, `mt6370_pmu_dts` (bled/charger;
+  `intr_gpio` phandle written as `&pio`), `battery` (bat_gm30), `/odm/led@0-6`
+  (led@6 = LCD backlight). Vendor i2c5 @ 0x11017000 = mainline `&i2c11`.
+- New `boot.img` sha256
+  `adeadd9bc0947358b7fa6d23a76e34a79b5f249fd497c83b7fff8abc964cf455`
+  (DTB 80,543 bytes; no-op overlay applies offline).
