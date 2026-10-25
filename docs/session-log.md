@@ -329,3 +329,9 @@
   end it in hardware. On the next USB connection Dragon restores Gemian
   (stock `dtbo` + Gemian `boot`) so the battery recharges under the vendor
   charger driver before bring-up continues with try10 (long-press fixed).
+- Recovery: battery connector unplugged (back cover pries off by hand
+  from the hinge side; connector under a screwed plastic plate on the
+  right-hand board, no battery removal needed). On reconnect with USB on
+  Dragon, mtk caught the preloader (10:59:21) and restored stock `dtbo`
+  (`532e6060…3d5a`, sector 1177600) + Gemian `boot` (`74561559…2ba2b`,
+  sector 1095680). Next: boot Gemian, recharge under the vendor charger.
