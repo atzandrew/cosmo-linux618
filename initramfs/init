@@ -14,6 +14,23 @@ say() { echo "$*" > /dev/tty0 2>/dev/null; echo "cosmo-init: $*" > /dev/kmsg 2>/
 
 say "===== Cosmo mainline bring-up: initramfs reached ====="
 
+# Watchdog failsafe (AGENTS.md rule 5, docs/safety-audit.md): from here on
+# only this init feeds the SoC watchdog, so a stuck init or a hung kernel
+# resets the board within ~31 s. cosmo.wdtest=1: arm it and never feed
+# (escape test: the board must reset by itself).
+WDT=/dev/watchdog0
+[ -e $WDT ] || WDT=/dev/watchdog
+if exec 3>"$WDT"; then
+	say "watchdog $WDT owned by init (fed every 5 s)"
+else
+	say "WARNING: could not open $WDT - no timer failsafe"
+fi
+feed() { printf . >&3 2>/dev/null; }
+if grep -qw cosmo.wdtest=1 /proc/cmdline; then
+	say "ESCAPE TEST: watchdog armed and NOT fed - board must reset in ~31-62 s"
+	while true; do sleep 60; done
+fi
+
 say "$(uname -a)"
 say "cmdline: $(cat /proc/cmdline)"
 say "cpus online: $(cat /sys/devices/system/cpu/online)"
@@ -40,7 +57,7 @@ dmesg | grep -iE 'mtu3|ssusb|11201000|t-phy|tphy|udc|gadget|g_ether|power-contro
 mkdir -p /dev/pts && mount -t devpts devpts /dev/pts
 say "block: $(ls /sys/class/block 2>/dev/null | tr '\n' ' ')"
 n=0
-while [ ! -e /sys/class/net/usb0 ] && [ $n -lt 20 ]; do sleep 1; n=$((n+1)); done
+while [ ! -e /sys/class/net/usb0 ] && [ $n -lt 20 ]; do feed; sleep 1; n=$((n+1)); done
 if [ -e /sys/class/net/usb0 ]; then
 	ifconfig usb0 10.15.19.83 netmask 255.255.255.0 up
 	printf '%s\n' "start 10.15.19.84" "end 10.15.19.84" "interface usb0" \
@@ -54,7 +71,10 @@ else
 fi
 say "udc: $(ls /sys/class/udc 2>/dev/null | tr '\n' ' ')"
 
+i=0
 while true; do
-	sleep 30
-	say "alive, uptime $(cut -d' ' -f1 /proc/uptime) s"
+	feed
+	sleep 5
+	i=$((i+1))
+	[ $((i % 6)) -eq 0 ] && say "alive, uptime $(cut -d' ' -f1 /proc/uptime) s"
 done

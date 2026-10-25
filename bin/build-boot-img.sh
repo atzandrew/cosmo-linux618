@@ -26,6 +26,11 @@ BUSYBOX="${BUSYBOX:-/usr/bin/busybox}"
 #    the Cosmo 10.15.19.83 and hands the host .84 by DHCP).
 CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused cpuidle.off=1 fbcon=rotate:3 fbcon=font:TER16x32 consoleblank=0 loglevel=8 panic=10 panic_on_oops=1 softlockup_panic=1 g_ether.dev_addr=42:00:15:19:83:01 g_ether.host_addr=42:00:15:19:83:00"
 
+# EXTRA_CMDLINE is appended (e.g. cosmo.wdtest=1 for the watchdog escape
+# test); OUTNAME names the image (default boot.img).
+CMDLINE="$CMDLINE${EXTRA_CMDLINE:+ $EXTRA_CMDLINE}"
+OUTNAME="${OUTNAME:-boot.img}"
+
 file -L "$BUSYBOX" | grep -q "aarch64.*statically linked" \
 	|| { echo "$BUSYBOX is not a static aarch64 binary" >&2; exit 1; }
 [[ -f "$OUT/Image.gz-dtb" ]] || { echo "run bin/build-kernel.sh first" >&2; exit 1; }
@@ -53,7 +58,7 @@ chmod 755 "$RD/init" "$RD/bin/busybox"
 
 python3 "$ROOT/bin/mkbootimg.py" --kernel "$OUT/Image.gz-dtb" \
 	--ramdisk "$OUT/initramfs.cpio.gz" --cmdline "$CMDLINE" \
-	-o "$OUT/boot.img"
+	-o "$OUT/$OUTNAME"
 
 echo "busybox: $("$BUSYBOX" | head -1)"
-sha256sum "$OUT/initramfs.cpio.gz" "$OUT/boot.img"
+sha256sum "$OUT/initramfs.cpio.gz" "$OUT/$OUTNAME"

@@ -364,3 +364,13 @@
   forbids `long-press-mode`; cmdline `panic=10` instead of `panic=0`.
   Still open before any flash: driver audit against stock, watchdog
   failsafe (LK handoff state + init feeding), escape-test image.
+- Safety audit written (`docs/safety-audit.md`). Fixes in source:
+  delta `drivers/watchdog/mtk_wdt.c` (restart priority 130, above PSCI);
+  init owns `/dev/watchdog` and feeds it only from its own loops;
+  `cosmo.wdtest=1` escape test. Open: compare MT6358 fixed-voltage
+  regulators with stock register values (Gemian, read-only, needs root).
+- try11 built (not flashed): `boot.img`
+  `425937dc07dd38a026b7f463398ebd974bff7f7e29706870a3ca5fd0dee8f65d`,
+  escape-test `boot-wdtest.img` (adds `cosmo.wdtest=1`)
+  `3083ddf30f6c11e7e8c342ad0c15eb13c324bfd0275d237860f43f49e8808a5a`.
+  Delta: 3 files (DTS, DTS Makefile, `mtk_wdt.c`).
