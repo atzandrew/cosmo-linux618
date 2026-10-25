@@ -236,3 +236,12 @@
   SYSTEM_RESET first; the vendor ATF may not implement it).
 - Next: init opens `/dev/watchdog` and never feeds it (mtk_wdt, ~31 s), a
   reset path independent of PSCI and the display.
+
+## 2026-10-25 — sixth attempt: init never runs
+
+- Flashed `boot` = `0d795468…5af6` (init arms `/dev/watchdog`, never feeds
+  it). Orange frame, no reset for >2 min: **init never ran**. With LK
+  finishing cleanly (try3–5), Linux hangs early or the handoff fails.
+- Next: `fbpaint` probe (`fbpaint/fbpaint.S`, `bin/build-fbpaint.sh`)
+  in place of the kernel: paints LK layer 0 green and layer 3 blue, then
+  parks. `out/fbpaint/boot.img` sha256 printed by the script.
