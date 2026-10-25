@@ -43,6 +43,18 @@ and PLL offsets. Mainline has no `mt6771` anything; the board rides on
    (simpledrm on a `simple-framebuffer` node). A bad DSI init can damage the
    panel.
 4. **Never flash something you cannot identify or undo.** P0 backups first.
+5. **Never flash an image that can strand the device.** A hung boot must
+   always be resettable by holding the power key, with no software help.
+   Needing to drain the battery to reboot is an absolute failure state.
+   Mainline `mtk-pmic-keys` turns the MT6358 long-press reset OFF unless
+   the DT sets `mediatek,long-press-mode`, and PSCI reboot does not work
+   with the vendor ATF (both found 2026-10-25, when a boot could only be
+   escaped by draining). So every DTB keeps
+   `&mt6358keys { mediatek,long-press-mode = <1>; }`;
+   `bin/build-boot-img.sh` refuses to pack a DTB without it. After the
+   first boot of any new kernel config, check the long press really
+   resets before relying on that image. Treat any change touching PMIC
+   keys, watchdog or reset paths as risky and say so before flashing.
 
 ## Open questions blocking first boot (P0 — answer from the device)
 

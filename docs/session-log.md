@@ -318,3 +318,7 @@
   mtk-pmic-keys writes LP_DISABLE to the MT6358 long-press reset when
   `mediatek,long-press-mode` is absent, and PSCI reset does not work
   either. try10 now sets `&mt6358keys { mediatek,long-press-mode = <1>; }`.
+- **Rule added (AGENTS.md rule 5):** never flash an image that can strand
+  the device; drain-to-reboot is an absolute failure state. Build guard:
+  `bin/build-boot-img.sh` refuses a DTB without
+  `mediatek,long-press-mode = <1>`.
