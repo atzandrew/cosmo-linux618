@@ -102,3 +102,23 @@
   unknown; LK fb at 0x7df70000; panel NT36672; DRAM 6 GiB; LK `sbc_en = 0`
   but `lock_state 0x4` and `verifiedbootstate=green`.
 - Nothing written to the device.
+
+## 2026-10-25 — Gemian on the device, bootloader unlocked, live P0 dump
+
+- Flashed Planet `cosmo-customos-installer-v4.zip` (sha256
+  `6fc0a22e933bd36c7aabd5139d6e402f8487d91effc50e803939966195f2887f`):
+  `mtk w boot,userdata linux-cosmo-boot.img,gemian-cosmocom-kde-plasma.img`.
+  `boot` written (sector 1095680); the `userdata` write dropped at 3.2 %
+  ("Device disconnected" after ~18 min in DA mode since the previous read).
+  Retry `mtk w userdata …` caught a later preloader window and completed
+  (sector 10158080, count 234006464). Android is gone; system/vendor/
+  recovery and all backed-up partitions untouched.
+- First boot: **red state** and a reboot loop (LK rejects the unsigned
+  image while locked). `mtk da seccfg unlock`: "Detected V4 Lockstate",
+  "Successfully wrote seccfg". Next boot: orange state, Gemian 4.4.146 up,
+  SSH as `cosmo` over Wi-Fi.
+- `bin/p0-dump.sh` run as root on Gemian: all steps rc 0 except a
+  harmless `tar` "file shrank" on `memory/mblock_info`. Results in
+  `docs/p0-findings.md` ("Live system"): fb stride 4352 / a8b8g8r8, LK
+  `mblock-*` reserved-memory list, `lock_state = 0x3`, `boot state: orange`.
+- Fix: `bin/p0-dump.sh` boot-magic read no longer warns about NUL bytes.

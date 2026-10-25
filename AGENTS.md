@@ -47,12 +47,14 @@ and PLL offsets. Mainline has no `mt6771` anything; the board rides on
 ## Open questions blocking first boot (P0 — answer from the device)
 
 Offline answers from the stock firmware (2026-10-25): `docs/p0-findings.md`.
+Live answers from Planet Gemian 4.4 on the device (2026-10-25), same doc.
 Short form: Q1 overlay comes from `dtbo` (no `odmdtbo`), fails on our DTB,
-LK behaviour on failure still open; Q2 fb_base 0x7df70000 / vram
-0x1f90000, stride+format open; Q3 LK reservations listed, DT injection
-open; Q4 answered (boot, header v1, Image.gz+DTB, keep `bootopt=`).
-New: panel is **NT36672**, not SSD2092; lock state (`verifiedbootstate=green`,
-`lock_state 0x4`, `sbc_en 0`) may block an unsigned boot image.
+LK behaviour on failure **still open**; Q2 **answered** (0x7df70000,
+1080×2160, stride 4352, a8b8g8r8); Q3 **answered** (LK adds `mblock-*`
+reserved nodes; carry them in our DTS); Q4 answered (boot, header v1,
+Image.gz+DTB, keep `bootopt=`). Panel is **NT36672**, not SSD2092.
+Bootloader **unlocked** 2026-10-25 (`mtk da seccfg unlock`; orange state);
+the device now runs Planet Gemian from `boot` + `userdata`.
 
 1. **LK applies a DT overlay.** The stock 4.4 build appends only the base
    `mt6771.dtb` to `Image.gz`; the board DT (`k71v1_64_bsp.dts`, `/plugin/`)

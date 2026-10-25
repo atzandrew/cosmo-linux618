@@ -1,4 +1,4 @@
-# P0 findings — boot contract from the stock firmware (offline)
+# P0 findings — boot contract
 
 Source: read-only mtkclient dump of `lk`, `lk2`, `boot`, `dtbo`, `expdb`
 from the Cosmo on stock Planet Android, 2026-10-25 (`docs/session-log.md`).
@@ -97,8 +97,7 @@ Log (`videolfb` lines):
 
 LK passes it to the kernel as `/chosen` `atag,videolfb-fb_base_h/_l`,
 `atag,videolfb-vramSize`, `atag,videolfb-lcmname` (LK strings). Stride and
-pixel format are not in the log: still needed from a running system
-(`/sys/class/graphics/fb0`, `bin/p0-dump.sh`) or LK disassembly.
+format: see "Live system" below (stride 4352, a8b8g8r8).
 
 ## Panel: NT36672, not SSD2092
 
@@ -128,7 +127,75 @@ current boot before P3.
   disabled.
 - LK: `[SBC] sbc_en = 0`, `[SEC_POLICY] lock_state(default) = 0x4`,
   images `logo` and `dtbo` "auth pass", `androidboot.verifiedbootstate=green`.
-- **Open:** whether LK boots an unsigned `boot` image in this state
-  (green usually means locked). Find out before the first flash, e.g. by
-  reading `seccfg` and LK's verify path, or plan an unlock via
-  `fastboot flashing unlock` / mtkclient seccfg (a write: ask first).
+- **Answered 2026-10-25:** locked LK enforces signatures. Planet's Linux
+  boot image gave **red state** and a reboot loop. Unlocked with
+  `mtk da seccfg unlock` (seccfg V4, rewritten via the SoC's HACC engine;
+  original in the backup). Now `[SEC_POLICY] lock_state = 0x3`,
+  `boot state: orange`, `androidboot.verifiedbootstate=orange`: LK shows
+  the orange warning and boots unsigned images.
+
+## Live system: Planet Gemian 4.4 (2026-10-25)
+
+Planet `cosmo-customos-installer-v4.zip` (sha256 `6fc0a22e…2887f`):
+`linux-cosmo-boot.img` → `boot`, `gemian-cosmocom-kde-plasma.img` (ext4) →
+`userdata` (no `linux` partition here; its initramfs `scripts/geminipda`
+tries `linux` then `userdata` and boots a partition that has
+`/etc/os-release`). Its DTB is byte-identical to the stock Android one.
+Data from `bin/p0-dump.sh` run as root (tarball outside the repo,
+`~/cosmo-p0/gemian/`).
+
+**Framebuffer (P0 Q2, answered)** — `FBIOGET_FSCREENINFO`/`VSCREENINFO` on
+`/dev/fb0` (`mtkfb`):
+
+| | |
+|---|---|
+| base | 0x7df70000 (= `smem_start`; LK reserves 0x7df70000 +0x1f90000 as `mblock-7-framebuffer`, no-map) |
+| visible | 1080×2160, virtual 1088×4320 (double buffer) |
+| stride | **4352** bytes (1088 px × 4) |
+| format | 32 bpp, R offset 0, G 8, B 16, A 24 → simple-framebuffer `a8b8g8r8` |
+
+So `simple-framebuffer`: `reg = <0 0x7df70000 0 (4352*2160)>`, width 1080,
+height 2160, stride 4352, format "a8b8g8r8". The kernel had panned to
+yoffset 2160 (second buffer) at dump time; at LK handoff, check whether
+LK scans out the first buffer.
+
+**DT that LK hands over (P0 Q3, answered)** — `/sys/firmware/fdt`:
+- The `dtbo` overlay is merged (the result has `__symbols__`, touch nodes).
+- `/memory`: `reg = <0 0x40000000 1 0x80000000>` (6 GiB), plus LK
+  properties `orig_dram_info`, `tee_reserved_mem`, `mblock_info`.
+- LK adds **`mblock-N-*` nodes to `/reserved-memory`**:
+
+| node | base | size | no-map |
+|---|---|---|---|
+| mblock-1-dramc-rk0 | 0xbffff000 | 0x1000 | yes |
+| mblock-2-dramc-rk1 | 0x1bffff000 | 0x1000 | yes |
+| mblock-3-log_store | 0x7ffc0000 | 0x40000 | no |
+| mblock-4-atf-reserved | 0x54600000 | 0x40000 | yes |
+| mblock-5-SSPM-reserved | 0x7ff00000 | 0xc0000 | yes |
+| mblock-6-tee-reserved | 0xedb00000 | 0x2440000 | yes |
+| mblock-7-framebuffer | 0x7df70000 | 0x1f90000 | yes |
+| mblock-8-vpu_binary | 0x9d5f0000 | 0x2a10000 | yes |
+| mblock-9-SPM-reserved | 0x77ff0000 | 0x10000 | yes |
+| mblock-10-SCP-reserved | 0x9cf00000 | 0x600000 | yes |
+| mblock-11-ccci | 0x8c000000 | 0x100000 | yes |
+| mblock-12-ccci | 0x66000000 | 0x10000000 | no |
+| mblock-13-ccci | 0x8a000000 | 0x1600000 | yes |
+
+  The rest of `/reserved-memory` (pstore, ram_console, minirdump, scp/sspm
+  share, consys, zone-movable CMA) is from the vendor DTS. Whether LK adds
+  the mblock nodes to *our* DTB is unknown; the safe route is to carry
+  ATF/TEE/SSPM/SPM/framebuffer/dramc as fixed no-map nodes in our DTS.
+  `/proc/iomem` System RAM holes match the no-map regions.
+- `/chosen`: `bootargs`, `linux,initrd-start/-end`, and MTK `atag,*`
+  blobs. The binary `atag,videolfb` blob holds the live values (lcm name
+  `aeon_nt36672_fhd_…`); the separate `atag,videolfb-lcmname`
+  (`nt35595_…`) and `-vramSize` (0x17bb000) properties are stale vendor
+  defaults, do not trust them.
+
+**cmdline when unlocked**: LK swaps the verity `root=/dev/dm-0 dm=…` for
+`root=PARTUUID=4d2d1290-…` (the stock `system` partition) and sets
+`verifiedbootstate=orange`; our header cmdline comes after it, so our
+`root=` wins.
+
+Still open: LK behaviour when the overlay fails on our DTB (Q1), UART pads
+(Q5).
