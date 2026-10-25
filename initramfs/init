@@ -1,0 +1,31 @@
+#!/bin/busybox sh
+# Cosmo bring-up initramfs (P1): prove the kernel is alive, on glass and in
+# pstore. No root switch, no writes to the eMMC.
+/bin/busybox --install -s /bin
+export PATH=/bin
+mkdir -p /proc /sys /dev /tmp
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+
+# The console the kernel picked may be the unreachable UART; write to the
+# framebuffer console and the kernel log (-> ramoops) explicitly.
+say() { echo "$*" > /dev/tty0 2>/dev/null; echo "cosmo-init: $*" > /dev/kmsg 2>/dev/null; }
+
+say "===== Cosmo mainline bring-up: initramfs reached ====="
+say "$(uname -a)"
+say "cmdline: $(cat /proc/cmdline)"
+say "cpus online: $(cat /sys/devices/system/cpu/online)"
+say "mem: $(grep -E 'MemTotal' /proc/meminfo)"
+say "drm: $(ls /sys/class/drm 2>/dev/null | tr '\n' ' ')"
+say "mmc: $(ls /sys/class/block 2>/dev/null | grep -c mmcblk0p) eMMC partitions seen"
+say "deferred: $(cat /sys/kernel/debug/devices_deferred 2>/dev/null | wc -l) (debugfs may be absent)"
+dmesg | grep -iE 'error|fail|unable|deferred' | tail -n 25 > /dev/tty0 2>/dev/null
+
+# Full dmesg into pmsg (ramoops) as well, for reading back from Gemian.
+dmesg > /dev/pmsg0 2>/dev/null
+
+while true; do
+	sleep 30
+	say "alive, uptime $(cut -d' ' -f1 /proc/uptime) s"
+done

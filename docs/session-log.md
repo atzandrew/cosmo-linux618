@@ -122,3 +122,28 @@
   `docs/p0-findings.md` ("Live system"): fb stride 4352 / a8b8g8r8, LK
   `mblock-*` reserved-memory list, `lock_state = 0x3`, `boot state: orange`.
 - Fix: `bin/p0-dump.sh` boot-magic read no longer warns about NUL bytes.
+
+## 2026-10-25 — first-boot image prepared (not yet flashed)
+
+- DTS for the LK contract (`docs/p0-findings.md`): `/memory` (exact path,
+  LK rewrites it), `simple-framebuffer` in `/chosen` (0x7df70000,
+  1080x2160, stride 4352, a8b8g8r8, DISP power domain), ramoops at the
+  vendor pstore region with Gemian 4.4\x27s layout, vendor nodes LK reads
+  (`/gpio@10005000` with `gpio_init_default`, `mediatek,scp`,
+  `mediatek,lk_charger`, `reserve-memory-sspm_share`, scp_share sharing
+  the mainline `scp_mem_reserved` pool). LK\x27s `mblock-*` carve-outs are
+  deliberately not duplicated (Gemini: duplicate no-map hung early boot).
+  M4U/SMI/larbs disabled for first boots. `dtbs W=1`: only the intended
+  `/memory` unit-address warning.
+- Config: fbcon rotation + TER16x32 font, ramoops/pstore console built in.
+- New: `bin/mkbootimg.py` (header v0, LK addresses, refuses a cmdline
+  without `bootopt=` or a ramdisk over 16 MiB), `bin/build-boot-img.sh`,
+  `initramfs/init` (busybox; prints status to tty0 + kmsg, dmesg to pmsg;
+  no eMMC writes). Busybox: hydra `/usr/bin/busybox` 1.37.0 (static).
+- Build: `6.18.58-cosmo`, `Image.gz-dtb` sha256 `78dfae0955a0…9c6ff`;
+  `boot.img` 15,990,784 bytes, sha256
+  `15c6fb1d665b510424c52b3b9720c20e666a77a5ddb8c3f7b56357d865e15289`.
+- Offline: header fields match the working Planet Gemian image apart
+  from sizes and cmdline. `fdtoverlay` of the stock `dtbo` onto our DTB
+  fails (`FDT_ERR_BADOFFSET`, no `__symbols__`), as expected: the first
+  boot tests what LK does then.
