@@ -145,7 +145,7 @@ for n in "${!PARTDEV[@]}"; do echo "$n ${PARTDEV[$n]}"; done | sort >"$OUT/part/
 	for n in $(printf '%s\n' "${!PARTDEV[@]}" | sort); do
 		dev="${PARTDEV[$n]}"
 		case "$n" in userdata|cache|system|vendor|nvdata|nvram|protect1|protect2|persist|proinfo|metadata|frp|seccfg|sec1|otp|flashinfo|expdb) continue ;; esac
-		magic="$(dd if="$dev" bs=8 count=1 status=none 2>/dev/null | tr -d '\\0')"
+		magic="$(dd if="$dev" bs=8 count=1 status=none 2>/dev/null | tr -d '\0')"
 		[[ "$magic" == "ANDROID!" ]] || continue
 		echo "== $n ($dev) size $(blockdev --getsize64 "$dev")"
 		dd if="$dev" of="$OUT/bootimg/$n-header.bin" bs=4096 count=1 status=none
