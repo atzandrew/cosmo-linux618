@@ -44,33 +44,45 @@ and PLL offsets. Mainline has no `mt6771` anything; the board rides on
    panel.
 4. **Never flash something you cannot identify or undo.** P0 backups first.
 5. **Never flash an image that can strand the device.** A hung boot must
-   always be resettable by holding the power key, with no software help.
-   Needing to drain the battery to reboot is an absolute failure state.
-   Mainline `mtk-pmic-keys` turns the MT6358 long-press reset OFF unless
-   the DT sets `mediatek,long-press-mode`, and PSCI reboot does not work
-   with the vendor ATF (both found 2026-10-25, when a boot could only be
-   escaped by draining). So every DTB keeps
-   `&mt6358keys { mediatek,long-press-mode = <1>; }`;
-   `bin/build-boot-img.sh` refuses to pack a DTB without it. After the
-   first boot of any new kernel config, check the long press really
-   resets before relying on that image. Treat any change touching PMIC
-   keys, watchdog or reset paths as risky and say so before flashing.
-   **Amended 2026-10-25 after a second stranding (try10):** the
-   `mediatek,long-press-mode = <1>` "fix" did not reset the board either
-   (stock `TOP_RST_MISC` = 0x1325 has bit 5 set, bit 6 clear; mainline
-   assumes the power-key reset enable is bit 6). Therefore:
+   always be resettable without software help. Needing to drain the battery
+   or open the case to reboot is an absolute failure state (it happened
+   twice on 2026-10-25, try9 and try10; see `docs/session-log.md`).
+   - **Power-key reset:** the preloader sets MT6358 `TOP_RST_MISC` (0x14c)
+     to 0x1325 (`RG_PWRKEY_RST_EN`, bit 9: ~8 s hold resets). Mainline
+     `mtk-pmic-keys` uses the MT6397 bit layout for this register and
+     clears the reset enable whatever the DT says (`long-press-mode`
+     included). So `&mt6358keys` stays **disabled** and nothing in Linux
+     writes 0x14c; `bin/build-boot-img.sh` refuses a DTB where the keys
+     node is enabled or `long-press-mode` appears.
+   - **Watchdog (timer failsafe):** LK leaves the SoC watchdog running;
+     init owns `/dev/watchdog` and feeds it only from its own loop, so a
+     stuck init or kernel resets the board in ~31-62 s. `cosmo.wdtest=1`
+     arms it without feeding (escape test). The watchdog stays armed across
+     kexec (`mtk_wdt` stop is skipped while `kexec_in_progress`).
+   - **Reboot:** PSCI `SYSTEM_RESET` never returns with the vendor ATF; the
+     `mtk_wdt` restart handler runs first (priority 130), so `reboot -f`
+     resets through the watchdog.
+   - Status (2026-10-25): power-key reset, watchdog reset, watchdog reset
+     across kexec and `reboot -f` all **observed** on the try11+ kernels.
+   Rules:
    - An escape counts only after it has been **seen to fire** on the
      device. Configured or read-from-source is not an escape.
-   - Every experimental image carries **two independent escapes**: the
-     hardware long-press reset and a **timer failsafe** (the SoC watchdog
-     resets the board unless the boot keeps proving itself healthy).
+   - Every experimental image carries **both** escapes above.
    - The first boot of any new kernel config does nothing but prove both
-     escapes, with the Gemian restore queued and the manual recovery
+     escapes, with the Gemian restore staged and the manual recovery
      (unplug the battery connector) ready.
    - Never remove a failsafe to make a test more convenient.
-   - Every flash other than the known-good restore needs an explicit yes
-     to a written pre-flash check (change, risk flags, escapes and whether
-     each has been observed working). No standing approvals.
+   - Any change touching the PMIC keys/`TOP_RST_MISC`, the watchdog, the
+     reset path, the display/panel, or a new kernel config needs an
+     explicit yes to a written pre-flash check (change, risk flags, escapes
+     and whether each has been observed) before it is flashed. Other debug
+     images may go under a standing approval; the pre-flash check is still
+     written into `docs/session-log.md`.
+   - kexec inherits hardware state from the previous kernel: a test of
+     whether some power-up step is needed must be a cold boot (flash, then
+     a power-key reset).
+   - After an mtk write the board stays in download mode until it is reset
+     by hand. `mtk reset` powers the board off: do not use it.
 
 ## Open questions blocking first boot (P0 — answer from the device)
 
