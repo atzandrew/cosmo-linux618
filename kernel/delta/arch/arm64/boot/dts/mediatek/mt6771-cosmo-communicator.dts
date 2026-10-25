@@ -79,6 +79,23 @@
 			/* keep the display power domain on while simpledrm owns it */
 			power-domains = <&spm MT8183_POWER_DOMAIN_DISP>;
 		};
+
+		/*
+		 * LK's second enabled OVL layer (layer 3, the DAL text layer):
+		 * "ovl0, layer=3 … pitch=4320, fmt=eBGRA8888, addr=7e878000,
+		 * aen=1, alpha=255" above layer 0 in LK's log. Inside LK's
+		 * mblock-7-framebuffer reservation. Exposed so bring-up can
+		 * tell which layer is visible after handoff (2026-10-25).
+		 */
+		framebuffer@7e878000 {
+			compatible = "simple-framebuffer";
+			reg = <0 0x7e878000 0 0x8e6200>;
+			width = <1080>;
+			height = <2160>;
+			stride = <4320>;
+			format = "a8b8g8r8";
+			power-domains = <&spm MT8183_POWER_DOMAIN_DISP>;
+		};
 	};
 
 	/*

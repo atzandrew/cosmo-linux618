@@ -189,3 +189,20 @@
 - New `boot.img` sha256
   `adeadd9bc0947358b7fa6d23a76e34a79b5f249fd497c83b7fff8abc964cf455`
   (DTB 80,543 bytes; no-op overlay applies offline).
+
+## 2026-10-25 — third attempt: LK hands over, screen stays on orange
+
+- Flashed `boot` = `adeadd9b…f455`. Result: vibration + orange-state
+  screen ("will boot in 5 seconds"), then the screen stays on that frame;
+  **no reset loop** (no preloader on USB for >60 s after 09:30:16). So
+  LK now completes (the bootargs/vendor-data fix worked) and most likely
+  jumped to the kernel.
+- Open: kernel running but not visible, or stopped early. LK\x27s display
+  has two OVL layers on at handoff (Gemian `pl_lk`): layer 0 = fb
+  0x7df70000 pitch 4352 (our simplefb), layer 3 = DAL 0x7e878000 pitch
+  4320, aen=1 alpha=255, above it. If layer 3 covers layer 0, fbcon is
+  invisible.
+- Test image: second `simple-framebuffer` on the layer-3 buffer; initramfs
+  writes a noise band into rows 1400-2100 of every fb after fb0.
+  `boot.img` sha256
+  `2943617bb5712da8070dcc8e77ca209b2ab9c17dd9784d9285a82920d6dd8c01`.
