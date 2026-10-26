@@ -673,3 +673,15 @@
 - Next: read both vendor drivers in full and compare with mainline
   (pinctrl-aw9523 init + matrix_keypad scan) before the next image.
 - Device restored to try25 (`10c28ea2…`).
+
+## 2026-10-25 — keyboard: stock driver read, live register tests
+
+- Both vendor drivers and the stock DTB/dtbo read; findings with receipts in
+  `docs/keyboard-stock.md`. Stock EINT 12 is level-low; i2c4 400 kHz;
+  AW9524 = cover RGB LEDs (`kbd_backlight` is SoC PWM1 + GPIO178).
+- `tools/aw9523-stock-scan.c`: stock (A), stock with P1_7 an input (B) and
+  the mainline register sequence (C) from userspace all read every key,
+  including the dead ones. The real driver (D) lost 2, 3, 4 that run.
+  Fault is in the kernel interrupt path, not wiring or scan order.
+- No image flashed. Repo DTS still carries the try26/27 diagnostics; revert
+  to the try25 keyboard node before the next build.
