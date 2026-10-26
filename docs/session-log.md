@@ -514,3 +514,36 @@
   `mtk-lk-overlay-clear 7e878000.lk-overlay: cleared [mem
   0x7e878000-0x7f15e1ff]`. Debian `running`, 8 CPUs, USB network and
   SSH back. PASS.
+
+## 2026-10-25 — RTC year offset; try22: unbrought-up drivers kept off (pre-flash check)
+
+- RTC: `mt6397-rtc` read 2086-10-25 00:24 while UTC was 2026-10-26 00:24
+  (Gemian/stock left the time in the vendor year encoding; mainline uses
+  base 1900 + `start_secs` 1968-01-02). At boot the kernel set 2086 and
+  systemd reset the clock to its build epoch (2026-04-13). Rewritten from
+  Linux with `timedatectl set-time` (NTP off for the call, back on):
+  `/sys/class/rtc/rtc0` = 2026-10-26 00:26, matching. Debian has no
+  `hwclock` (util-linux-extra). Survives-reboot check: next boot.
+- NTP: the Cosmo has no route beyond usb0 and Dragon runs only a time
+  client, so no NTP for now; the RTC carries time across boots.
+- try21 dmesg: the Debian module set autoloads drivers for every enabled
+  mt8183.dtsi node: mediatek-drm (no CRTC, components missing) with OVL,
+  RDMA, COLOR, CCORR, AAL, GAMMA, mutex, mmsys bound; `mediatek-disp-pwm`
+  bound to the backlight PWM (1100e000); `mediatek-mipi-tx` bound to the
+  DSI PHY; panfrost bound to the GPU; WARN traces from mtk-mdp3
+  (`__get_pdev_by_id`, `mdp_probe`, devm_kfree) and mtk_scp `scp_get`
+  (from vcodec). Display unaffected on glass, but this is outside rule 3.
+- Change (8eace9c): disable &svs, &pwm0 (disp-pwm), &mipi_tx0, &gpu,
+  &mmsys, OVL/RDMA/COLOR/CCORR/AAL/GAMMA/DITHER/mutex, the six mdp3
+  nodes, vcodec dec/enc and the JPEG encoder. Thermal stays on.
+- Risk: drivers that were bound simply do not probe; none of them had
+  written display state (no CRTC; disp-pwm and mipi-tx write only on
+  enable). LK's scanout, backlight and clocks stay as LK left them
+  (clk/pd/regulator_ignore_unused). Display-adjacent, so explicit yes.
+  Watchdog, PMIC keys, reset path unchanged.
+- Escapes: power-key hold and watchdog, OBSERVED on this kernel family.
+  Rollback: `try21-boot.img` (81c7db49…).
+- Image: `try22-boot.img` sha256 `5ad4ed103cd06b086390f4b9108005f88fa06df3e734845bde5b2d962131de6a`.
+- Pass: console and backlight as before, no orange text, dmesg free of
+  the mdp3/scp WARNs and of mediatek-drm/disp-pwm/mipi-tx/panfrost
+  binds, RTC reads the correct UTC after the reboot, Debian on SSH.
