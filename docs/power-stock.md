@@ -107,6 +107,12 @@ port dump:
 
 CV stays 4.40 V, IEOC 150 mA, timer and TE as on the PC port.
 
+### Live check on an Anker PowerPort mini (5 V / 2.4 A, Apple-compatible)
+
+Detected as "Standard Charger" (type 4), not as an Apple charger: the
+charger registers equal the DCP column above (AICR 3.2 A, ICHG 2.0 A,
+MIVR 4.6 V, CV 4.40 V). Battery 97 %, 4.45 V, +1.59 A.
+
 ### Live check on a USB-C PD laptop charger
 
 Same day, laptop USB-C PD charger; battery 97 %, 4.25 V, +0.69 A, 28 C.
