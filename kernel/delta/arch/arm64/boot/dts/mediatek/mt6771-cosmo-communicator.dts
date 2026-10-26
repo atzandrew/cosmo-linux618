@@ -99,7 +99,7 @@
 	};
 
 	/*
-	 * Built-in keyboard: 8 x 8 matrix (try26 diagnostic) on the AW9523 at i2c4 0x5b (stock:
+	 * Built-in keyboard: 8 x 24 matrix (try27 diagnostic) on the AW9523 at i2c4 0x5b (stock:
 	 * 4-005b "Integrated keyboard"). Rows = port 0, columns = port 1, as
 	 * on the Gemini PDA (same Planet keyboard design); keymap taken from
 	 * gemini-nixos mt6797-gemini-pda.dts, to be checked key by key on the
@@ -127,7 +127,24 @@
 			    <&aw9523 12 GPIO_ACTIVE_LOW>,
 			    <&aw9523 13 GPIO_ACTIVE_LOW>,
 			    <&aw9523 14 GPIO_ACTIVE_LOW>,
-			    <&aw9523 15 GPIO_ACTIVE_LOW>;
+			    <&aw9523 15 GPIO_ACTIVE_LOW>,
+			    /* try27 diagnostic: AW9524 pins as columns 8..23 */
+			    <&aw9524 0 GPIO_ACTIVE_LOW>,
+			    <&aw9524 1 GPIO_ACTIVE_LOW>,
+			    <&aw9524 2 GPIO_ACTIVE_LOW>,
+			    <&aw9524 3 GPIO_ACTIVE_LOW>,
+			    <&aw9524 4 GPIO_ACTIVE_LOW>,
+			    <&aw9524 5 GPIO_ACTIVE_LOW>,
+			    <&aw9524 6 GPIO_ACTIVE_LOW>,
+			    <&aw9524 7 GPIO_ACTIVE_LOW>,
+			    <&aw9524 8 GPIO_ACTIVE_LOW>,
+			    <&aw9524 9 GPIO_ACTIVE_LOW>,
+			    <&aw9524 10 GPIO_ACTIVE_LOW>,
+			    <&aw9524 11 GPIO_ACTIVE_LOW>,
+			    <&aw9524 12 GPIO_ACTIVE_LOW>,
+			    <&aw9524 13 GPIO_ACTIVE_LOW>,
+			    <&aw9524 14 GPIO_ACTIVE_LOW>,
+			    <&aw9524 15 GPIO_ACTIVE_LOW>;
 
 		linux,keymap = <
 			/* col 0 (P1_0) */

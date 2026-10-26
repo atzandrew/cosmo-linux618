@@ -631,3 +631,21 @@
   FUSB301A, PN544 NFC and SiI9022 HDMI, none described. Standing approval.
 - Escapes as before. Rollback: `try25-boot.img` (10c28ea2…).
 - Image: `try26-boot.img` sha256 `15f843f1c1fda1d2ca6390a71a61656d64bd1193d973497075521e38f8a21025`.
+- Result: try26: AW9524 probes with the AW9523 driver (chip ID 0x23,
+  no error), GPIO109 high. Key walk: 2, 4, 5, 6, 7, P, Backspace and Esc
+  still give nothing (col 7 and the fillers never fire); U still also
+  reports (0,0); Fn = (4,3) (KEY_RIGHTALT in the Gemini map). The vendor
+  DTS gives the AW9524 no interrupt line, so it is most likely extra
+  matrix columns.
+
+## 2026-10-25 — try27: AW9524 pins as matrix columns (pre-flash check)
+
+- Change: col-gpios += AW9524 0..15 (columns 8..23; 8 x 24 matrix,
+  row_shift 5, scan = row*32 + col). Unmapped positions still emit
+  MSC_SCAN, which the capture decodes. matrix_keypad drives one column
+  at a time while scanning (inactive columns are inputs), all columns
+  low when idle: no two outputs at different levels.
+- Risk: AW9524 pins become outputs (low when idle). If one of them is not
+  a matrix line, it is held low while the keypad is idle. Standing
+  approval. Rollback `try25-boot.img`.
+- Image: `try27-boot.img` sha256 `33f2dc021d3d9fcb6c52f35f353c45699e64e5f62cdfeac191c6be2f6df9d622`.
