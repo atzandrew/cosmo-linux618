@@ -614,10 +614,114 @@
 };
 
 /*
- * First boots: the M4U and SMI sit in the display's memory path and have
- * no consumers yet (DRM_MEDIATEK is a module and not loaded). Keep them
- * out of the way of LK's running scanout.
+ * Nothing that drives the display, backlight, GPU, media engines or CPU
+ * voltages probes until it is brought up on purpose (AGENTS.md rule 3).
+ * The Debian rootfs carries every defconfig module, so an enabled
+ * mt8183.dtsi node gets its driver loaded (try21: mediatek-drm, the
+ * disp-pwm backlight, mipi-tx, panfrost and the mdp3/vcodec/jpeg probes
+ * with WARN traces). The M4U and SMI sit in the display's memory path:
+ * keep them out of the way of LK's running scanout too.
  */
+&svs {
+	status = "disabled";
+};
+
+&pwm0 {
+	status = "disabled";
+};
+
+&mipi_tx0 {
+	status = "disabled";
+};
+
+&gpu {
+	status = "disabled";
+};
+
+&mmsys {
+	status = "disabled";
+};
+
+&ovl0 {
+	status = "disabled";
+};
+
+&ovl_2l0 {
+	status = "disabled";
+};
+
+&ovl_2l1 {
+	status = "disabled";
+};
+
+&rdma0 {
+	status = "disabled";
+};
+
+&rdma1 {
+	status = "disabled";
+};
+
+&color0 {
+	status = "disabled";
+};
+
+&ccorr0 {
+	status = "disabled";
+};
+
+&aal0 {
+	status = "disabled";
+};
+
+&gamma0 {
+	status = "disabled";
+};
+
+&dither0 {
+	status = "disabled";
+};
+
+&mutex {
+	status = "disabled";
+};
+
+&{/soc/dma-controller0@14001000} {
+	status = "disabled";
+};
+
+&{/soc/mdp3-rsz0@14003000} {
+	status = "disabled";
+};
+
+&{/soc/mdp3-rsz1@14004000} {
+	status = "disabled";
+};
+
+&{/soc/dma-controller@14005000} {
+	status = "disabled";
+};
+
+&{/soc/mdp3-wdma@14006000} {
+	status = "disabled";
+};
+
+&{/soc/mdp3-ccorr@1401c000} {
+	status = "disabled";
+};
+
+&vcodec_dec {
+	status = "disabled";
+};
+
+&vcodec_enc {
+	status = "disabled";
+};
+
+&venc_jpg {
+	status = "disabled";
+};
+
 &iommu {
 	status = "disabled";
 };
