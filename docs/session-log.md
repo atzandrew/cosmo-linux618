@@ -649,3 +649,27 @@
   a matrix line, it is held low while the keypad is idle. Standing
   approval. Rollback `try25-boot.img`.
 - Image: `try27-boot.img` sha256 `33f2dc021d3d9fcb6c52f35f353c45699e64e5f62cdfeac191c6be2f6df9d622`.
+
+## 2026-10-25 — keyboard: stop guessing, read the stock driver
+
+- try27 (AW9524 pins as matrix columns) was flashed but not booted: the
+  theory was wrong. Stock evidence:
+  - The stock Gemian kernel (`boot-gemian-restore.img`, build
+    `cosmo-linux-kernel-0.1+0~20210419192349.29~1.gbpe4734b`) holds the
+    aw9523 keymap table (28-byte entries: name[12], code, state, row, col):
+    8 rows (P0) x 7 columns (P1_0..P1_6), **identical to the Gemini PDA
+    map**. The matrix wiring is the same; the dead keys (2, 4-7, P,
+    Backspace) and the column-0 ghosting of (0,0) are a scan or electrical
+    difference, not a keymap one.
+  - The stock aw9524 driver registers `kbd_backlight` and `aw9524_led_proc`:
+    the AW9524 is the keyboard backlight LED driver, not part of the matrix.
+  - Esc is in neither table (stock input devices include `mtk-kpd`).
+- Vendor sources: `drivers/misc/mediatek/aw9523/aw9523_key.c` and
+  `aw9524/aw9524_key.c` in gemian/cosmo-linux-kernel-4.4 (in git; extract
+  with `git show HEAD:<path>` from a sparse clone). Vendor aw9523 scan:
+  P1 mask 0x7f, P1_7 kept as an output driven low; per column: P1_CONFIG
+  read-modify-write, P1_OUTPUT low on that column, read P0_INPUT. Mainline
+  pinctrl-aw9523 leaves P1_7 as an input.
+- Next: read both vendor drivers in full and compare with mainline
+  (pinctrl-aw9523 init + matrix_keypad scan) before the next image.
+- Device restored to try25 (`10c28ea2…`).
