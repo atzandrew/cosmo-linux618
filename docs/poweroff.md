@@ -146,3 +146,27 @@ write = read: `drivers/misc/mediatek/pmic/common/upmu_debugfs.c:94-123`).
 | `RTC_CON` 0x5c4 | 0x0486 | `F32KOB` (bit 5) clear: 32 k exported while running |
 
 `WDT_MODE` is not readable here (`CONFIG_DEVMEM` not set in the vendor kernel).
+
+## Stock baseline test (Gemian 4.4, 2026-10-26)
+
+- Pass/fail fixed before the run: USB unplugged, shut down from Gemian;
+  pass = stays off for 2+ minutes, then the power key boots Gemian.
+- Result: **PASS** (device observed by the user). The following Plasma
+  login failed once; one more reboot fixed it (see the RTC year note).
+- Unplugging USB from Dragon before the test rebooted the running
+  device once (`boot_reason=0`, no WDT/exception record; battery gauge
+  91 % but 3.65 V under boot load). Cause not proven; a battery dip with
+  the 2 s reboot enabled (`RTC_AL_SEC` bit 8) fits.
+- Register dump after the cycle (one extra reboot in between,
+  `boot_reason=4` = `BR_WDT_BY_PASS_PWK`,
+  `mt-plat/mtk_boot_reason.h:17-26`): identical to the table above, so
+  boot restores the running values.
+
+## Side finding: RTC year encoding differs (open)
+
+- Mainline `rtc-mt6397.c:80,122`: year register = `tm_year` (years since
+  1900); range capped at 2027-12-31 (`:292-295`).
+- Stock `mtk_rtc_common.c:82,97,196`: year register + 68 (base 1968).
+- After mainline Debian set the clock, Gemian reads 2094 (same day/time).
+  LK's interpretation is not yet checked. Needs a decision before
+  dual-booting or before 2028.

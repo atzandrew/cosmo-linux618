@@ -760,3 +760,7 @@
   keeps LK's bit 4 ("bypass power key"), so LK boots Linux again.
 - OPEN: device read of `WDT_MODE` and `PPCCTL0` (device not connected
   this session); pre-flash check for a power-off handler.
+- Stock baseline (Gemian): power-off unplugged stays off, power key boots:
+  PASS. Register values while running recorded in `docs/poweroff.md`.
+- Found: RTC year encoding differs between mainline (base 1900, max 2027)
+  and stock (base 1968): Gemian shows 2094 after mainline set the clock.
