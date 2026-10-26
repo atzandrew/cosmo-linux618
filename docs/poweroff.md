@@ -1,6 +1,6 @@
 # Power-off: stock 4.4 path and the mainline gap
 
-**Status 2026-10-26:** fixed by try30 ():
+**Status 2026-10-26:** fixed by try30 (`drivers/power/reset/mt6358-poweroff.c`):
 power-off with USB unplugged stays off, power key boots (session-log).
 
 Written 2026-10-26. Reference: vendor kernel `gemian/cosmo-linux-kernel-4.4`
