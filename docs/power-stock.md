@@ -90,6 +90,23 @@ DT `mt6771.dts:4106-4190` (`charger`, live DT identical; board override
 - Battery cell (label): 3.85 V nominal, 4220 mAh, charge voltage 4.4 V. So
   CV 4.4 V is the cell rating; LK's 4.35 V is more conservative.
 
+### Live check on a wall charger (DCP)
+
+Same day, Planet-supplied wall charger, detected as "Standard Charger"
+(type 4); battery 97 %, 4.41 V (CV phase), +1.39 A, 28 C; VBUS 4.66 V (no
+Pump Express step-up on this charger). Registers that differ from the PC
+port dump:
+
+| Reg | PC port (CDP) | Wall (DCP) | Decoded (DCP) |
+|---|---|---|---|
+| CHGCTRL3 0x13 | 0x72 | 0xfa | AICR 3.2 A (+ AICR_EN) |
+| CHGCTRL6 0x16 | 0x0b | 0x0f | MIVR 4.6 V |
+| CHGCTRL7 0x17 | 0x38 | 0x4c | ICHG 2.0 A (DT 2.05 A rounded down to the 100 mA step) |
+| 0x22, 0x27, 0x4d, 0xb1 | 0x50, 0x60, 0xbf, 0x32 | 0xd4, 0x48, 0xbb, 0x7a | not decoded |
+| status 0xd0, 0xd4, 0xd6, 0xe0 | 0xa0, 0x10, 0x00, 0xaf | 0x80, 0x14, 0x41, 0xef | |
+
+CV stays 4.40 V, IEOC 150 mA, timer and TE as on the PC port.
+
 ### Thermal limits on charge current
 
 `thermal/common/coolers/mtk_cooler_bcct.c`; battery zone trips are set from
