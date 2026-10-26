@@ -49,10 +49,18 @@ Enable `CHARGER_MT6370` plus a small whole-file delta of
   within one step; heat test by emulated battery temperature stops charging.
 
 ### S4: battery level
-MT6358 gauge module, researched against stock first (FG registers, CAR_TUNE
-93, R_FG 10 mOhm), state-of-charge method and cell data from the Gemini work
-(4050 mAh usable, full at OCV 4.34 V, OCV curve to be checked against the
-Cosmo profile).
+New module `mt6358-gauge` (power_supply, type Battery) reading the gauge
+as stock does (docs/power-stock.md "MT6358 fuel gauge hardware"). Writes:
+only the FGADC_CON1 read handshake; never FG_ON, CAR reset or calibration.
+- Measurements: current (CUR_CON0), charge (CAR), voltage (MT6358 AUXADC
+  BATADC), temperature (AUXADC channel 3, stock conversion).
+- State of charge: start from LK's boot OCV (`/chosen/atag,fg_swocv_v`)
+  through the 25 C curve, then count charge; re-anchor at full (taper
+  below IEOC at CV); learn capacity (start 4050 mAh, the value measured on
+  the same cell in the Gemini, bounded); low-voltage caps at 3.45 / 3.4 V.
+- Pass/fail: current within 5 % of the MT6370 IBAT reading and of a USB
+  meter; charge counted over a known charge session within 5 %; percent
+  never jumps by more than 2 points without a full/empty anchor.
 
 ### S5 backlight, S6 Type-C
 After the display/USB plans; not covered by this plan.

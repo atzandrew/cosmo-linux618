@@ -154,6 +154,38 @@ GPIO177 = switch enable, GPIO176 = switch select (`usb_typec.c:175-176,
   (`mediatek,mt6358-auxadc`: batadc, bat_temp, vbif ...) and the MT6370 ADC
   (`mt6370-adc.c`: vbat, ibat, ts_bat, temp_jc).
 
+## MT6358 fuel gauge hardware (for a mainline gauge)
+
+Stock HAL: `pmic/mt6358/v1/mt6358_gauge.c`; register map
+`include/mt-plat/mt6771/include/mach/upmu_hw.h:526-585,6573-6884`.
+
+- Enabled before Linux: FGADC_CON0 (0xd08) = 0x2529 live (FG_ON, FG_CAL 2,
+  AUTOCALRATE 2, SON_SLP_EN, ZCV_DET_EN). The kernel never turns it on or
+  resets it in normal use.
+- Read handshake (`fgauge_read_current` `:882`, `fgauge_get_coulomb`
+  `:1098`): FGADC_CON1 (0xd0a) [3:0] := 0x1 (SW_READ_PRE), wait for
+  LATCHDATA_ST (bit 15) = 1, read, [3:0] := 0x8 (SW_CLEAR), wait for bit 15 =
+  0, [3:0] := 0x0. These are the only writes needed to read.
+- Current: FG_CURRENT_OUT = FGADC_CUR_CON0 (0xd8a), 16-bit two's complement,
+  + = charging; 381.470 uA per LSB (`UNIT_FGCURRENT`, `:47`).
+- Charge (CAR): 20 bits + sign: `(CAR_CON0 >> 11) | (CAR_CON1 & 0x7fff) << 5`,
+  sign = CAR_CON1 bit 15 (0xd14 / 0xd16); 108.507 uAh per LSB
+  (`UNIT_FGCAR` = 190.735 uAs x 2^11 / 3600, `:49`).
+- Calibration: R_FG 10 mOhm (r_fg_value 100 = no scaling), CAR_TUNE 930 =
+  x 0.930 on current and charge. Gemian log: "Get car_tune_value from DT:
+  930", "Get r_fg_value from DT: 100"; no runtime override
+  (`Set_CARTUNE_TO_KERNEL`, `power/mediatek/battery/mtk_battery.c:3097,3350`) seen.
+- Check against the live dump: CUR_CON0 0x0b8e = 2958 -> 2958 x 381.47 uA x
+  0.93 = 1.049 A (stock reported 1.003 A); CAR 0x00c8:0x8823 -> 6417 LSB ->
+  +648 mAh.
+- LK hands a boot-time reading to the kernel in `/chosen`: `atag,fg_swocv_v`
+  (38619 = 3.8619 V) and `atag,fg_swocv_i` (-716 = -71.6 mA) on this boot.
+- Cell curve: the 25 C profile LK reads (our DTS `battery` node,
+  `battery0_profile_t1`, mAh x 10 / mV x 10 / R) gives 4276 mAh to 3.4 V,
+  starts at 4.365 V, and is within 20 mV of the Gemini PDA vendor 25 C curve
+  at every 10 % step (same cell). The kernel profile's 2946 mAh
+  (`charge_full`) is not this cell.
+
 ## Thermal
 
 Kernel defaults are in `thermal/mt6771/inc/tz*_initcfg.h`; the live trips
