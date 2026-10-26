@@ -33,6 +33,7 @@
 #include <linux/workqueue.h>
 
 #define AW9523_P0_INPUT		0x00
+#define AW9523_P1_INPUT		0x01
 #define AW9523_P1_OUTPUT	0x03
 #define AW9523_P0_CONFIG	0x04
 #define AW9523_P1_CONFIG	0x05
@@ -231,7 +232,14 @@ static bool aw9523_kp_go_idle(struct aw9523_keypad *kp)
 	    aw9523_kp_write(kp, AW9523_P1_OUTPUT, 0x00) ||
 	    aw9523_kp_write(kp, AW9523_P0_INT, ~kp->row_mask))
 		return true;
-	/* reading port 0 also clears the chip's interrupt */
+	/*
+	 * Release INT. The scan's port-1 changes latch it even with the
+	 * port-1 interrupt masked, and only a port-1 input read clears that
+	 * (measured on the Cosmo 2026-10-25: GPIO12 stayed low after a P0
+	 * read, went high after a P1 read). The vendor driver never reads
+	 * P1, which would leave a level-low line asserted.
+	 */
+	aw9523_kp_read(kp, AW9523_P1_INPUT);
 	v = aw9523_kp_read(kp, AW9523_P0_INPUT);
 	return v < 0 || (~v & kp->row_mask);
 }

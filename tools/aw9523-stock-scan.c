@@ -5,6 +5,7 @@
  * from userspace over i2c-dev, and print every change of the key state.
  *
  * Usage: aw9523-stock-scan <stock|p17in|mainline> <seconds> [bus] [addr]
+ *        aw9523-stock-scan reg <bus> <addr> {r REG | w REG VAL}...
  *   stock:    vendor sequence exactly (P1_7 kept an output driven low).
  *   p17in:    the same, but P1_7 left an input (what mainline does).
  *   mainline: the register writes of 6.18 matrix_keypad + pinctrl-aw9523
@@ -110,6 +111,26 @@ int main(int argc, char **argv)
 	double t0, end;
 	int i, j, idle;
 
+	/* raw mode: reg <bus> <addr> {r REG | w REG VAL}... */
+	if (argc > 3 && !strcmp(argv[1], "reg")) {
+		snprintf(dev, sizeof(dev), "/dev/i2c-%s", argv[2]);
+		addr = strtol(argv[3], NULL, 0);
+		fd = open(dev, O_RDWR);
+		if (fd < 0) { perror(dev); return 1; }
+		for (i = 4; i < argc; i++) {
+			if (!strcmp(argv[i], "r") && i + 1 < argc) {
+				j = strtol(argv[++i], NULL, 0);
+				printf("r %02x = %02x\n", j, rd(j));
+			} else if (!strcmp(argv[i], "w") && i + 2 < argc) {
+				j = strtol(argv[++i], NULL, 0);
+				wr(j, strtol(argv[++i], NULL, 0));
+			} else {
+				fprintf(stderr, "bad op %s\n", argv[i]);
+				return 2;
+			}
+		}
+		return 0;
+	}
 	if (argc < 3) {
 		fprintf(stderr, "usage: %s <stock|p17in> <seconds> [bus] [addr]\n", argv[0]);
 		return 2;

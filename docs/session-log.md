@@ -712,3 +712,26 @@
   5, 6, 7, P, Backspace, U, S, J, 1, 3, Fn) gives every key once at its
   stock position, no (0,0) on column-0 keys; Ctrl+Shift+Z gives
   Ctrl+Shift+Z. Fail: any key missing or extra.
+- Result: try28 **keyboard works**: `4-005b` bound to aw9523-keypad,
+  "Integrated keyboard"; every key reported (user check). Fn emits
+  KEY_LEFTMETA, which the headless console does not use as a modifier
+  (Fn layer = userspace keymap, see below). Found: EINT 12 fired ~62/s
+  while idle (626 in 10 s).
+- INT stuck low (2026-10-25, driver unbound, `tools/aw9523-stock-scan reg`
+  + pinctrl debugfs GPIO12 input bit): after the stock init GPIO12 stays
+  low after a P0_INPUT read and goes high after a P1_INPUT read, with the
+  P1 interrupt masked. The scan's port-1 writes latch INT; only a P1 read
+  clears it. The vendor driver never reads P1.
+- Fn layer in stock userspace: Gemian xkeyboard-config
+  `symbols/planet_vndr/cosmo` maps `<LWIN>` (KEY_LEFTMETA) to
+  ISO_Level3_Shift (Mod5); level 3 = Fn layer, level 4 = Fn+Shift.
+
+## 2026-10-25 — try29: release the AW9523 INT line when idle (pre-flash check)
+
+- Change: aw9523-keypad reads P1_INPUT before P0_INPUT when going idle.
+  No config or DTS change: standing approval.
+- Risk, escapes, rollback as try28 (rollback `try28-boot.img` e2196b54…,
+  `try25-boot.img` 10c28ea2…).
+- Image: `try29-boot.img` sha256 `f29ea6bb49dba72ebd06f76bc67eb3db63b8a2ddb0cd523f414b35d8deb7b050`.
+- Pass: EINT 12 count stays flat while idle (10 s); every key still
+  reported once. Fail: idle interrupts or a lost key.
