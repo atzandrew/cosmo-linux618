@@ -27,6 +27,9 @@ MFD + ADC + MT6358 AUXADC + efuse nvmem (`MTK_EFUSE`). No charger driver.
 - Writes: IRQ masks, ADC control. Charger setup untouched (verify CHGCTRL
   registers unchanged before/after via regmap debugfs).
 
+**S1 result 2026-10-26: PASS** (`boot-s1.img` 91dcb53d…, docs/session-log.md).
+Efuse check also PASS (read on try30, before S1).
+
 ### S2: SoC thermal, critical shutdown only
 `MTK_SOC_THERMAL`, only if the efuse check passed. mt8183.dtsi zones; critical
 trip -> orderly power-off (power-off works since try30).

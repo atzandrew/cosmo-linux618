@@ -800,3 +800,45 @@
 - LK also reads the RTC year with base 1968 (expdb: `Current RTC
   time:[2094/10/26 …]`), like the vendor kernel.
 - OPEN: Test B (USB plugged in, expected LK charging mode / boot).
+
+## 2026-10-26 — power foundation: stock capture, back to mainline, S1
+
+- Stock reference (Gemian, read-only): docs/power-stock.md; plan:
+  docs/power-plan.md. Charger values captured live on a PC port (CDP), two
+  Anker wall chargers (DCP) and a USB-C PD laptop charger.
+- Back to mainline: gemini-debian `DEVICE=cosmo` rootfs rebuilt on Hydra
+  (a2dd408, includes the b148a20 usb0 fix; 3 GB image sha256 `9763f1c0…`,
+  shrunk with `resize2fs -M` to 722 MB, `4b551b9e…`). Flashed (explicit
+  OK): `mtk w boot,dtbo,userdata` = try30 (9ddfbc20…), no-op dtbo
+  (c854cfe9…), rootfs. usb0 came up managed without manual steps.
+- Efuse on try30 (`/sys/bus/nvmem/devices/nvmem0`, offset 0x180):
+  `02954977 a21e314a a754aa20` = stock devinfo 100 / 101 / 102 (Gemian
+  dmesg `[calibration] temp0=0xa21e314a, temp1=0x2954977, temp2=0xa754aa20`).
+  The mt8183 V1 field layout in auxadc_thermal.c matches stock mtk_tc.c.
+- S1 (measure only): `&i2c11` 400 kHz with `pmic@34` (`mediatek,mt6370`,
+  GPIO10 level-low) and only the `adc` child; `MFD_MT6370`,
+  `MEDIATEK_MT6370_ADC`, `MEDIATEK_MT6359_AUXADC` built in; charger,
+  backlight, LEDs, regulators, TCPC drivers not built. Image `boot-s1.img`
+  sha256 `91dcb53d95e3df88c003c289aa80f04b07179c45c96ca67f628894d6981517c2`
+  (Image.gz-dtb `fa24a30a…`). Flashed (explicit OK): `mtk w boot`.
+- S1 result: **PASS**.
+  - Boot + usb0 OK; MT6370 core probed (`11-0034` regmap), `mt6370-irqs`
+    on EINT 10: 0 interrupts after 120 s.
+  - Charger registers (regmap debugfs, mainline offset +0x100) = LK's setup,
+    untouched: AICR 0x113 = 0x22 (500 mA), CV 0x114 = 0x5a (4.35 V), ICHG
+    0x117 = 0x10 (500 mA), IEOC 0x119 = 0x3c (250 mA), CHGCTRL2 0x112 =
+    0x0b (TE off), timer 0x11c = 0x02 (on, **4 h**: the safety audit said
+    12 h, corrected), WDT 0x11d = 0x52 (off), JEITA 0x120 = 0x00, IR comp
+    0x12c = 0x40 (0).
+  - VBAT: MT6370 `vbat` 818 x 5 mV = 4.090 V; MT6358 `bat_adc` 24765 x
+    5400 / 32768 = 4.081 V.
+  - Battery temperature: MT6358 `batt_temp` 907 x 3600 / 4096 = 797 mV,
+    `bif_v` 2.809 V -> R = 24 k x 797 / (2809 - 797) = 9.5 kOhm -> about 26 C.
+  - MT6370 `temp_jc` (38 - 20) x 2 = 36 C; `ibus` 400 mA, `ibat` 0 (PC
+    port, LK's 500 mA input limit covers only the system load).
+  - MT6358 `cdt_v` read times out (-ETIMEDOUT); not used.
+  - Rootfs still carries the old `mt6359-auxadc.ko`: "Driver
+    'mt6359-auxadc' is already registered" at boot, harmless.
+  - Escape: power-key ~8 s hold reset the board and Debian booted again
+    (observed on S1).
+

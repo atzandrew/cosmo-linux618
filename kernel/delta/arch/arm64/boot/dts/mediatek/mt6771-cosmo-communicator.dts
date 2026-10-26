@@ -726,6 +726,38 @@
 	};
 };
 
+/*
+ * MT6370 sub-PMIC (charger, Type-C TCPC, backlight, ADC) on vendor i2c5 =
+ * mainline &i2c11 (0x11017000, single-channel: vendor mt6771.dts has no
+ * ch_offset for i2c5). Stock runs this bus at 3.4 MHz HS (live DT
+ * clock-frequency 0x33e140, mediatek,hs_only); 400 kHz is used here.
+ * Pin mux left as the preloader sets it (LK talks to the MT6370 on it).
+ * PMU interrupt: GPIO10 = EINT 10 level-low (live /mt6370_pmu_eint).
+ * docs/power-stock.md, docs/power-plan.md S1.
+ *
+ * S1 (measure only): just the core and the ADC child. The other children
+ * the binding lists (charger, tcpc, backlight, indicator, flashlight,
+ * regulators) are left out on purpose and their drivers are not built,
+ * so nothing touches charging, Type-C, the backlight or the DSV/LDO rails.
+ */
+&i2c11 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	mt6370: pmic@34 {
+		compatible = "mediatek,mt6370";
+		reg = <0x34>;
+		interrupts-extended = <&pio 10 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+
+		mt6370_adc: adc {
+			compatible = "mediatek,mt6370-adc";
+			#io-channel-cells = <1>;
+		};
+	};
+};
+
 &uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart0_pins_default>;
