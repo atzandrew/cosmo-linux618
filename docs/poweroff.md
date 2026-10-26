@@ -123,3 +123,26 @@ power the device on.
   mainline; `PPCCTL0` 0xa08 = 1 while running.
 - Stock behaviour with USB plugged in (expected: KPOC boot) for the
   comparison test.
+
+## Stock register values while running (Gemian 4.4, 2026-10-26)
+
+Read-only via `/sys/devices/platform/mt-pmic/pmic_access` (address-only
+write = read: `drivers/misc/mediatek/pmic/common/upmu_debugfs.c:94-123`).
+
+| Register | Value | Note |
+|---|---|---|
+| `PPCCTL0` 0xa08 | 0x0001 | `RG_PWRHOLD` = 1 (power-off clears it) |
+| `PSEQ_ELR11` 0xa62 | 0xa403 | bit 10 `RG_SDN_DLY_ENB` = 1 (power-off clears it) |
+| `TOP_TMA_KEY` 0x3a8 | 0x0000 | locked |
+| `TOP_RST_MISC` 0x14c | 0x0221 | bit 9 `RG_PWRKEY_RST_EN` set; differs from the preloader's 0x1325 (safety-audit.md): the vendor kernel rewrites it |
+| `RTC_BBPU` 0x588 | 0x0001 | `PWREN` |
+| `RTC_IRQ_EN` 0x58c | 0x000c | alarm IRQ off |
+| `RTC_AL_MASK` 0x590 | 0x0010 | DOW only (same as the power-off write) |
+| `RTC_AL_SEC` 0x5a0 | 0x25f4 | `2SEC_EN` (bit 8), `AUTO_PDN_SEL` (bit 6) set; power-off clears both |
+| `RTC_AL_YEA` 0x5ac | 0xc502 | `K_EOSC_RSV_0/2` set, `RSV_1` clear (already the power-off pattern) |
+| `RTC_OSC32CON` 0x5ae | 0xde6e | `EMBCK_SRC_SEL` (bit 8) clear; power-off sets it |
+| `RTC_PDN1` 0x5b4 | 0x0000 | no `RTC_GPIO_USER` bits: power-off sets `F32KOB` |
+| `RTC_PDN2` 0x5b6 | 0x0201 | `PWRON_ALARM` clear |
+| `RTC_CON` 0x5c4 | 0x0486 | `F32KOB` (bit 5) clear: 32 k exported while running |
+
+`WDT_MODE` is not readable here (`CONFIG_DEVMEM` not set in the vendor kernel).
