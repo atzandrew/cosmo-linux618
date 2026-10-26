@@ -547,3 +547,32 @@
 - Pass: console and backlight as before, no orange text, dmesg free of
   the mdp3/scp WARNs and of mediatek-drm/disp-pwm/mipi-tx/panfrost
   binds, RTC reads the correct UTC after the reboot, Debian on SSH.
+- Result: try22 flashed and booted. 0 WARN traces; mediatek-drm,
+  panfrost and disp-pwm not bound; `systemctl is-system-running` =
+  running; RTC after the reboot = 2026-10-26 00:34:39 UTC, matching
+  Dragon (RTC fix holds). PASS.
+
+## 2026-10-25 — try23: built-in keyboard (pre-flash check)
+
+- Live pin state (try22, debugfs `pinctrl_paris/pins`): GPIO50/51 and
+  GPIO105/106 in mode 1 (SCL3/SDA3, SCL4/SDA4) with pull-ups; GPIO12
+  (AW9523 INT) GPIO input, pull-up, high; GPIO175 (AW9523 HWEN) and
+  GPIO109 (AW9524 HWEN) GPIO outputs driven **low**: both expanders held
+  in reset after LK. (This debugfs prints mode + 8.)
+- Vendor `k71v1_64_bsp.dts`: aw9523_key HWEN GPIO175, INT GPIO12;
+  aw9524_key HWEN GPIO109. Stock I2C: 4-005b aw9523 "Integrated
+  keyboard", 3-005b aw9524. The vendor driver sources
+  (`drivers/misc/mediatek/aw952x`) are not in the gemian 4.4 tree.
+- Change: `&i2c4` on at 100 kHz with `awinic,aw9523-pinctrl` @5b
+  (INT GPIO12 falling edge, reset GPIO175 active-low); `gpio-matrix-keypad`
+  8 rows (P0) x 7 cols (P1), keymap from the Gemini PDA, interrupt
+  driven. CONFIG_PINCTRL_AW9523=y, CONFIG_KEYBOARD_MATRIX=y. AW9524
+  untouched (i2c3 stays off, GPIO109 stays low).
+- Risk: I2C traffic on i2c4 (also carries camera parts, all unpowered)
+  and GPIO175 driven high (vendor running state). No reset, watchdog,
+  PMIC-key or display change: standing approval.
+- Escapes: power-key hold and watchdog, OBSERVED. Rollback:
+  `try22-boot.img` (5ad4ed10…).
+- Image: `try23-boot.img` sha256 `e7b7c5dcc81918b59d44bb79bc19de01ea48ed4c28deaed8ee6d593929474b80`.
+- Pass: aw9523 probes, an input device appears, key presses give events
+  (`/dev/input/event*`), Debian back on SSH.
