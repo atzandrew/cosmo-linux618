@@ -590,3 +590,23 @@
   `try22-boot.img`).
 - Image: `try24-boot.img` sha256 `db62c800fae595b7f4ef043c3d10104b5a85b8916bd835b1c92077b6725fdc3f`.
 - Pass: as try23.
+- Result: try24 booted; GPIO175 now high (chip out of reset), but the
+  readback still fails (-110, ~4 s). Manual rebind: same. `/proc/interrupts`
+  shows **0** interrupts for 11008000.i2c, so the controller never
+  completes a transfer. Clock gates match the vendor (infra0 bit 12,
+  infra1 bit 18, infra2 bit 21). Vendor mt6771.dts gives i2c2 and i2c4
+  `ch_offset_default = <0x100>` / `ccu-ch-offset = <0x200>`: multi-channel
+  controllers, AP channel at +0x100. FAIL.
+- Also seen (since try22): scpsys (`10006000.syscon:power-controller`)
+  defers forever, with mfgcfg and the AFE waiting on it: the mt8183 DISP
+  power domain takes mmsys clocks and &mmsys is now disabled. Power
+  domains stay as LK left them (pd_ignore_unused). To fix before GPU or
+  audio bring-up.
+
+## 2026-10-25 — try25: i2c4 at the AP channel offset (pre-flash check)
+
+- Change: `&i2c4` reg = 0x11008100 +0x100 (AP channel), DMA reg as before.
+- Risk, escapes, rollback as try23 (standing approval; rollback
+  `try22-boot.img`).
+- Image: `try25-boot.img` sha256 `10c28ea28be42bc0a6f09b048f7d6e8308031155be30db6f3ff6b9248193afa6`.
+- Pass: i2c4 interrupts > 0, aw9523 probes, keypad input device appears.

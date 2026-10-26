@@ -707,6 +707,16 @@
  * (GPIO175, GPIO109: output low) until a driver releases them.
  */
 &i2c4 {
+	/*
+	 * MT6771 i2c4 is a multi-channel controller: vendor mt6771.dts has
+	 * ch_offset_default = <0x100> (AP channel) and ccu-ch-offset 0x200
+	 * (camera CCU), so the AP's registers start at +0x100. Mainline
+	 * i2c-mt65xx has no channel offset: the base moves instead. With the
+	 * mt8183.dtsi base (0x11008000) every transfer timed out with zero
+	 * controller interrupts (try23/try24).
+	 */
+	reg = <0 0x11008100 0 0x100>,
+	      <0 0x11000100 0 0x80>;
 	clock-frequency = <100000>;
 	status = "okay";
 
