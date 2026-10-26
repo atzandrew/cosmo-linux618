@@ -610,3 +610,24 @@
   `try22-boot.img`).
 - Image: `try25-boot.img` sha256 `10c28ea28be42bc0a6f09b048f7d6e8308031155be30db6f3ff6b9248193afa6`.
 - Pass: i2c4 interrupts > 0, aw9523 probes, keypad input device appears.
+- Result: try25 **keyboard alive**: aw9523 probes, `input0` "keyboard",
+  matrix IRQs count. One gpiolib WARN ("Ignoring 3 default trigger":
+  pinctrl-aw9523 sets girq->default_type with an OF irqchip; harmless).
+  Key walk (raw evdev capture, scan = row*8+col): letters, Tab, Enter,
+  shifts, Ctrl, Alts, Space, arrows, comma, dot, apostrophe, 1, 3, 8, 9,
+  0 match the Gemini map. Never seen: 2, 4, 5, 6, 7 (Gemini (0,1),
+  (0,3)-(0,6)), Backspace (6,2), P (6,3). Every column-0 key (U, S, J,
+  comma, apostrophe) also reports (0,0) "1". PARTIAL.
+
+## 2026-10-25 — try26: keyboard wiring diagnostic (pre-flash check)
+
+- Change: matrix 8 x 8 (col 7 = AW9523 P1_7 added); the 12 positions the
+  Gemini map leaves empty get KEY_F13..F24 so every position is
+  identifiable; AW9524 on `&i2c3` (base 0x1100f000, no channel offset)
+  probed with the AW9523 driver, reset GPIO109 active-high (vendor
+  hwen high). The driver sets all its pins to inputs, or stops at a
+  chip-ID mismatch (logged).
+- Risk: AW9524 leaves reset (stock running state); i2c3 also carries
+  FUSB301A, PN544 NFC and SiI9022 HDMI, none described. Standing approval.
+- Escapes as before. Rollback: `try25-boot.img` (10c28ea2…).
+- Image: `try26-boot.img` sha256 `15f843f1c1fda1d2ca6390a71a61656d64bd1193d973497075521e38f8a21025`.
