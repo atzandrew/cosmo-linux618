@@ -509,3 +509,8 @@
   (boot only; no-op dtbo and Debian userdata stay).
 - Pass: orange text gone from the console, console text intact, dmesg
   shows `mtk-lk-overlay-clear ... cleared`, Debian back on SSH.
+- Result: flashed (`mtk w boot`, sector 1095680), reset by hand.
+  **Orange-state text gone on glass**, console intact. dmesg at 0.197 s:
+  `mtk-lk-overlay-clear 7e878000.lk-overlay: cleared [mem
+  0x7e878000-0x7f15e1ff]`. Debian `running`, 8 CPUs, USB network and
+  SSH back. PASS.

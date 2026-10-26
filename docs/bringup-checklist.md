@@ -23,7 +23,7 @@ yet confirmed.
 | ✅ | Power-key long-press reset | MT6358 `TOP_RST_MISC` | (hardware) | preloader value 0x1325 kept; Linux never writes it | P1 |
 | ✅ | USB device (gadget) | mtu3 `11201000`, t-phy | yes + delta | `u3p-dis-msk`, U2 force bits; CDC-ECM + telnet | P1 |
 | ✅ | kexec | — | yes | test loop, ~40 s per kernel | P1 |
-| 🔶 | Framebuffer console | LK buffer `0x7df70000`, simplefb | yes | fixed address; take it from LK's atag; LK orange text on OVL layer 3 | P1 |
+| 🔶 | Framebuffer console | LK buffer `0x7df70000`, simplefb | yes | fixed address; take it from LK's atag; LK orange text on OVL layer 3 cleared at boot (try21, mtk-lk-overlay-clear) | P1 |
 | ⬜ | Power key / keys as input | MT6358 `mt6358keys` | **fix** | disabled: mainline `mtk-pmic-keys` has the wrong MT6358 reset-register layout. Needs a corrected driver that never touches the reset enable | P2 |
 | ⬜ | Keypad block | `kp@10010000` | check (`mt6779-keypad`?) | which keys it carries on the Cosmo | P2 |
 | ⬜ | cpufreq / DVFS | big: vproc11+vsram_proc11, little+CCI: vproc12+vsram_proc12 (no external buck) | yes (mt8183) | today fixed at 1.1/1.2 GHz (LK); stock 0.79-1.99 / 0.79-2.11 GHz, OPP table for this unit in `docs/stock-reference.md` | P2 |
