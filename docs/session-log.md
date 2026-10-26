@@ -735,3 +735,16 @@
 - Image: `try29-boot.img` sha256 `f29ea6bb49dba72ebd06f76bc67eb3db63b8a2ddb0cd523f414b35d8deb7b050`.
 - Pass: EINT 12 count stays flat while idle (10 s); every key still
   reported once. Fail: idle interrupts or a lost key.
+- Result: try29 **PASS** for the driver: EINT 12 count 0 over 10 s idle
+  (try28: ~620); keys reported (user check).
+- Fn layer (rootfs, gemini-debian a5f630b, a2dd408): console-setup with
+  xkb layout `cosmo`, variant `us` (trimmed Gemian planet_vndr/cosmo);
+  Fn = KEY_LEFTMETA = AltGr on the console (dumpkeys: keycode 125 =
+  AltGr). Installed live on the device (same files as the repo).
+  console-setup also replaced the console font (Fixed 8x16); set to
+  Terminus 16x32 like the kernel's fbcon font.
+- OPEN: Fn works but the Fn-layer symbols do not match this unit's
+  US/JPN silkscreen (user check). Next: walk the silkscreen key by key
+  and correct the `cosmo(us)` symbols (no Kana group).
+- OPEN: Esc = PMIC power key on stock (hal_kpd.c: KEY_ESC, KEY_POWER
+  with Fn); mtk-pmic-keys stays disabled (AGENTS.md rule 5).
