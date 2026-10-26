@@ -460,6 +460,17 @@
  */
 &pmic {
 	interrupts-extended = <&pio 182 IRQ_TYPE_LEVEL_HIGH>;
+
+	/*
+	 * Power-off: the vendor ATF ignores PSCI SYSTEM_OFF. mt6358-poweroff
+	 * runs the vendor RTC power-down sequence and releases RG_PWRHOLD;
+	 * its fallback resets through TOPRGU without "bypass power key"
+	 * (docs/poweroff.md). status = "disabled" turns it off.
+	 */
+	mt6358_pwrc: pwrc {
+		compatible = "mediatek,mt6358-pwrc";
+		mediatek,toprgu = <&watchdog>;
+	};
 };
 
 /*

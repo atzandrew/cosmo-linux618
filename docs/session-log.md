@@ -764,3 +764,20 @@
   PASS. Register values while running recorded in `docs/poweroff.md`.
 - Found: RTC year encoding differs between mainline (base 1900, max 2027)
   and stock (base 1968): Gemian shows 2094 after mainline set the clock.
+
+## 2026-10-26 — try30: MT6358 power-off handler (pre-flash check, NOT flashed)
+
+- Change: new `drivers/power/reset/mt6358-poweroff.c` (+ Kconfig,
+  Makefile), MFD cell `mt6358-pwrc` in `mt6397-core.c`, DT node
+  `&pmic/pwrc` (`mediatek,toprgu = <&watchdog>`),
+  `CONFIG_POWER_RESET_MT6358=y`. Sequence = vendor `hal_rtc_bbpu_pwdn()`
+  in the power-off prepare stage, `RG_PWRHOLD` = 0 in the power-off stage
+  (priority 192, before PSCI at 0), then after 1.1 s a TOPRGU reset with
+  `WDT_MODE` bit 4 cleared (vendor `arch_reset(0, "charger")`).
+  Receipts: `docs/poweroff.md`.
+- Normal boot: probe reads `PPCCTL0` once; no writes. Reboot path
+  unchanged (power-off handlers only).
+- Image: `try30-boot.img` sha256
+  `9ddfbc207f13dd9154126118d56e826ce60671720bc717025c97dff7b71c9202`
+  (kernel Image.gz-dtb `bfc2552a…`). Rollback `try29-boot.img` f29ea6bb….
+- PMIC/power path: not covered by the standing flash approval.
