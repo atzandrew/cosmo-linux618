@@ -484,3 +484,28 @@
 - `systemctl reboot` and `reboot -f` both reset through the watchdog.
 - The Debian clock starts at the last saved time (no RTC read/set yet, no
   NTP over USB).
+
+## 2026-10-25 — try21: hide the LK orange-state text (pre-flash check)
+
+- Tidy first (c15cb8b): mtu3_plat.c delta removed (it held only the IPPC
+  dump; stock driver again), tphy U3 register print dropped, U2 VBUS
+  force bits kept. AGENTS.md rule 5 wording was already current.
+- Change (21fbeb9): built-in `mtk-lk-overlay-clear` driver + DT node
+  `lk-overlay@7e878000` (reg 0x7e878000 +0x8e6200 = 4320 x 2160). It fills
+  OVL layer 3's buffer with zero (alpha 0) once at probe. The buffer is
+  inside LK's no-map `mblock-7-framebuffer` (0x7df70000 +0x1f90000, read
+  from the running Debian's /proc/device-tree), past layer 0
+  (0x7df70000 +0x8f7000). Memory write only: no OVL/RDMA/DSI register and
+  no panel command, so AGENTS.md rule 3 is not touched. It counts as a
+  display change under rule 5, so it needs an explicit yes.
+- Risk: wrong address = a stripe of garbage or nothing on screen until
+  the next boot; no register state changes. Watchdog, PMIC keys, reset
+  path and USB init are unchanged from try20 (apart from the removed
+  debug prints).
+- Escapes: power-key hold (~8 s) and watchdog, both OBSERVED on this
+  kernel family (try11+, try20). Rollback: `~/cosmo-flash/try20-boot.img`
+  (dd2cc047…), rescue `try20-rescue-boot.img`.
+- Image: `try21-boot.img` sha256 `81c7db49a740c775123e59dd0fe705bd6f28cdec8a5e8c145a8dd9880a38614f`
+  (boot only; no-op dtbo and Debian userdata stay).
+- Pass: orange text gone from the console, console text intact, dmesg
+  shows `mtk-lk-overlay-clear ... cleared`, Debian back on SSH.
