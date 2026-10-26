@@ -781,3 +781,22 @@
   `9ddfbc207f13dd9154126118d56e826ce60671720bc717025c97dff7b71c9202`
   (kernel Image.gz-dtb `bfc2552a…`). Rollback `try29-boot.img` f29ea6bb….
 - PMIC/power path: not covered by the standing flash approval.
+- Flashed 2026-10-26 (explicit OK): `mtk w boot,dtbo,userdata` = try30
+  (9ddfbc20…, sector 1095680), no-op dtbo (c854cfe9…, 1177600), Debian
+  rootfs `cosmo-debian-rootfs.img` (85ee0b3e…, 10158080).
+- That rootfs image predates gemini-debian b148a20 (built 16:14, fix
+  16:54 on 2026-10-25): usb0 unmanaged again. Recovered from the console
+  (`nmcli device set usb0 managed yes`, temporary manual method), then
+  installed the five b148a20 overlay files; usb0 back in shared mode.
+  The image in gemini-debian `out/` still needs a rebuild.
+- Gate: `mt6358-pwrc: power-off ready (PPCCTL0 0x1, TOPRGU mapped)`.
+- Test A (USB unplugged, `systemctl poweroff` on the console): **PASS**.
+  Stayed off; the power key (~4 s) booted Debian. Before try30 every
+  power-off rebooted into Linux.
+- Not yet shown: whether the power hold cut power directly or the 1.1 s
+  fallback reset ran and LK powered off (both end "off" without a
+  charger). The journal stops before the handler; LK's expdb ring had no
+  entry for this boot yet and no watchdog boot reasons.
+- LK also reads the RTC year with base 1968 (expdb: `Current RTC
+  time:[2094/10/26 …]`), like the vendor kernel.
+- OPEN: Test B (USB plugged in, expected LK charging mode / boot).

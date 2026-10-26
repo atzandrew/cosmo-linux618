@@ -1,5 +1,8 @@
 # Power-off: stock 4.4 path and the mainline gap
 
+**Status 2026-10-26:** fixed by try30 ():
+power-off with USB unplugged stays off, power key boots (session-log).
+
 Written 2026-10-26. Reference: vendor kernel `gemian/cosmo-linux-kernel-4.4`
 @ a741a2e (paths below are relative to it unless marked *mainline*),
 mainline v6.18.58, Cosmo LK image from the P0 backup (strings only).
