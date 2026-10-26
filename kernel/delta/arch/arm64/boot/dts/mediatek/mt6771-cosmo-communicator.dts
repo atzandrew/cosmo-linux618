@@ -719,8 +719,14 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 		gpio-ranges = <&aw9523 0 0 16>;
-		/* vendor aw9523_hwen: GPIO175 high = running */
-		reset-gpios = <&pio 175 GPIO_ACTIVE_LOW>;
+		/*
+		 * vendor aw9523_hwen: GPIO175 high = running. pinctrl-aw9523
+		 * drives this line as "1 = run" (it requests it OUT_HIGH and
+		 * pulses 0 then 1), so it is described active-high. Active-low
+		 * held the chip in reset during the driver's register readback
+		 * (try23: "Failed to read 2: -110").
+		 */
+		reset-gpios = <&pio 175 GPIO_ACTIVE_HIGH>;
 	};
 };
 

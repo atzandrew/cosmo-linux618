@@ -576,3 +576,17 @@
 - Image: `try23-boot.img` sha256 `e7b7c5dcc81918b59d44bb79bc19de01ea48ed4c28deaed8ee6d593929474b80`.
 - Pass: aw9523 probes, an input device appears, key presses give events
   (`/dev/input/event*`), Debian back on SSH.
+- Result: try23 booted (Debian up), but `aw9523-pinctrl 4-005b: Failed to
+  read 2: -110`, probe failed; keypad deferred on it; GPIO175 still low.
+  Cause: pinctrl-aw9523 treats `reset-gpios` as "1 = run" (requests it
+  GPIOD_OUT_HIGH, regmap reads the registers back, then pulses 0 -> 1).
+  Described active-low, logical 1 drove GPIO175 low, so the chip sat in
+  reset during the readback. FAIL.
+
+## 2026-10-25 — try24: AW9523 reset polarity (pre-flash check)
+
+- Change: `reset-gpios = <&pio 175 GPIO_ACTIVE_HIGH>`. Nothing else.
+- Risk, escapes, rollback as try23 (standing approval; rollback
+  `try22-boot.img`).
+- Image: `try24-boot.img` sha256 `db62c800fae595b7f4ef043c3d10104b5a85b8916bd835b1c92077b6725fdc3f`.
+- Pass: as try23.
