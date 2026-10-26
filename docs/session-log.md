@@ -748,3 +748,15 @@
   and correct the `cosmo(us)` symbols (no Kana group).
 - OPEN: Esc = PMIC power key on stock (hal_kpd.c: KEY_ESC, KEY_POWER
   with Fn); mtk-pmic-keys stays disabled (AGENTS.md rule 5).
+
+## 2026-10-26 — power-off: stock path read (no code, no flash)
+
+- Stock power-off written up with receipts in `docs/poweroff.md`: the cut is
+  MT6358 `PPCCTL0` 0xa08 bit 0 (`RG_PWRHOLD`) = 0 after the RTC/BBPU
+  sequence; if power has not dropped after ~1.1 s (or a charger is
+  present) stock does a watchdog reset with `WDT_MODE` bit 4 cleared.
+- Why mainline reboots also unplugged: nothing in mainline writes
+  `PPCCTL0`; PSCI SYSTEM_OFF is ignored; the watchdog reset that follows
+  keeps LK's bit 4 ("bypass power key"), so LK boots Linux again.
+- OPEN: device read of `WDT_MODE` and `PPCCTL0` (device not connected
+  this session); pre-flash check for a power-off handler.
