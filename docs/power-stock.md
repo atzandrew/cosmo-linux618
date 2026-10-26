@@ -92,7 +92,7 @@ DT `mt6771.dts:4106-4190` (`charger`, live DT identical; board override
 
 ### Live check on a wall charger (DCP)
 
-Same day, Planet-supplied wall charger, detected as "Standard Charger"
+Same day, Anker wall charger (USB-A port), detected as "Standard Charger"
 (type 4); battery 97 %, 4.41 V (CV phase), +1.39 A, 28 C; VBUS 4.66 V (no
 Pump Express step-up on this charger). Registers that differ from the PC
 port dump:
@@ -106,6 +106,29 @@ port dump:
 | status 0xd0, 0xd4, 0xd6, 0xe0 | 0xa0, 0x10, 0x00, 0xaf | 0x80, 0x14, 0x41, 0xef | |
 
 CV stays 4.40 V, IEOC 150 mA, timer and TE as on the PC port.
+
+### Live check on a USB-C PD laptop charger
+
+Same day, laptop USB-C PD charger; battery 97 %, 4.25 V, +0.69 A, 28 C.
+TCPC log: contract 5 V / 1.0 A, 5 V / 1.5 A, then 11 V / 2.5 A and 7.65 V /
+2.5 A (programmable steps), then back to 5 V / 2.5 A within 2 s: above
+`pe40_stop_battery_soc` (80 %) stock leaves the higher voltages.
+
+| Reg | Wall (DCP) | PD | Decoded (PD) |
+|---|---|---|---|
+| CHGCTRL2 0x12 | 0x1b | 0x0b | TE_EN **0** (termination off), CHG_EN 1 |
+| CHGCTRL3 0x13 | 0xfa | 0xc2 | AICR 2.5 A = PD contract current |
+| CHGCTRL7 0x17 | 0x4c | 0x74 | ICHG **3.0 A** |
+
+ICHG 3.0 A is `pd_charger_current`, hard-coded at 3 A
+(`drivers/power/mediatek/charger/mtk_charger.c:1661`) and used on the PD
+path (`mtk_switch_charging.c:144-170`), above the 2.05 A that the DT gives
+for a wall charger. CV stays 4.40 V, MIVR 4.6 V.
+
+### Pump Express on the Anker (USB-A) charger
+
+No step-up during the DCP check: `ta_stop_battery_soc` = 85 % (DT) and the
+battery was at 97 %. The same charger gave 9 V on the Gemini PDA.
 
 ### Thermal limits on charge current
 
