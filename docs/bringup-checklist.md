@@ -105,6 +105,7 @@ yet confirmed.
 
 | | Item | Notes | Phase |
 |---|---|---|---|
-| ⬜ | Root filesystem | Debian trixie via the gemini-debian builder, device switch | P7 |
-| ⬜ | Boot flow | initramfs → rootfs on eMMC; keep both escapes | P7 |
+| 🔶 | Root filesystem | headless Debian trixie on userdata (gemini-debian `DEVICE=cosmo`); desktop after display/input | P7 |
+| ✅ | Boot flow | initramfs → Debian on userdata; systemd takes the watchdog; tripwire to the rescue initramfs (both observed 2026-10-25) | P7 |
+| ⬜ | Clock | RTC not read/set yet, no NTP over USB | P2 |
 | ⬜ | Defconfig trim | drop unused arm64 defconfig drivers | P7 |

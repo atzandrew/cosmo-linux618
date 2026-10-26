@@ -457,3 +457,30 @@
   (DTS) and the U2PHYDTM1 FORCE_VBUSVALID/AVALID/SESSEND bits (tphy).
   Still carried, diagnostics only: the mtu3 IPPC dump on clock failure and
   the tphy `cosmo: u3 ...` line.
+
+## 2026-10-25 — try20: Debian 13 (trixie) on userdata
+
+- gemini-debian `DEVICE=cosmo` (f1b052c, 7bd7183, b148a20) built a
+  headless trixie image (424 MB used; shrunk with `resize2fs -M` to 833 MB
+  for the flash, grows to the 110 GB userdata on first boot). Flashed with
+  the no-op dtbo and try20 (`dd2cc047…`, a5d992a); the Gemian userdata is
+  replaced.
+- First boot: Debian came up, but NetworkManager left usb0 unmanaged
+  (its 85-nm-unmanaged.rules unmanages DEVTYPE=gadget) and the first
+  cosmo-boot-ok confirmed the boot anyway, so the tripwire did not fire.
+  Recovered with a rescue boot image (try20 + `cosmo.noroot`), read the
+  persistent journal from the rescue shell, fixed overlay-cosmo (udev
+  rule, `firewall-backend=none`, boot-ok waits for an IPv4 address on
+  usb0) and copied the fixed files into the image from the rescue shell.
+- Debian 13 up: SSH `atzero@10.15.19.83` (the host gets DHCP from
+  NetworkManager shared mode), `systemctl is-system-running` = running,
+  8 CPUs, root 110 GB.
+- **Watchdog handover OBSERVED:** the journal shows systemd "Using hardware
+  watchdog 'mtk-wdt' ... hardware timeout of 30s" at 3.2 s, after init
+  closed its fd ("watchdog did not stop!").
+- **Tripwire OBSERVED:** flag set to COSMO-TRY from Debian, `systemctl
+  reboot` -> initramfs "last root boot never reported in: RESCUE
+  initramfs"; `reboot -f` from rescue -> Debian again (flag RSC, then OK).
+- `systemctl reboot` and `reboot -f` both reset through the watchdog.
+- The Debian clock starts at the last saved time (no RTC read/set yet, no
+  NTP over USB).

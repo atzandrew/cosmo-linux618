@@ -64,6 +64,11 @@ and PLL offsets. Mainline has no `mt6771` anything; the board rides on
      resets through the watchdog.
    - Status (2026-10-25): power-key reset, watchdog reset, watchdog reset
      across kexec and `reboot -f` all **observed** on the try11+ kernels.
+   - **Root system (Debian on userdata):** init closes the watchdog fd and
+     systemd takes it over (`RuntimeWatchdogSec=30s`); a boot that never
+     confirms itself (cosmo-boot-ok: usb0 has an address) sends the next
+     boot to the rescue initramfs; `cosmo.noroot` always stays there.
+     Handover and tripwire **observed** 2026-10-25 (try20).
    Rules:
    - An escape counts only after it has been **seen to fire** on the
      device. Configured or read-from-source is not an escape.
