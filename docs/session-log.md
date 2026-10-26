@@ -685,3 +685,30 @@
   Fault is in the kernel interrupt path, not wiring or scan order.
 - No image flashed. Repo DTS still carries the try26/27 diagnostics; revert
   to the try25 keyboard node before the next build.
+
+## 2026-10-25 — try28: AW9523 keyboard driver following the stock scan (pre-flash check)
+
+- Change: new `drivers/input/keyboard/aw9523-keypad.c`
+  (`awinic,aw9523-keypad`, CONFIG_KEYBOARD_AW9523=y) replaces
+  pinctrl-aw9523 + gpio-matrix-keypad (CONFIG_PINCTRL_AW9523 and the
+  matrix-keypad node dropped). Scan as vendor `aw9523_key.c`
+  (docs/keyboard-stock.md): chip INT off while scanning, one P0 read per
+  column, 10 ms rescans while keys are down, P1_7 output low. DT: EINT 12
+  `IRQ_TYPE_LEVEL_LOW` and GPIO12 pull-up (stock dtbo fragment@59,
+  `aw9523pin`), reset GPIO175 active-low (stock hwen_low = reset), keymap
+  as before with (4,3) = KEY_LEFTMETA (stock). DTS reverted to the try25
+  file first (try26/27 diagnostics removed). i2c4 stays at 100 kHz.
+- New kernel config: explicit yes required (AGENTS.md rule 5).
+- Risk flags: no PMIC keys, watchdog, reset path or display change. A
+  driver fault means no keyboard; an oops panics (panic_on_oops) and the
+  watchdog resets the board. Suspend/resume path not exercised.
+- Escapes: power-key hold (~8 s) and watchdog reset, both observed on the
+  try11+ kernel family, unchanged here. Rollback: `try25-boot.img`
+  (10c28ea2…).
+- Build: clean, no warnings; DTB W=1 clean.
+- Image: `try28-boot.img` sha256 `e2196b542ff1648c26e9d70cee0c61bb68ff781b229d8b343775a7a3b5b9fd94`.
+- Pass (fixed in advance): Debian back on SSH; `4-005b` bound to
+  aw9523-keypad, "Integrated keyboard" input device; the key walk (2, 4,
+  5, 6, 7, P, Backspace, U, S, J, 1, 3, Fn) gives every key once at its
+  stock position, no (0,0) on column-0 keys; Ctrl+Shift+Z gives
+  Ctrl+Shift+Z. Fail: any key missing or extra.
