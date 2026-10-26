@@ -70,8 +70,8 @@
 		 * glass 2026-10-25 by the fbpaint probe (0xffff0000 showed red).
 		 * Gemian's fbdev var info (red at bit 0) was wrong.
 		 * LK also leaves OVL layer 3 (0x7e878000, pitch 4320) enabled
-		 * above it; it is transparent until something writes alpha
-		 * there. No power-domains: simpledrm then binds as soon as its
+		 * above it, with the orange-state text drawn on it; /lk-overlay
+		 * below clears it. No power-domains: simpledrm then binds as soon as its
 		 * driver registers (earliest console); pd_ignore_unused keeps
 		 * the display domain on. reg = one buffer (4352 * 2160).
 		 */
@@ -84,6 +84,18 @@
 			format = "a8r8g8b8";
 		};
 
+	};
+
+	/*
+	 * LK's OVL layer 3 buffer: 1080x2160, pitch 4320, inside the no-map
+	 * mblock-7-framebuffer reservation. LK draws the orange-state warning
+	 * there and leaves the layer enabled above the console framebuffer;
+	 * mtk-lk-overlay-clear fills it with transparent pixels at boot.
+	 * Memory only, no display register write (panel rule).
+	 */
+	lk-overlay@7e878000 {
+		compatible = "mediatek,lk-overlay-clear";
+		reg = <0 0x7e878000 0 0x8e6200>;
 	};
 
 	/*
