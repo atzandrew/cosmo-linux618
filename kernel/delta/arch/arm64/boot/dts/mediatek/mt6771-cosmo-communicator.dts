@@ -779,6 +779,12 @@
 				      <&mt6370_adc MT6370_CHAN_CHG_VDDP>,
 				      <&mt6370_adc MT6370_CHAN_TEMP_JC>;
 			monitored-battery = <&cosmo_battery>;
+			/*
+			 * USB2 PHY port 0 USBPHYACR6 (t-phy 0x11f40000 + COM
+			 * 0x300 + 0x18), bit 23 BC11_SW_EN: vendor mu3phy
+			 * mt6771 Charger_Detect_Init / Release.
+			 */
+			cosmo,u2phy-bc11-reg = <0x11f40318>;
 		};
 	};
 };

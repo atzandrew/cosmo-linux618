@@ -66,6 +66,12 @@ ports) reads "non-standard, DCD timeout", so the input stays at 500 mA.
 Likely cause: detection runs with the SoC USB PHY still attached (stock
 detaches it with `Charger_Detect_Init`/`Release`). Open as S3b.
 
+**S3b result 2026-10-26: PASS** (`boot-s3b.img` 333bf519…). The charger
+sets USBPHYACR6 BC11_SW_EN (0x11f40318 bit 23) while BC1.2 runs, as the
+vendor mu3phy does, and reruns BC1.2 at probe. PC port = SDP, Anker
+PowerPort II = DCP (3.2 A / 2.0 A, +1.3 A into the battery). Non-standard
+ports get the vendor 2.05 A / 2.05 A.
+
 ### S4: battery level
 New module `mt6358-gauge` (power_supply, type Battery) reading the gauge
 as stock does (docs/power-stock.md "MT6358 fuel gauge hardware"). Writes:

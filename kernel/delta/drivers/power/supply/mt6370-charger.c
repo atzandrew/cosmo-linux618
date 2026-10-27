@@ -11,7 +11,16 @@
  *    set to 12 h (vendor mt6370.dtsi: enable_te, safety_timer = <12>).
  *  - Input / charge current follow the BC1.2 result (vendor
  *    mtk_switch_charging.c swchg_select_charging_current_limit): SDP
- *    500 mA, CDP 1.5 A / 1.5 A, DCP 3.2 A / ceiling; anything else 500 mA.
+ *    500 mA, CDP 1.5 A / 1.5 A, DCP 3.2 A / ceiling, non-standard (DCD
+ *    timeout) 2.05 A / 2.05 A; anything else 500 mA.
+ *  - While BC1.2 runs, the SoC USB2 PHY lines are handed to the detector
+ *    with USBPHYACR6 RG_USB20_BC11_SW_EN (vendor mu3phy mt6771
+ *    Charger_Detect_Init / Release). Without it every port times out in
+ *    DCD and reads non-standard. The bit is cleared when the result is in,
+ *    on detach, and at the latest after 2 s. The register address comes
+ *    from "cosmo,u2phy-bc11-reg"; without it, BC1.2 runs as in mainline.
+ *  - If VBUS is already present at probe, BC1.2 is run again, because the
+ *    result left by the bootloader is not valid.
  *  - Battery temperature (thermal zone "battery-thermal") is polled every
  *    10 s (vendor CHARGING_INTERVAL): charging stops at >= 55 C or below
  *    -10 C and resumes below 50 C / at >= 0 C (vendor mtk_charger.c
@@ -21,9 +30,11 @@
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>
+#include <linux/delay.h>
 #include <linux/devm-helpers.h>
 #include <linux/gpio/consumer.h>
 #include <linux/iio/consumer.h>
+#include <linux/io.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
@@ -32,6 +43,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/regulator/driver.h>
 #include <linux/thermal.h>
@@ -126,6 +138,11 @@ struct mt6370_priv {
 	int batt_temp;
 	int health;
 	bool temp_block;
+	/* Cosmo: USB2 PHY handover during BC1.2 */
+	void __iomem *bc11_reg;
+	struct delayed_work bc11_dwork;
+	bool bc11_on;
+	bool nonstd;
 };
 
 /* Vendor values, docs/power-stock.md */
@@ -134,6 +151,10 @@ struct mt6370_priv {
 #define MT6370_COSMO_AICR_CDP		1500000
 #define MT6370_COSMO_ICHG_CDP		1500000
 #define MT6370_COSMO_AICR_DCP		3200000
+#define MT6370_COSMO_AICR_NONSTD	2050000
+#define MT6370_COSMO_ICHG_NONSTD	2050000
+#define MT6370_COSMO_BC11_SW_EN		BIT(23)
+#define MT6370_COSMO_BC11_TIMEOUT_MS	2000
 #define MT6370_COSMO_ICHG_CEILING	2000000	/* if no monitored-battery */
 #define MT6370_COSMO_WT_FC_12H		4	/* 4 h + 4 x 2 h */
 #define MT6370_COSMO_HOT_STOP		55000
@@ -312,6 +333,11 @@ static void mt6370_chg_apply_port_limits(struct mt6370_priv *priv)
 			ichg = priv->ichg_max_ua;
 			break;
 		default:
+			if (priv->nonstd) {
+				aicr = MT6370_COSMO_AICR_NONSTD;
+				ichg = min(MT6370_COSMO_ICHG_NONSTD,
+					   priv->ichg_max_ua);
+			}
 			break;
 		}
 	}
@@ -324,8 +350,9 @@ static void mt6370_chg_apply_port_limits(struct mt6370_priv *priv)
 	if (ret)
 		dev_err(priv->dev, "Failed to set port limits: %d\n", ret);
 	else
-		dev_info(priv->dev, "port type %d: input %u uA, charge %u uA\n",
-			 priv->attach ? priv->psy_usb_type : -1, aicr, ichg);
+		dev_info(priv->dev, "port type %d%s: input %u uA, charge %u uA\n",
+			 priv->attach ? priv->psy_usb_type : -1,
+			 priv->nonstd ? " (non-standard)" : "", aicr, ichg);
 }
 
 /*
@@ -390,6 +417,41 @@ static void mt6370_chg_temp_dwork_func(struct work_struct *work)
 			   msecs_to_jiffies(MT6370_COSMO_TEMP_POLL_MS));
 }
 
+/* Caller holds attach_lock (or runs before the IRQs are requested). */
+static void mt6370_chg_bc11_switch(struct mt6370_priv *priv, bool on)
+{
+	u32 val;
+
+	if (!priv->bc11_reg || priv->bc11_on == on)
+		return;
+
+	val = readl(priv->bc11_reg);
+	if (on)
+		val |= MT6370_COSMO_BC11_SW_EN;
+	else
+		val &= ~MT6370_COSMO_BC11_SW_EN;
+	writel(val, priv->bc11_reg);
+	udelay(1);
+	priv->bc11_on = on;
+
+	if (on)
+		mod_delayed_work(priv->wq, &priv->bc11_dwork,
+				 msecs_to_jiffies(MT6370_COSMO_BC11_TIMEOUT_MS));
+}
+
+static void mt6370_chg_bc11_dwork_func(struct work_struct *work)
+{
+	struct mt6370_priv *priv = container_of(work, struct mt6370_priv,
+						bc11_dwork.work);
+
+	mutex_lock(&priv->attach_lock);
+	if (priv->bc11_on) {
+		dev_warn(priv->dev, "BC1.2 result late, USB PHY handed back\n");
+		mt6370_chg_bc11_switch(priv, false);
+	}
+	mutex_unlock(&priv->attach_lock);
+}
+
 static void mt6370_chg_bc12_work_func(struct work_struct *work)
 {
 	struct mt6370_priv *priv = container_of(work, struct mt6370_priv,
@@ -403,19 +465,31 @@ static void mt6370_chg_bc12_work_func(struct work_struct *work)
 
 	switch (attach) {
 	case MT6370_ATTACH_STAT_DETACH:
+		mt6370_chg_bc11_switch(priv, false);
 		usb_stat = 0;
 		break;
 	case MT6370_ATTACH_STAT_ATTACH_WAIT_FOR_BC12:
-		ret = mt6370_chg_field_set(priv, F_USBCHGEN, attach);
-		if (ret)
+		/* Clear first so that a result left by LK cannot be reused */
+		ret = mt6370_chg_field_set(priv, F_USBCHGEN, 0);
+		mt6370_chg_bc11_switch(priv, true);
+		if (!ret)
+			ret = mt6370_chg_field_set(priv, F_USBCHGEN, attach);
+		if (ret) {
 			dev_err(priv->dev, "Failed to enable USB CHG EN\n");
+			mt6370_chg_bc11_switch(priv, false);
+		}
 		goto bc12_work_func_out;
 	case MT6370_ATTACH_STAT_ATTACH_BC12_DONE:
 		ret = mt6370_chg_field_get(priv, F_USB_STAT, &usb_stat);
 		if (ret) {
 			dev_err(priv->dev, "Failed to get USB status\n");
+			mt6370_chg_bc11_switch(priv, false);
 			goto bc12_work_func_out;
 		}
+		/* Vendor: still running, wait for the next attach_i */
+		if (usb_stat == MT6370_USB_STAT_VBUS_FLOW_IS_UNDER_GOING)
+			goto bc12_work_func_out;
+		mt6370_chg_bc11_switch(priv, false);
 		break;
 	default:
 		dev_err(priv->dev, "Invalid attach state\n");
@@ -423,10 +497,15 @@ static void mt6370_chg_bc12_work_func(struct work_struct *work)
 	}
 
 	rpt_psy = true;
+	priv->nonstd = false;
 
 	switch (usb_stat) {
-	case MT6370_USB_STAT_SDP:
 	case MT6370_USB_STAT_SDP_NSTD:
+		/* Vendor: NONSTANDARD_CHARGER */
+		priv->nonstd = true;
+		priv->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+		break;
+	case MT6370_USB_STAT_SDP:
 		priv->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 		break;
 	case MT6370_USB_STAT_DCP:
@@ -1054,6 +1133,7 @@ static int mt6370_chg_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mt6370_priv *priv;
+	u32 bc11_addr;
 	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -1114,6 +1194,19 @@ static int mt6370_chg_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to init bc12 work\n");
 
+	ret = devm_delayed_work_autocancel(dev, &priv->bc11_dwork, mt6370_chg_bc11_dwork_func);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to init bc11 work\n");
+
+	if (!device_property_read_u32(dev, "cosmo,u2phy-bc11-reg", &bc11_addr)) {
+		/* Shared with phy-mtk-tphy: map only, do not request */
+		priv->bc11_reg = devm_ioremap(dev, bc11_addr, 4);
+		if (!priv->bc11_reg)
+			return dev_err_probe(dev, -ENOMEM,
+					     "Failed to map BC11 register\n");
+		dev_info(dev, "BC1.2 with USB PHY handover (0x%08x)\n", bc11_addr);
+	}
+
 	ret = devm_delayed_work_autocancel(dev, &priv->mivr_dwork, mt6370_chg_mivr_dwork_func);
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to init mivr delayed work\n");
@@ -1143,6 +1236,16 @@ static int mt6370_chg_probe(struct platform_device *pdev)
 	mutex_unlock(&priv->policy_lock);
 	queue_delayed_work(priv->wq, &priv->temp_dwork,
 			   msecs_to_jiffies(MT6370_COSMO_TEMP_POLL_MS));
+
+	/*
+	 * Cosmo: an attach_i left pending by LK can fire as soon as the IRQ
+	 * is requested and report LK's stale result. Let it finish, then
+	 * start from "detached" so that a present VBUS runs BC1.2 again.
+	 */
+	flush_work(&priv->bc12_work);
+	mutex_lock(&priv->attach_lock);
+	priv->attach = MT6370_ATTACH_STAT_DETACH;
+	mutex_unlock(&priv->attach_lock);
 
 	mt6370_chg_pwr_rdy_check(priv);
 

@@ -914,3 +914,46 @@
 - MT6358 `in_temp1_raw` read once by mistake: timed out (-ETIMEDOUT); no
   AUXADC reset followed. Skip that channel as well as `cdt_v`.
 - Device left on S3. Next: S3b, BC1.2 with the PHY detached as stock.
+
+## 2026-10-26 — power S3b: BC1.2 with the USB PHY handed over (PASS)
+
+- Cause of the S3 failure, stock first: the vendor MT6370 driver wraps
+  every BC1.2 run in `Charger_Detect_Init` / `Release`
+  (`pmic/mt6370/mt6370_pmu_charger.c:735`), which on mt6771 is
+  `mu3phy/mt6771/mtk-phy-asic.c:1197-1260`: set, then clear,
+  `RG_USB20_BC11_SW_EN` (USBPHYACR6 bit 23). `ssusb_sif2` = 0x11f40000,
+  U2 COM bank + 0x300, so the register is 0x11f40318 (mainline tphy uses
+  the same layout and only clears the bit, `phy-mtk-tphy.c:857`). Live
+  value on S3: 0x001004f2 (bit 23 = 0).
+- Live check on S3 (before any build): bit set by hand through /dev/mem,
+  auto-cleared by a script, then a plug into the Anker PowerPort II:
+  USBSTATUS1 0x127 = 0x48 (DCP), DEVICE_TYPE 0x122 = 0xd4, AICR 0xfa,
+  ICHG 0x4c, IBAT +1.3 A: all equal to the stock DCP dump. Without the bit
+  the same port reads 0x34 (non-standard, DCD timeout).
+- Change (delta `mt6370-charger.c`, DTS `cosmo,u2phy-bc11-reg =
+  <0x11f40318>`): bit set before USBCHGEN is raised; cleared when the
+  result is in, on detach, on error, and after 2 s at the latest
+  ("BC1.2 result late" warning). A result of "under going" waits for the
+  next attach_i (vendor behaviour). USBCHGEN is cleared before it is set,
+  so a run always starts fresh. At probe, a pending attach_i from LK is
+  flushed and the state reset to detached, so VBUS present at boot runs
+  BC1.2 again. Non-standard = vendor NONSTANDARD_CHARGER, 2.05 A input /
+  min(2.05 A, ceiling) charge.
+- Image `boot-s3b.img` sha256
+  `333bf519230433080dde0941014c03a2f3838b21b2856ff058034bd9766575fd`.
+  Flashed (standing OK, user asked to queue it): `mtk w boot`.
+- Results:
+  1. Boot + usb0: PASS (`BC1.2 with USB PHY handover (0x11f40318)`).
+  2. Cold boot on the Dragon PC port: stale LK result discarded
+     (`port type 0`), fresh run `port type 1` (SDP), 0x127 = 0x20: PASS.
+  3. Replug on Dragon: SDP again, usb0 back: PASS.
+  4. Anker PowerPort II (high-power USB-A port): `port type 2: input
+     3200000 uA, charge 2000000 uA`, 0x127 = 0x48, IBAT +1.3 A, IBUS
+     1.8 A: PASS. S3 checks 4 and 7 are now met.
+  5. 0x11f40318 read 0x009004f2 for ~0.4 s around each run and 0x001004f2
+     after every one (boot, replug, wall, back to Dragon): PASS.
+  6. Emulated battery temperature 56 / 49 / -11 / 1 C: stop / resume /
+     stop / resume: PASS.
+- Note: stock's PC-port dump was CDP (1.5 A); the Dragon port reads SDP
+  under mainline. Stock's dump may have been taken on a different port.
+- Device left on S3b.
