@@ -1823,3 +1823,22 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   __i2c_smbus_xfer from mt6358_gauge_soc_dwork_func ->
   mt6370_chg_get_property). Fix: cancel the work in the gauge's
   .suspend and requeue it in .resume.
+
+### Sleep G1: gauge and charger work frozen across suspend (pre-flash check)
+
+- Change: mt6358-gauge queues soc_dwork on system_freezable_wq (was
+  system_wq); mt6370-charger policy queue (temp, BC1.2, BC1.1 works) is
+  alloc_ordered_workqueue(WQ_FREEZABLE | WQ_MEM_RECLAIM) (was
+  create_singlethread_workqueue). Both run I2C/PMIC reads; freezable
+  queues stop before devices suspend and resume after devices resume.
+  No charger values or policy changed. mivr_dwork stays on system_wq
+  (its IRQ handler holds pm_stay_awake until the work runs).
+- Image `out/g1-boot.img` SHA256
+  5d28b604286fdfd7744e0baaf9c5a7536966918e9810dc69f908f014103ead60
+  (Image.gz-dtb 024f40f6...). Same config as S1; modules unchanged.
+- Escapes: as S1 (power key, watchdog). Rollback: s1-boot.img (9d424c9f...).
+- Test: pm_test=processors with mtu3 unbound (CPU_ON failures stretch the
+  suspend to ~40 s, the window that exposed the bug). Pass: no
+  "Transfer while suspended" warning; battery properties readable after
+  resume; capacity follows charge_counter over the following minutes.
+  Fail: the warning, or battery read errors. Reboot after (CPUs 1-7).

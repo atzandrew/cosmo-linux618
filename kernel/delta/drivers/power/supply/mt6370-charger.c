@@ -1182,7 +1182,12 @@ static int mt6370_chg_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	priv->wq = create_singlethread_workqueue(dev_name(priv->dev));
+	/*
+	 * Ordered and freezable: the policy works talk I2C, so they stop
+	 * before devices suspend and run again after resume.
+	 */
+	priv->wq = alloc_ordered_workqueue("%s", WQ_FREEZABLE | WQ_MEM_RECLAIM,
+					   dev_name(priv->dev));
 	if (!priv->wq)
 		return -ENOMEM;
 

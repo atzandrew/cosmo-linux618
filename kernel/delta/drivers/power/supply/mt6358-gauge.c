@@ -313,7 +313,8 @@ static void mt6358_gauge_soc_dwork_func(struct work_struct *work)
 					      soc_dwork.work);
 
 	mt6358_gauge_soc_update(g);
-	schedule_delayed_work(&g->soc_dwork, msecs_to_jiffies(SOC_POLL_MS));
+	queue_delayed_work(system_freezable_wq, &g->soc_dwork,
+			   msecs_to_jiffies(SOC_POLL_MS));
 }
 
 static int mt6358_gauge_cmp_int(const void *a, const void *b)
@@ -455,7 +456,8 @@ static void mt6358_gauge_external_power_changed(struct power_supply *psy)
 	struct mt6358_gauge *g = power_supply_get_drvdata(psy);
 
 	/* Charger events (plug, done) re-run the update soon */
-	mod_delayed_work(system_wq, &g->soc_dwork, msecs_to_jiffies(500));
+	mod_delayed_work(system_freezable_wq, &g->soc_dwork,
+			 msecs_to_jiffies(500));
 	power_supply_changed(psy);
 }
 
@@ -568,7 +570,15 @@ static int mt6358_gauge_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "start value failed\n");
 
-	schedule_delayed_work(&g->soc_dwork, msecs_to_jiffies(SOC_POLL_MS));
+	/*
+	 * Freezable queue: the update reads the charger and the PMIC, so it
+	 * must not run while the system suspends (it once ran with the
+	 * charger's I2C bus already suspended). Frozen before devices
+	 * suspend, thawed after they resume; the coulomb counter keeps
+	 * counting in between.
+	 */
+	queue_delayed_work(system_freezable_wq, &g->soc_dwork,
+			   msecs_to_jiffies(SOC_POLL_MS));
 	return 0;
 }
 
