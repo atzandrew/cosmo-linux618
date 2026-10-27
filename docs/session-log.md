@@ -1049,3 +1049,42 @@
   1.26 -> 1.07 A: the CV loop at 4.40 V sets it. On the Dragon port 0x1d0 =
   0xa0 (AICR loop at 500 mA).
 - Device left on S4b.
+
+## 2026-10-26 — Wi-Fi W1a: CONSYS power-on check (PASS)
+
+- Research first: docs/wifi-stock.md (W0). Route: stock 4.4 gen3 on 6.18;
+  WMT core choice at W1b.
+- Change: DT `consys-reserve-memory` (stock node verbatim), `consys@18070000`
+  (supplies vcn18/vcn28/vcn33, TOPRGU CONN MCU reset, A-die pinmux states
+  GPIO113-121), module `mt6771-consys` loaded by hand. Kernel image
+  unchanged except the DTB.
+- Image `w1a-boot.img` sha256
+  `03a69af48653f64d0559e5ff3f668c9df0aa94bf7762c58a2ce85081a4c76d3d`.
+  Flashed (explicit OK): `mtk w boot`. Escapes as S4b (power key 8 s,
+  watchdog); rollback `s4b-boot.img`.
+- First load: `dev_pm_domain_attach_by_id` = -ETIMEDOUT. The scpsys power
+  controller never probes on this board: `power-domain@7: failed to get clk
+  at index 1` (DISP wants mmsys clocks, mmsys disabled since try22), so
+  there is no genpd provider and every domain stays as LK left it. Module
+  reworked (0c1f5d3, module only, no reflash) to run the stock CONN
+  MTCMOS sequence (`clk-mt6771-pg.c spm_mtcmos_ctrl_conn()`) with bounded
+  polls.
+- Result (module a9c64a8e…):
+  - At probe CONN off: CONN_PWR_CON 0x112, PWR_STATUS 0x000fff4c /
+    0x00007f4c (bit 1 clear), PROT_STA1 0x001ff098 (bits 13+14 set).
+    SPM POWERON_CONFIG_EN reads 0x3.
+  - After CONN on: CONN_PWR_CON 0x10d, PWR_STATUS bit 1 set in both,
+    PROT_STA1 bits 13+14 clear. Top2 ack (bit 30) not set (stock's clk path
+    does not check it).
+  - Chip ID **0x0788** on the first read. ROM desel reads back 0x001702a4.
+    After the MCU reset release CPUPCR = 0x00001170, steady (ROM idle,
+    waiting for the patch).
+  - Power-off in stock order: CONN_PWR_CON, PWR_STATUS and PROT_STA1 back
+    to the probe values exactly; vcn18/vcn28/vcn33 disabled, PMIC CON0
+    0x1c58/0x1d1c/0x1d2a/0x1d88 = 0. USB SSH unaffected.
+  - Pins GPIO113-121: raw mode 9 at boot (LK), 0 after the test (stock
+    power-off writes 0).
+- PASS. Open: scpsys probe (DISP domain clocks) before GPU/audio, then
+  move CONN to genpd; mtk-pm-domains powers CONN on at registration (no
+  KEEP_DEFAULT_OFF), unlike stock.
+- Device left on W1a (module unloaded state: CONSYS off).
