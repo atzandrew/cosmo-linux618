@@ -26,6 +26,8 @@
 
 /dts-v1/;
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/adc/mediatek,mt6358-auxadc.h>
+#include <dt-bindings/iio/adc/mediatek,mt6370_adc.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/power/mt8183-power.h>
 #include "mt8183.dtsi"
@@ -735,10 +737,10 @@
  * PMU interrupt: GPIO10 = EINT 10 level-low (live /mt6370_pmu_eint).
  * docs/power-stock.md, docs/power-plan.md S1.
  *
- * S1 (measure only): just the core and the ADC child. The other children
- * the binding lists (charger, tcpc, backlight, indicator, flashlight,
- * regulators) are left out on purpose and their drivers are not built,
- * so nothing touches charging, Type-C, the backlight or the DSV/LDO rails.
+ * Children: ADC (S1) and charger (S3). The other children the binding
+ * lists (tcpc, backlight, indicator, flashlight, regulators) are left out
+ * on purpose and their drivers are not built, so nothing touches Type-C,
+ * the backlight or the DSV/LDO rails.
  */
 &i2c11 {
 	clock-frequency = <400000>;
@@ -754,6 +756,29 @@
 		mt6370_adc: adc {
 			compatible = "mediatek,mt6370-adc";
 			#io-channel-cells = <1>;
+		};
+
+		/*
+		 * Charger, run as the vendor kernel does (docs/power-stock.md):
+		 * CV / IEOC / ICHG ceiling from &cosmo_battery, current by
+		 * BC1.2 type, stop/resume on the battery-thermal zone (delta
+		 * drivers/power/supply/mt6370-charger.c). The driver reads IBUS
+		 * as the sixth io-channel, so all nine are listed in order.
+		 */
+		charger {
+			compatible = "mediatek,mt6370-charger";
+			interrupts = <68>, <48>, <6>;
+			interrupt-names = "uvp_d_evt", "attach_i", "mivr";
+			io-channels = <&mt6370_adc MT6370_CHAN_VBUSDIV5>,
+				      <&mt6370_adc MT6370_CHAN_VBUSDIV2>,
+				      <&mt6370_adc MT6370_CHAN_VSYS>,
+				      <&mt6370_adc MT6370_CHAN_VBAT>,
+				      <&mt6370_adc MT6370_CHAN_TS_BAT>,
+				      <&mt6370_adc MT6370_CHAN_IBUS>,
+				      <&mt6370_adc MT6370_CHAN_IBAT>,
+				      <&mt6370_adc MT6370_CHAN_CHG_VDDP>,
+				      <&mt6370_adc MT6370_CHAN_TEMP_JC>;
+			monitored-battery = <&cosmo_battery>;
 		};
 	};
 };
@@ -907,4 +932,83 @@
 
 &larb6 {
 	status = "disabled";
+};
+
+/*
+ * Battery (same cell as the Gemini PDA; label: 3.85 V, 4220 mAh, charge
+ * 4.4 V). CV 4.40 V and IEOC 150 mA as the vendor mt6370.dtsi; charge
+ * current ceiling 2.0 A = what the vendor kernel actually set on a wall
+ * charger (CHGCTRL7 0x4c, docs/power-stock.md). The node name "battery"
+ * is taken by LK's mediatek,bat_gm30 data above.
+ */
+/ {
+	cosmo_battery: cosmo-battery {
+		compatible = "simple-battery";
+		device-chemistry = "lithium-ion";
+		charge-full-design-microamp-hours = <4220000>;
+		voltage-min-design-microvolt = <3400000>;
+		constant-charge-voltage-max-microvolt = <4400000>;
+		constant-charge-current-max-microamp = <2000000>;
+		charge-term-current-microamp = <150000>;
+	};
+
+	/*
+	 * Battery NTC on MT6358 AUXADC BAT_TEMP (vendor channel 3 in
+	 * pmic_auxadc.c, 10 k NTC, 24 k pull-up to VBIF28 = 2.8 V,
+	 * mtk_battery_table.h Fg_Temperature_Table). The mt6359-auxadc
+	 * driver reports scale = full-scale mV (3600, not 3600/4096), so
+	 * its "processed" value is mV x 4096: the table is in those units
+	 * (V = 2800 x R / (24000 + R), value = V x 4096). Checked: raw 891
+	 * (Gemian AUXADC_ADC3) gives 27.0 C, as stock reported.
+	 */
+	battery_ntc: thermal-sensor-battery {
+		compatible = "generic-adc-thermal";
+		#thermal-sensor-cells = <0>;
+		io-channels = <&pmic_adc MT6358_AUXADC_BAT_TEMP>;
+		io-channel-names = "sensor-channel";
+		temperature-lookup-table = <
+			(-40000) 10215676
+			(-35000) 9870092
+			(-30000) 9464743
+			(-25000) 9001485
+			(-20000) 8484627
+			(-15000) 7924032
+			(-10000) 7330058
+			(-5000) 6714236
+			0 6094794
+			5000 5487809
+			10000 4903633
+			15000 4351584
+			20000 3840098
+			25000 3373176
+			30000 2951047
+			35000 2574810
+			40000 2242709
+			45000 1950136
+			50000 1694602
+			55000 1472388
+			60000 1279594
+		>;
+	};
+};
+
+/*
+ * Battery zone: the charger stops at 55 C (driver delta); the vendor
+ * kernel resets the board at 60 C (mtktsbattery-sysrst), here a critical
+ * trip powers it off.
+ */
+&thermal_zones {
+	battery-thermal {
+		polling-delay = <1000>;
+		polling-delay-passive = <0>;
+		thermal-sensors = <&battery_ntc>;
+
+		trips {
+			battery_crit: battery-crit {
+				temperature = <60000>;
+				hysteresis = <2000>;
+				type = "critical";
+			};
+		};
+	};
 };

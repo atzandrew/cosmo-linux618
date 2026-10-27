@@ -50,12 +50,21 @@ Enable `CHARGER_MT6370` plus a small whole-file delta of
 - Input/charge current by BC1.2 type, stock table: SDP 500/500, CDP
   1500/1500, DCP 3200/2050, other 2050/2050 mA.
 - Battery temperature stop (stock `mtk_charger.c:1325`): off below -10 C or
-  at >= 55 C, back on above -10 C / below 50 C; plus stock current caps
-  550/350/150 mA at 46/48/49 C; poll 10 s.
+  at >= 55 C, back on at >= 0 C / below 50 C; poll 10 s. No current caps:
+  stock's bcct 550/350/150 mA coolers are not bound on Gemian; its heat
+  limiting is a PID loop on the board thermistor (docs/power-stock.md),
+  left for later. A battery thermal zone gives a critical power-off at 60 C.
 - Charger WDT: off, as LK leaves it (the chip's 12 h safety timer and
   thermal regulation stay on).
 - Pass/fail: per charger type, registers equal stock's (docs/power-stock.md)
   within one step; heat test by emulated battery temperature stops charging.
+
+**S3 result 2026-10-26: PARTIAL** (`boot-s3.img` bd355939…,
+docs/session-log.md). CV/IEOC/TE/timer and the temperature stop/resume
+work. BC1.2 detection does not: every port (PC host and two wall-charger
+ports) reads "non-standard, DCD timeout", so the input stays at 500 mA.
+Likely cause: detection runs with the SoC USB PHY still attached (stock
+detaches it with `Charger_Detect_Init`/`Release`). Open as S3b.
 
 ### S4: battery level
 New module `mt6358-gauge` (power_supply, type Battery) reading the gauge

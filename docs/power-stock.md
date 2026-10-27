@@ -144,6 +144,14 @@ userspace (see Thermal). Live `/proc/driver/thermal/clbcct`:
 1000 / 500 / 0 mA, `:366-368`, are overwritten). Live `clabcct`: a PID
 loop with a battery target of 46 C, maximum 2000 mA.
 
+Correction (2026-10-26): on Gemian the bcct00-02 coolers are **not bound to
+any zone** (mtktsbattery has only its 60 C sysrst trip). Heat limiting is
+`abcct`, the PID loop above, bound to mtktsAP (board thermistor, trips
+45 / 47 C). Battery-only rules that remain: stop charging at >= 55 C,
+resume below 50 C; stop below -10 C, resume at 0 C (`charger_check_status`);
+board reset at 60 C (mtktsbattery). Stock's minimum ICHG is 500 mA; a limit
+below it turns charging off (`mtk_switch_charging.c:252`).
+
 ## Type-C
 
 ### MT6370 TCPC (port 0)

@@ -869,3 +869,48 @@
   `cpu-thermal: critical temperature reached`, `reboot: HARDWARE PROTECTION
   shutdown (Temperature too high)`, orderly power-off finished 17:01:13.5;
   the board stayed off, the power key booted it. **PASS.**
+
+## 2026-10-26 — power S3: MT6370 charger as stock (PARTIAL)
+
+- Change: `CHARGER_MT6370=y`, `GENERIC_ADC_THERMAL=y`; whole-file delta
+  `drivers/power/supply/mt6370-charger.c` (mainline + Cosmo policy); DTS:
+  charger node under the MT6370 (`pmic@34`), `/cosmo-battery`
+  (simple-battery: 4.40 V, IEOC 150 mA, ICHG max 2.0 A, 4220 mAh),
+  `/thermal-sensor-battery` (generic-adc-thermal on MT6358 BAT_TEMP, stock
+  10 k NTC table; values in mV x 4096 because the mt6359-auxadc scale is
+  full-scale mV), zone `battery-thermal` (critical 60 C).
+- Policy: CV, IEOC, ICHG ceiling from the battery node; TE on; timer 12 h;
+  charger WDT off. Input/charge by port type: SDP 500 mA, CDP 1.5/1.5 A,
+  DCP 3.2/2.0 A, other 500 mA (ICHG floor 900 mA, mainline workaround).
+  Battery temperature polled every 10 s: stop >= 55 C or < -10 C, resume
+  < 50 C / >= 0 C; unreadable temperature = charging off.
+- Image `boot-s3.img` sha256
+  `bd355939ce7f195511d01949da7e4b97e63fb32ffd66321c3ea5d9d6ff3aa26f`.
+  Flashed (explicit OK): `mtk w boot`.
+- Results against the pre-flash check:
+  1. Boot + usb0: PASS.
+  2. Probe line `CV 4400000 uV, IEOC 150000 uA, ICHG max 2000000 uA,
+     timer 12 h`: PASS.
+  3. Registers: CV 0x114 = 0x64, timer 0x11c = 0x82, IEOC 0x119 = 0x1c
+     (150 mA), CHGCTRL2 0x112 = 0x1b (TE on): PASS.
+  4. IBAT > 0: NOT SHOWN. `ibat` 0, `ibus` 400 mA at the 500 mA input
+     limit (same as S1: the system load takes it all).
+  5. Emulated 56 C: `Not charging`, health Overheat, CHG_EN 0; 49 C:
+     charging resumed: PASS.
+  6. Emulated -11 C: stopped, health Cold; 1 C: resumed: PASS.
+  7. Wall charger 3.2 A / 2.0 A: FAIL. Anker PowerPort II, both USB-A
+     ports, and the Dragon PC port all read USBSTATUS1 0x127 = 0x34
+     (status 3 = SDP non-standard, DCDT bit set) -> SDP, 500 mA.
+- Detection notes: at boot USB is already attached, `pwr_rdy is same(1)`,
+  BC1.2 does not run (0x127 = 0x60 left from LK, status 6 = outside the
+  enum; port type Unknown, 500 mA). After a replug BC1.2 runs and usb0
+  comes back each time. Every port giving the same DCD timeout points at
+  the SoC USB PHY staying attached (D+ pull-up from the gadget) during
+  detection; stock detaches it (`Charger_Detect_Init`/`Release`). Stock
+  maps non-standard to 2.05 A; mainline maps it to SDP. Kept at 500 mA
+  until detection works.
+- Rootfs carries old `generic-adc-thermal.ko`: "already registered" at
+  boot, harmless (as `mt6359-auxadc` in S1).
+- MT6358 `in_temp1_raw` read once by mistake: timed out (-ETIMEDOUT); no
+  AUXADC reset followed. Skip that channel as well as `cdt_v`.
+- Device left on S3. Next: S3b, BC1.2 with the PHY detached as stock.
