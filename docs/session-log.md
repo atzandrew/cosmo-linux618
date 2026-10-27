@@ -1361,3 +1361,20 @@
   read-only boot identity check, then install only leds-cosmo-kbd.ko.
 - Device last checked still on normal AW9524 image, boot-ok success.
   Keyboard runtime testing remains pending.
+
+## 2026-10-27 — normal keyboard image boot and module probe
+
+- User manually flashed and booted the normal keyboard image.
+  USB SSH reached 6.18.58-cosmo; first 18018304 boot bytes SHA256:
+  15f4f4e55a22e7c6d56740649ab93c03a204c8c04dbc5b3cd008fe8ea90ccd91.
+  Live PWM node compatible planet,cosmo-kbd-backlight.
+  Boot-ok Result=success, ExecMainStatus=0.
+- Installed only leds-cosmo-kbd.ko, verified SHA256
+  63ce1d381febc2f86f25334b5e18ec116b88cf8ab0f31ab4b90f1f5588352352,
+  depmod then modprobe. Existing Wi-Fi and AW9524 modules retained.
+- Probe PASS: [43.325284] cosmo-kbd-backlight 11006000.pwm:
+  Stock PWM1 FIFO keyboard levels 0-5 ready.
+  LED cosmo::kbd_backlight initially 0, maximum 5.
+- First keyboard PWM/GPIO178 write: brightness 1 with automatic
+  brightness-zero cleanup after 30 seconds. Sysfs readback 1.
+  Visual result pending. No agent flash/reboot or MT6370 LED writes.
