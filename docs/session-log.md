@@ -842,3 +842,30 @@
   - Escape: power-key ~8 s hold reset the board and Debian booted again
     (observed on S1).
 
+## 2026-10-26 — power S2: SoC thermal, critical trip
+
+- Change: `MTK_THERMAL=y`, `MTK_SOC_THERMAL=y` (config only; thermal node and
+  zones from `mt8183.dtsi`). Image `boot-s2.img` sha256
+  `480893fc6d97e458cac45ba0300360aed424410934b4836c9a3ef08bd3b30bd2`.
+  Flashed (explicit OK): `mtk w boot`.
+- Stock comparison (vendor `thermal/mt6771/src/mtk_tc.c:97-118`): controller
+  0 = TS_MCU5, TS_MCU4; controller 1 = TS_MCU1-3, TS_ABB; offsets 0x0 /
+  0x100; AUXADC channel 11. Mainline mt8183 data (`msr` / `adcpnp` tables)
+  places the sensors in the same slots. Difference: TSABB mux value 0 in
+  mainline vs `TEMPADC_ABB` 0x10 in stock (`tscpu_settings.h:173-178`), so
+  the sixth sensor reads TS1 again. mt8183 data has no APMIXED buffer write.
+- Pre-flash prediction was wrong: mainline 6.18 `mtk_thermal_probe`
+  registers only sensor 0 (`devm_thermal_of_zone_register(..., 0, ...)`),
+  whose reading is the maximum over the bank (`mtk_read_temp`). Result: one
+  zone, `cpu-thermal`, critical 115 C on the hottest sensor; the six
+  per-sensor zones of mt8183.dtsi (100 C critical) are not bound. Check 2
+  (7 zones) failed as written; check 3 (per-sensor spread) not measurable.
+  Stock: 117 C hardware reset on the SoC sensors; its 100 C reset belongs
+  to mtktsAP, a board thermistor, not the SoC sensors. 115 C kept.
+- Readings: `cpu-thermal` 38.4 C idle after boot (stock tzts1-5 idle
+  34-38 C). No trip events.
+- Shutdown test: `systemd-run --on-active=90` writing 116000 to
+  `thermal_zone0/emul_temp`, USB unplugged. Journal (boot -1): 17:01:12.715
+  `cpu-thermal: critical temperature reached`, `reboot: HARDWARE PROTECTION
+  shutdown (Temperature too high)`, orderly power-off finished 17:01:13.5;
+  the board stayed off, the power key booted it. **PASS.**

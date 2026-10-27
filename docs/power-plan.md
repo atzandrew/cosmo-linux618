@@ -37,6 +37,12 @@ trip -> orderly power-off (power-off works since try30).
   emulated critical temperature (`THERMAL_EMULATION`, `emul_temp`) powers
   the Cosmo off cleanly.
 
+**S2 result 2026-10-26: PASS** (`boot-s2.img` 480893fc…, docs/session-log.md).
+Mainline 6.18 registers one zone only, `cpu-thermal` = the hottest of the six
+sensors, critical 115 C (stock: 117 C hardware reset on the same sensors).
+The other `mt8183.dtsi` zones are not bound. TSABB is read with mux 0
+(= TS1); stock uses 0x10 (`tscpu_settings.h:178`).
+
 ### S3: charger as stock
 Enable `CHARGER_MT6370` plus a small whole-file delta of
 `mt6370-charger.c` (pattern: mt6358-poweroff.c), values from DT:
