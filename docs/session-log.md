@@ -1740,3 +1740,11 @@ Pre-flash check:
   watchdog is armed.
 - Pass: LK picture, one short blank during boot, console on
   mediatekdrmfb, SSH up, "panel on" in dmesg. Fail: dark screen or hang.
+
+### D2c result: PASS
+
+- Flashed with explicit approval. Autoload: mediatek-drm bound at 3.43 s,
+  "panel on" 3.71 s, fbcon on mediatekdrmfb 3.74 s; dsvpos/dsvneg
+  enabled; systemd `running`. On glass: LK picture, one short blank,
+  console. Display D2 complete: the kernel owns the panel and can switch
+  it fully off (bias verified off) and back on.
