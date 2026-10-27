@@ -312,9 +312,11 @@ automatically; both image and module installation need a planned test.
 
 ### Runtime plan (not yet performed)
 
-1. Obtain explicit flash/reboot approval against the session-log pre-flash
-   check; prove both recovery mechanisms on the new configuration before
-   loading the module. Existing Wi-Fi, AW9524 and keyboard modules remain.
+1. Use the approved normal indicator image and verify its boot identity.
+   This indicator-only change does not modify keyboard input, so no
+   dedicated watchdog-test boot or repeated escape test is required under
+   the updated AGENTS.md rule 5. Existing Wi-Fi, AW9524 and keyboard
+   modules remain. Both recovery mechanisms stay enabled.
 2. Install only the indicator module and its required multicolor-class
    dependency, then probe. Expect three channel devices, brightness 0,
    max 1; observe darkness and continued red charging indication.

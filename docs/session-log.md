@@ -1449,3 +1449,24 @@ Current device remains the normal keyboard FIFO image; keyboard/AW9524 and
 Wi-Fi retained. Last verified boot image SHA256:
 15f4f4e55a22e7c6d56740649ab93c03a204c8c04dbc5b3cd008fe8ea90ccd91.
 Runtime indicator result: PENDING.
+
+
+## 2026-10-27 — recovery-test policy correction for indicator work
+
+The project owner narrowed the dedicated watchdog-test requirement to
+changes that modify keyboard input. A new kernel configuration by itself,
+keyboard backlight work, or indicator-only work does not require another
+watchdog-test boot. AGENTS.md rule 5 and the indicator runtime plan now
+reflect this policy. Both recovery mechanisms remain enabled; the written
+pre-flash check and flash/reboot authorization requirements remain.
+
+This supersedes the preceding indicator pre-flash check's requirement to
+re-prove both escapes on the new configuration. Proceed directly with the
+normal indicator image under the existing proceed authorization.
+
+A watchdog-test flashing command was supplied before the correction.
+Boot was reported, but neither live image identity nor an automatic reset
+was confirmed: USB SSH and rescue telnet both timed out. Do not record a
+new watchdog PASS or assume the current image is normal. Next step is the
+normal indicator image flash and boot identity check. No agent-initiated
+flash, reboot, module installation or LED register write occurred.

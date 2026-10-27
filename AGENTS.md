@@ -73,9 +73,15 @@ and PLL offsets. Mainline has no `mt6771` anything; the board rides on
    - An escape counts only after it has been **seen to fire** on the
      device. Configured or read-from-source is not an escape.
    - Every experimental image carries **both** escapes above.
-   - The first boot of any new kernel config does nothing but prove both
-     escapes, with the Gemian restore staged and the manual recovery
-     (unplug the battery connector) ready.
+   - A dedicated watchdog-test boot (`cosmo.wdtest=1`) is required only
+     when keyboard input is modified (for example keyboard scanning,
+     input-driver configuration, interrupts or key handling). A kernel
+     configuration change alone does not require repeating this test.
+     Keyboard backlight and indicator-only changes do not modify input.
+     For required tests, stage recovery artifacts and have manual recovery
+     (unplug the battery connector) ready. Existing observed recovery
+     results remain valid for changes outside keyboard input; no routine
+     repeat of either escape test is required for those changes.
    - Never remove a failsafe to make a test more convenient.
    - Any change touching the PMIC keys/`TOP_RST_MISC`, the watchdog, the
      reset path, the display/panel, or a new kernel config needs an
