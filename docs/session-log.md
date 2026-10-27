@@ -1333,3 +1333,15 @@
   recovery readiness before the first flash. No approval inferred here.
 - Current device remains normal codex-aw9524-boot.img, 6.18.58-cosmo.
   Keyboard runtime status PENDING; source/build checks PASS.
+
+### Q-key follow-up: first AW9524 green channel
+
+- User reported the Q-key LED off before testing. P0_1 alone was set
+  to 32/64 with a 1000 ms on / 1000 ms off timer for 30 seconds.
+  User observation: no light. Automatic cleanup selected trigger none
+  and brightness zero; subsequent readback confirmed both.
+- This does not identify the Q-key controller or prove AW9524 absence.
+  No other channel was changed; no keyboard PWM/GPIO178 write occurred.
+- Artifacts from 94fd128 copied to host staging
+  Build/codex-kbd-artifacts/94fd128; all three hashes match Hydra.
+  Flash/reboot approval remains pending.

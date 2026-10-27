@@ -241,3 +241,8 @@ After explicit flash/reboot approval and both new-config escape checks:
 
 Build checks and artifact identities are recorded in the session log.
 Runtime keyboard result remains PENDING.
+
+Q-key follow-up: P0_1 alone blinked at 32/64, 1000 ms on/off, for 30 s.
+User observed no light. Automatic cleanup and readback confirmed brightness
+0 and trigger none. This is a negative visual observation at that setting,
+not proof of the Q-key LED's wiring. No other channel was changed.
