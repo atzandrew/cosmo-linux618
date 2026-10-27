@@ -1620,3 +1620,14 @@ Pre-flash check:
   5.4 V; BL_PWM bit 7 clear; bl_power 4 turns the backlight off and 0
   back on; brightness steps visible. Fail: any blank, flicker, colour
   fault or probe error.
+
+### D1 result: PASS
+
+- Flashed with explicit approval; booted 6.18.58-cosmo #27 (fd3dc52).
+- No probe errors. dsvpos/dsvneg `enabled` 5400000 uV, dsvbst 5700000 uV;
+  DB_CTRL2 0x7a, DB_STAT 0x00 (unchanged from D0).
+- BL_PWM 0xb4 -> 0x30 (PWM input off); BL_EN 0x7e, BL_BSTCTRL 0xed,
+  DIM 05/5f unchanged; brightness 766 of 768.
+- Observed on glass: 15-cycle loop 766 / 384 / 100 / bl_power 4 (off),
+  every step visible, no flicker or colour fault, restored to 766.
+- Not observed: brightness at the probe switch-over from PWM to I2C.
