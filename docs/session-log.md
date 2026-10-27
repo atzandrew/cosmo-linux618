@@ -1345,3 +1345,19 @@
 - Artifacts from 94fd128 copied to host staging
   Build/codex-kbd-artifacts/94fd128; all three hashes match Hydra.
   Flash/reboot approval remains pending.
+
+### Normal keyboard-image handoff approved
+
+- User explicitly waived the separate watchdog-test boot for this
+  backlight-only change. Both recovery mechanisms remain enabled;
+  no recovery, keyboard scanning or reset code was changed.
+- User requested a staged image and command for manual flashing.
+  No flash or reboot was performed by the agent.
+- Normal image freshly verified on the flashing host:
+  Build/codex-kbd-artifacts/94fd128/codex-kbd-fifo-boot.img
+  SHA256 15f4f4e55a22e7c6d56740649ab93c03a204c8c04dbc5b3cd008fe8ea90ccd91.
+- This authorization supersedes the pending watchdog-test sequence
+  above. Next: manual normal-image flash, manual power-key boot,
+  read-only boot identity check, then install only leds-cosmo-kbd.ko.
+- Device last checked still on normal AW9524 image, boot-ok success.
+  Keyboard runtime testing remains pending.
