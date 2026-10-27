@@ -62,6 +62,7 @@
 #define SPM_PWR_STATUS_PA	0x10006180UL
 #define SPM_PWR_STATUS_2ND_PA	0x10006184UL
 #define SPM_CONN_TOP2_ACK	BIT(30)
+#define SPM_PWR_STATUS_CONN	BIT(1)
 
 #define VCN33_UV		3500000
 
@@ -315,7 +316,24 @@ static int consys_probe(struct platform_device *pdev)
 	ret = devm_add_action_or_reset(dev, consys_pd_detach, c);
 	if (ret)
 		return ret;
-	consys_log_spm(c, "after attach (CONN expected off)");
+	consys_log_spm(c, "after attach");
+	/*
+	 * mtk-pm-domains powers every domain without KEEP_DEFAULT_OFF on at
+	 * registration, and pd_ignore_unused keeps it on: CONN is on since
+	 * boot, with the MCU out of reset and the supplies off. Stock powers
+	 * CONN on only after the supplies and the MCU reset, so switch it off
+	 * first (genpd powers off on the last runtime put).
+	 */
+	if (spm_read(SPM_PWR_STATUS_PA) & SPM_PWR_STATUS_CONN) {
+		dev_info(dev, "CONN is on since boot; powering it off before the stock sequence\n");
+		ret = pm_runtime_resume_and_get(c->pd_dev);
+		if (ret)
+			return dev_err_probe(dev, ret, "CONN get\n");
+		pm_runtime_put_sync(c->pd_dev);
+		consys_log_spm(c, "after CONN off");
+		if (spm_read(SPM_PWR_STATUS_PA) & SPM_PWR_STATUS_CONN)
+			return dev_err_probe(dev, -EBUSY, "CONN still on, not running the sequence\n");
+	}
 
 	ret = consys_power_on_check(c);
 	/* Stay bound either way so the log and state can be inspected. */
