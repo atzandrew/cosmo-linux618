@@ -861,10 +861,9 @@
  * PMU interrupt: GPIO10 = EINT 10 level-low (live /mt6370_pmu_eint).
  * docs/power-stock.md, docs/power-plan.md S1.
  *
- * Children: ADC (S1), charger (S3), and general indicator sinks.
- * The other children (tcpc, backlight, flashlight, regulators) are left out
- * on purpose and their drivers are not built, so nothing touches Type-C,
- * the backlight or the DSV/LDO rails.
+ * Children: ADC (S1), charger (S3), general indicator sinks, and (D1) the
+ * display bias (DSV) regulators and the backlight. TCPC and flashlight are
+ * left out on purpose and their drivers are not built.
  */
 &i2c11 {
 	clock-frequency = <400000>;
@@ -916,6 +915,55 @@
 		mt6370_adc: adc {
 			compatible = "mediatek,mt6370-adc";
 			#io-channel-cells = <1>;
+		};
+
+		/*
+		 * Panel bias (stock lcm_pmic.c display_bias_enable: dsv_pos and
+		 * dsv_neg at 5.4 V; boost db_vbst 5.7 V). Enabled over I2C
+		 * (DB_CTRL2 bits 6/3); stock does not use the external enable
+		 * pins (db_ext_en = 0, empty ENN/ENP pinctrl). LK leaves both
+		 * on; the voltages below equal what LK set, so registration
+		 * writes nothing. No consumer yet: regulator_ignore_unused on
+		 * the cmdline keeps them on until the panel driver owns them.
+		 * The readable enable bits are the bias-off check for suspend.
+		 */
+		regulators {
+			mt6370_dsvbst: dsvbst {
+				regulator-name = "mt6370-dsvbst";
+				regulator-min-microvolt = <5700000>;
+				regulator-max-microvolt = <5700000>;
+			};
+
+			mt6370_dsvpos: dsvpos {
+				regulator-name = "mt6370-dsvpos";
+				regulator-min-microvolt = <5400000>;
+				regulator-max-microvolt = <5400000>;
+			};
+
+			mt6370_dsvneg: dsvneg {
+				regulator-name = "mt6370-dsvneg";
+				regulator-min-microvolt = <5400000>;
+				regulator-max-microvolt = <5400000>;
+			};
+		};
+
+		/*
+		 * LCD backlight, stock limits (docs/power-stock.md "Backlight"):
+		 * 4 channels, OVP 29 V and OCP 1.5 A with shutdown (equal to
+		 * LK's BL_BSTCTRL 0xed), linear mode, stock cap 768 of 2048.
+		 * Dimming is I2C only: no mediatek,bled-pwm-enable, so the
+		 * SoC DISP_PWM input is switched off at probe (driver delta).
+		 * default-brightness = LK's level (0x1a4/0x1a5 = 05/5f).
+		 */
+		mt6370_backlight: backlight {
+			compatible = "mediatek,mt6370-backlight";
+			mediatek,bled-channel-use = /bits/ 8 <0x0f>;
+			mediatek,bled-ovp-shutdown;
+			mediatek,bled-ovp-microvolt = <29000000>;
+			mediatek,bled-ocp-shutdown;
+			mediatek,bled-ocp-microamp = <1500000>;
+			max-brightness = <768>;
+			default-brightness = <766>;
 		};
 
 		/*

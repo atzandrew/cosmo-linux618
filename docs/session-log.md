@@ -1580,3 +1580,43 @@ No keyboard input code change or raw I2C write performed.
   --wipe_data` message in `para` (first boot hung until then).
 - Captured stock Android thermal policy and GPU table into
   docs/stock-reference.md.
+
+
+## 2026-10-27 — display D0 (read-only) and D1 build
+
+Research (stock first): panel NT36672, LK LCM `aeon_nt36672_fhd_dsi_vdo_x800_datong`,
+ID read by LK 0x80/0x70. The stock source file
+`lcm/aeon_nt36672_fhd_dsi_vdo_x600_xinli` registers that name; its init
+table (185 commands) is byte-identical to the stock kernel's and LK's
+compiled tables. Stock kernel disassembly: power-on = reset 0, 20 ms, 1,
+10 ms, 0, 10 ms, 1, 20 ms, then the table; suspend = 0x28, 50 ms, 0x10,
+120 ms, +10 ms, then dsv_neg off, dsv_pos off. Bias = MT6370 DSV over I2C,
+5.4 V each (no ENP/ENN GPIOs). Panel reset = LCM_RST pad (GPIO45).
+
+D0, read-only (regmap debugfs window reads, LK picture lit):
+DB_CTRL1 0x1b0 = 0x00, DB_CTRL2 0x1b1 = 0x7a (VPOS and VNEG enabled),
+VBST 0x1b2 = 0xe2 (5.7 V), VPOS/VNEG 0x1b3/0x1b4 = 0x5c (5.4 V),
+DB_STAT 0x1df = 0x00. BL_EN 0x1a0 = 0x7e, BL_BSTCTRL 0x1a1 = 0xed,
+BL_PWM 0x1a2 = 0xb4, DIM 0x1a4/0x1a5 = 0x05/0x5f (level 766).
+GPIO45 pad high. PASS.
+
+D1 change (no panel write): MT6370 DSV regulators (5.4/5.4/5.7 V, equal
+to LK, no consumer, kept on by regulator_ignore_unused) and MT6370
+backlight (stock limits, max 768, default 766, I2C-only dimming; driver
+delta writes the whole BL_PWM field so the PWM input is switched off).
+
+Pre-flash check:
+- Image `out/d1-boot.img` SHA256
+  2836f713a4bb186df4e3412cc0620f2e595dfcc8d2a9e62d150417831ecc5a59.
+- Risk: display-related (backlight register writes at probe). Expected
+  visible effect: none, or a brightness step if LK's DISP_PWM duty was
+  below 100 %.
+- Escapes: power-key reset and watchdog unchanged from the observed
+  kernel family (MT6358 keys still disabled; build-boot-img check passed).
+- Rollback: codex-mt6370-indicator-boot.img (881b7ff0...).
+- Rootfs modules unchanged (no MODVERSIONS; no loaded module uses the
+  backlight class).
+- Pass: no blank or flicker through boot; dsvpos/dsvneg read enabled at
+  5.4 V; BL_PWM bit 7 clear; bl_power 4 turns the backlight off and 0
+  back on; brightness steps visible. Fail: any blank, flicker, colour
+  fault or probe error.
