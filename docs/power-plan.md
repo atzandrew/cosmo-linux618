@@ -86,6 +86,32 @@ only the FGADC_CON1 read handshake; never FG_ON, CAR reset or calibration.
   meter; charge counted over a known charge session within 5 %; percent
   never jumps by more than 2 points without a full/empty anchor.
 
+**S4a result 2026-10-26: COMPLETE** (measurements only, `boot-s4a.img`
+4bcee613…, docs/session-log.md). New `battery` power supply: current,
+charge counter, voltage, temperature, design values. Voltage within 8 mV
+of the MT6370, counted charge within 1.5 % of current x time. With the
+vendor CAR_TUNE 0.93 the current reads 5.7 % below the MT6370 IBAT
+(1.4 % without it); 0.93 kept (vendor value), accepted as is.
+
+**S4b (next): state of charge**, as above, plus the vendor BAT_TEMP
+glitch guard (`pmic_auxadc.c:707-713`: a jump of more than 100 mV from
+the last reading -> 5 re-reads, mean without min/max), so a bad sample
+cannot trip the 60 C power-off or stop charging.
+
+Stretch goals (not blocking):
+- Battery temperature glitch: during the S4a charge test the
+  battery-thermal zone stepped from 24.5 C to 15.4 C for 2 min, then back.
+  Not traced. Stock reads the 2.8 V pull-up (VBIF) on every conversion and
+  subtracts an IR term (current x (R_FG + 7.5 mOhm meter)); mainline uses a
+  fixed 2.8 V table. Trace with raw BAT_TEMP + VBIF logged at 1 s.
+- Which current scale is right (vendor CAR_TUNE 0.93 vs the MT6370 IBAT):
+  needs a third reference.
+- Charger/battery LED (optional): blink code for the charger type, then a
+  breathing colour for the battery level (red < 15 %, orange, yellow,
+  green > 80 %, blue full). LED first to identify (MT6370 RGB indicator or
+  the AW9524 cover LED); logic as a rootfs service on the power-supply
+  sysfs values.
+
 ### S5 backlight, S6 Type-C
 After the display/USB plans; not covered by this plan.
 

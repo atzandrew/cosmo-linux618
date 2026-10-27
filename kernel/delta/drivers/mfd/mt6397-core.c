@@ -227,6 +227,10 @@ static const struct mfd_cell mt6358_devs[] = {
 		/* Cosmo: power-off (drivers/power/reset/mt6358-poweroff.c) */
 		.name = "mt6358-pwrc",
 		.of_compatible = "mediatek,mt6358-pwrc"
+	}, {
+		/* Cosmo: fuel gauge (drivers/power/supply/mt6358-gauge.c) */
+		.name = "mt6358-gauge",
+		.of_compatible = "mediatek,mt6358-gauge"
 	},
 };
 

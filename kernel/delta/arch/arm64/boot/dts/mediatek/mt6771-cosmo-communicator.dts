@@ -473,6 +473,21 @@
 		compatible = "mediatek,mt6358-pwrc";
 		mediatek,toprgu = <&watchdog>;
 	};
+
+	/*
+	 * Fuel gauge, measurements only (drivers/power/supply/
+	 * mt6358-gauge.c, docs/power-stock.md "MT6358 fuel gauge
+	 * hardware"). CAR_TUNE 930 and R_FG 10 mOhm (= no scaling) as the
+	 * vendor mt6771_battery_prop.dtsi.
+	 */
+	mt6358_gauge: gauge {
+		compatible = "mediatek,mt6358-gauge";
+		io-channels = <&pmic_adc MT6358_AUXADC_BATADC>;
+		io-channel-names = "batadc";
+		monitored-battery = <&cosmo_battery>;
+		power-supplies = <&mt6370_chg>;
+		mediatek,car-tune = <930>;
+	};
 };
 
 /*
@@ -765,7 +780,7 @@
 		 * drivers/power/supply/mt6370-charger.c). The driver reads IBUS
 		 * as the sixth io-channel, so all nine are listed in order.
 		 */
-		charger {
+		mt6370_chg: charger {
 			compatible = "mediatek,mt6370-charger";
 			interrupts = <68>, <48>, <6>;
 			interrupt-names = "uvp_d_evt", "attach_i", "mivr";

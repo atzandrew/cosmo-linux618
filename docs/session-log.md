@@ -957,3 +957,51 @@
 - Note: stock's PC-port dump was CDP (1.5 A); the Dragon port reads SDP
   under mainline. Stock's dump may have been taken on a different port.
 - Device left on S3b.
+
+## 2026-10-26 — power S4a: MT6358 fuel gauge, measurements only (COMPLETE)
+
+- Stock first: `pmic/mt6358/v1/mt6358_gauge.c` `fgauge_read_current`
+  (:882) and `fgauge_get_coulomb` (:1098). Handshake FGADC_CON1 (0xd0a)
+  [3:0] = 0x1, wait LATCHDATA_ST (bit 15), read, 0x8, wait bit 15 = 0,
+  0x0. Current 0xd8a (381.470 uA/LSB, raw > 32767 = discharge as 65535 -
+  raw); CAR 0xd14/0xd16 (20 bits + sign, 108.507 uAh/LSB, discharge as
+  0xfffff - car); CAR_TUNE 930 on both.
+- Live, before the build (read only): FGADC_CON0 0x2129 (FG_ON; stock
+  live 0x2529, bit 10 ZCV_DET_EN set by stock's gauge code), CAR about
+  -0.1 mAh (counter reset at boot). LK's `/chosen` atags are ASCII:
+  `atag,fg_swocv_v` "39527" (3.9527 V), `atag,fg_swocv_i` "-5835"
+  (-583.5 mA). The stale latched current 0xf987 converts to -587 mA with
+  the vendor formula, matching LK.
+- Change: new `drivers/power/supply/mt6358-gauge.c` (+ delta Kconfig /
+  Makefile, `CONFIG_BATTERY_MT6358_GAUGE=y`), MFD cell `mt6358-gauge` in
+  the `mt6397-core.c` delta, DT node `gauge` under `&pmic` (batadc
+  io-channel, monitored-battery, `power-supplies = <&mt6370_chg>`,
+  `mediatek,car-tune = <930>`). One handshake per read for current and
+  charge; the driver refuses to load if FG_ON is clear.
+- Image `boot-s4a.img` sha256
+  `4bcee6134a67469584d4b805d2235bdeb18493a53fce1395100d15ca4bba69e1`.
+  Flashed (explicit OK): `mtk w boot`.
+- Results:
+  1. Boot + probe `FGADC_CON0 0x2129, car-tune 930: current -170642 uA,
+     charge -302 uAh`: PASS.
+  2. FGADC_CON0 0x2129 and FGADC_CON1 0x0000 after ~200 reads, no read
+     errors, no AUXADC timeouts: PASS.
+  3. Current vs MT6370 IBAT on the Anker PowerPort II: gauge 1.21 -> 1.04
+     A, MT6370 1.30 -> 1.10 A; mean ratio 0.943 (1.014 without CAR_TUNE).
+     Over the 5 % limit set in advance; accepted by the user with the
+     vendor 0.93 kept (which reference is right is open).
+  4. Voltage 4.0465 V vs MT6370 4.055 V: PASS.
+  5. Charge counter over 780 s of charging: +246.7 mAh vs 243.1 mAh from
+     the current samples (1.5 %): PASS.
+  6. Temperature = battery-thermal: PASS.
+  7. Status Charging (wall) / Discharging (unplugged) / Not charging
+     (Dragon port, 500 mA does not cover the load): PASS.
+- Finding: battery-thermal stepped from 24.5 C to 15.4 C about 3 min into
+  the charge, rose slowly to 15.8 C over 2 min, then stepped back to
+  25.0 C. Stock's BAT_TEMP path differs from ours: live VBIF pull-up
+  voltage (`RBAT_PULL_UP_VOLT_BY_BIF`, `mtk_battery.c:1068`), an IR
+  compensation with the gauge current (`force_get_tbat_internal`), a
+  re-read filter on jumps over 100 mV (`pmic_auxadc.c:707-713`,
+  `bat_temp_filter`) and a 5 C / 20 s jump warning. Not traced; the
+  filter goes into S4b, the trace is a stretch goal.
+- Device left on S4a.
