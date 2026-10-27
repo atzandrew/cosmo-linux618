@@ -1534,3 +1534,18 @@ ISNK2 stopped (trigger none, brightness 0). ISNK3 started at brightness 1,
 timer 1000/1000 ms, left running for observation. ISNK1/2 off. Trigger and
 delays read back correctly; charging reports Charging. No ISNK4 change.
 Next: collect ISNK3 physical location/colour observation, then stop/switch.
+
+
+### ISNK3 negative observation; AW9524 P0_1 retest active
+
+ISNK3 produced no visible blink by observation. This does not establish
+that it is red or unused; ISNK4 is the separate stock red/charge output.
+Stopped ISNK3, confirmed ISNK1–3 brightness 0 and Charging status.
+Stock keyboard source aw9523_key.c:640–648 has matrix initialization but
+no explicit Q/caps LED control found in targeted searches. Generic ODM
+notification LED entries are disabled (k71v1_64_bsp.dts:34–70).
+
+Retesting AW9524 P0_1 with persistent timer 1000/1000 ms, brightness 32/64,
+same setting as earlier timed negative test. Trigger/delays verified;
+left running until observation. No other AW9524 channel changed. Do not
+claim either controller ruled out from negative observations alone.
