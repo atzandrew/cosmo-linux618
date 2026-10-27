@@ -1208,3 +1208,37 @@
 - No modules installed on the device; no LED writes, flash or reboot.
   Device remains on byte-verified W1b. Runtime LED tests and the two
   new-image escape observations remain pending explicit approval.
+
+### AW9524 first flash approval
+
+- Explicit approval received for the watchdog-test flash and reboot,
+  including the written pre-flash check and manual recovery readiness.
+- Rechecked main: d532f79, ancestor of the LED branch. All W1b kernel
+  connectivity changes are included; branch diff touches only the AW9524
+  implementation, board LED node, configuration and documentation.
+  Existing cosmo-wifi.service is active; rootfs 5 GHz fix is preserved.
+- All staged artifact SHA256 checks pass. Intended first image:
+  codex-aw9524-wdtest-boot.img, release 6.18.58-cosmo,
+  SHA256 ed281ef51d98a9936d79b2cf2532cd2be68ef292b99b146235544abff7afc54d.
+- Flash pending USB connection; no write or reboot performed yet.
+
+### AW9524 first flash attempt — USB sandbox prevents handshake
+
+- USB connected; fresh hashes of both images/module passed. Approved
+  `mtk w boot` launched for the watchdog-test image, then one approved
+  `sudo systemctl reboot` over Wi-Fi.
+- Host USB log: MediaTek preloader 0e8d:2000 enumerated, then normal Linux
+  USB gadget returned. mtk failed to get USB configuration/handshake;
+  it never reached a partition write and was stopped with Ctrl-C.
+- Cause: active command sandbox hides /dev/bus/usb. lsusb enumerates IDs
+  through sysfs, but /dev/bus does not exist inside the sandbox. Raw USB
+  flashing must run from a normal host terminal or a session with USB
+  device access; no attempt to bypass the sandbox was made.
+- Current boot is the existing W1b rescue initramfs. USB telnet confirmed
+  `last root boot never reported in: RESCUE initramfs (next boot tries again)`.
+  Init owns/feeds the watchdog (31 s timeout). SSH/Wi-Fi are unavailable
+  in rescue; USB telnet at 10.15.19.83 works.
+- Fresh read-only boot-partition prefix hash still equals
+  b8ee5fab4db99ca505d61cb7ddd55c33740f0cddfb6a730adbab82753a10377c.
+  No boot-image change or LED writes occurred. New-image escape checks
+  remain untested. Next reboot needs fresh approval under the task rule.
