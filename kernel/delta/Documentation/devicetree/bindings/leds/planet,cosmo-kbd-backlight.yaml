@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/leds/planet,cosmo-kbd-backlight.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Planet Cosmo Communicator keyboard backlight
+
+maintainers:
+  - atzero <atzandrew@gmail.com>
+
+description: |
+  The Cosmo uses MT6771 PWM1 in FIFO mode and a shared keyboard/HDMI
+  enable. This device owns the entire general PWM register resource;
+  it must replace the generic PWM provider, never coexist with it.
+  Only channel 1 is programmed. GPIO178 is asserted for keyboard on;
+  keyboard off only deasserts it if HDMI detect GPIO54 is low.
+  A future HDMI driver must coordinate ownership of the shared enable.
+
+properties:
+  compatible:
+    const: planet,cosmo-kbd-backlight
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    minItems: 6
+    maxItems: 6
+
+  clock-names:
+    items:
+      - const: top
+      - const: main
+      - const: pwm1
+      - const: pwm2
+      - const: pwm3
+      - const: pwm4
+
+  enable-gpios:
+    maxItems: 1
+    description: Active high shared keyboard and HDMI enable.
+
+  hdmi-detect-gpios:
+    maxItems: 1
+    description: Active high HDMI detection; never drop enable while high.
+
+  pinctrl-names:
+    const: default
+
+  pinctrl-0: true
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - enable-gpios
+  - hdmi-detect-gpios
+  - pinctrl-names
+  - pinctrl-0
+
+additionalProperties: false

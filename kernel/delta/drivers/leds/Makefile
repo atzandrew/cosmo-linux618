@@ -127,3 +127,4 @@ obj-y					+= blink/
 obj-y					+= simatic/
 
 obj-$(CONFIG_LEDS_AW9524)		+= leds-aw9524.o
+obj-$(CONFIG_LEDS_COSMO_KBD) += leds-cosmo-kbd.o

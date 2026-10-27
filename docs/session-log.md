@@ -1279,3 +1279,57 @@
   not yet investigated. Fn layout/RTC outside this LED-focused session.
 - Next: keyboard PWM1/GPIO178 and Q-key LED, stock-first; further stock
   fingerprint-red investigation remains separate. No stock restore.
+
+## 2026-10-27 — stock FIFO keyboard backlight prepared
+
+- Worktree codex/kbd-lights continued from 7566852; no merge/push.
+  Dedicated leds-cosmo-kbd module and binding replace the general PWM
+  provider exclusively. Stock PWM1 FIFO levels 0–5 and GPIO90 PWM_A;
+  GPIO178 is only lowered when GPIO54 reads low. Detailed source
+  receipts, scope limits and runtime pass/fail plan: docs/leds-stock.md.
+- PASS: full JOBS=6 bin/build-kernel.sh; final driver W=1 object compile;
+  strict checkpatch 0 errors/warnings/checks; git diff --check.
+  DTB W=1 builds with existing vendor-node warnings; no new-node warning.
+  Binding dt-doc-validate and filtered new-node dt-validate PASS.
+- Kernel 6.18.58-cosmo. Requested config adds only LEDS_COSMO_KBD=m;
+  LEDS_MT6370_RGB and REGULATOR_MT6370 remain disabled.
+  No changes to display, charger, PMIC keys, watchdog, reset or Wi-Fi.
+- Image.gz-dtb SHA256:
+  b9747f9b89ede73ba9c42bc6be585f62cc1ad49595c6fcb7c91d6a304e366f7b.
+- Normal codex-kbd-fifo-boot.img SHA256:
+  15f4f4e55a22e7c6d56740649ab93c03a204c8c04dbc5b3cd008fe8ea90ccd91.
+- codex-kbd-fifo-wdtest-boot.img SHA256:
+  3352c437073df6c1d9d17144f3b48e5100e7b0d79b47cf446b575a5a721aa135.
+- leds-cosmo-kbd.ko SHA256:
+  63ce1d381febc2f86f25334b5e18ec116b88cf8ab0f31ab4b90f1f5588352352.
+- Build logs: /tmp/codex-kbd-build.log, /tmp/codex-kbd-object-final.log.
+  Both images packed with bin/build-boot-img.sh; PMIC-key safeguard PASS.
+- Device read-only checks: boot-ok Result=success / ExecMainStatus=0;
+  all four PWM channels disabled and unrequested. No keyboard PWM or
+  GPIO178 write, module installation, flash or reboot performed.
+- Q-key LED reported currently off. Stock AW9524 supports separate
+  current sinks; its keyboard callback explicitly selects the SoC PWM1
+  controller, not MT6370 PWM. Stock MT6370 indicator names do not prove
+  Q-key placement. Physical controller identification remains pending.
+
+### Written pre-flash check — approval pending
+
+- Change: new keyboard module configuration and board PWM node; no
+  keyboard module in the current rootfs, so keep it uninstalled until
+  both escape checks have passed. First new-config boots only prove
+  recovery, then install only the new module for keyboard testing.
+- Risk flags: new kernel config YES; PMIC keys/watchdog/reset/display
+  changes NO. MT6370 LED driver NO. HDMI operation untested; future HDMI
+  driver needs shared GPIO ownership. No stock restore is planned.
+- Both escapes retained: disabled mt6358keys leaves TOP_RST_MISC alone;
+  init-owned watchdog retained. Watchdog test deliberately stops feeding
+  via cosmo.wdtest=1. Power-key and watchdog observed on the prior normal
+  AW9524 config, NOT yet observed on this new keyboard config.
+- Known-good normal AW9524 image is staged and freshly hash-verified:
+  d5d4694e7f590a2762b529d352d976e1953f03750e2d8588e85856db20bd4aec.
+  Recovery must use that approved mainline image, never stock.
+- Obtain explicit approval before EACH flash/reboot, including the
+  watchdog-test image and subsequent normal image; confirm manual
+  recovery readiness before the first flash. No approval inferred here.
+- Current device remains normal codex-aw9524-boot.img, 6.18.58-cosmo.
+  Keyboard runtime status PENDING; source/build checks PASS.

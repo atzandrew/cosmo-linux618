@@ -1244,3 +1244,25 @@
 		};
 	};
 };
+
+/*
+ * Own the general PWM controller exclusively for stock PWM1 FIFO.
+ * The generic PWM driver only implements old mode. No other consumer
+ * uses this controller; display PWM remains disabled separately.
+ */
+&pwm1 {
+	compatible = "planet,cosmo-kbd-backlight";
+	/delete-property/ #pwm-cells;
+	pinctrl-names = "default";
+	pinctrl-0 = <&kbd_pwm_pins>;
+	enable-gpios = <&pio 178 GPIO_ACTIVE_HIGH>;
+	hdmi-detect-gpios = <&pio 54 GPIO_ACTIVE_HIGH>;
+};
+
+&pio {
+	kbd_pwm_pins: kbd-pwm-pins {
+		pins-pwm {
+			pinmux = <PINMUX_GPIO90__FUNC_PWM_A>;
+		};
+	};
+};

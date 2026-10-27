@@ -1042,4 +1042,12 @@ config LEDS_AW9524
 	  Individual current controls for the AW9524 LEDs on the Cosmo
 	  Communicator. The keyboard backlight is a separate PWM device.
 
+config LEDS_COSMO_KBD
+	tristate "Cosmo Communicator keyboard backlight"
+	depends on OF && GPIOLIB && COMMON_CLK && LEDS_CLASS
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	help
+	  Stock PWM1 FIFO brightness levels for the Cosmo keyboard, with
+	  the shared keyboard/HDMI enable protected by HDMI detection.
+
 endif # NEW_LEDS

@@ -168,3 +168,76 @@ GPIO178 is shared with HDMI: aw9524_key.c:304–316 preserves it on
 keyboard-off when GPIO54 detect is high; usb_c/fusb302/usb_typec.c:329–335
 also asserts it and reads detect. No keyboard PWM/GPIO178 writes have
 been made. The Q-key LED has not been investigated or identified.
+
+## 2026-10-27 — keyboard FIFO implementation and Q-key investigation
+
+The dedicated `leds-cosmo-kbd` module replaces the general PWM provider
+at 0x11006000 using compatible `planet,cosmo-kbd-backlight`. The resource
+is owned exclusively: no second mapping beside pwm-mediatek, and no raw
+userspace MMIO. Other general PWM channels are unavailable under this
+board-specific binding. Probe refuses any of the four channels already
+enabled by firmware. The display PWM is a separate block and stays disabled.
+
+The LED class device is `cosmo::kbd_backlight`, max_brightness 5.
+Levels 1–5 reproduce the stock FIFO words above. PWM_CON is 0x7e03:
+stop bit 63, divider enum 3 (divide 8), block clock, FIFO periodic mode,
+idle/guard low and old mode disabled. HDUR/LDUR=1, GDUR/WAVENUM=0.
+No clock parent or 26 MHz selector write. Stock register receipts:
+`drivers/misc/mediatek/pwm/mt6771/mtk_pwm_hal.c:29–46`
+(register word indices), 122–127 (channel bases);
+`drivers/misc/mediatek/pwm/mt6771/include/mach/mtk_pwm_prv.h:44–69`
+(control fields); `drivers/misc/mediatek/include/mt-plat/mt6771/include/mach/mtk_pwm_hal.h:89–100`
+(divider enum).
+
+Brightness zero stops channel 1 and releases the three acquired clock
+references instead of leaving an all-zero FIFO running as stock does.
+GPIO178 is lowered only when GPIO54 reads low, exactly preserving stock's
+keyboard-off decision. A failed GPIO54 read leaves GPIO178 unchanged and
+returns the error. Probe acquires GPIO178 as-is without driving its level.
+Unregister/shutdown/suspend turn keyboard PWM off with that same HDMI check.
+The module does not implement HDMI detection, connector probing, or the
+USB-C driver's GPIO178 probing pulses. A future HDMI driver must share a
+single owner/arbitration mechanism rather than independently requesting
+GPIO178. HDMI operation and suspend remain untested.
+
+Read-only live check before implementation: debugfs PWM reported all four
+channels disabled and unrequested. GPIO debugfs showed no owner for
+GPIO54/90/178. No keyboard PWM/GPIO178 writes were made on the device.
+
+### Q-key LED: evidence, not a wiring assignment
+
+Stock `arch/arm64/boot/dts/mediatek/mt6370.dtsi:116–130` declares
+MT6370 sinks named green, blue, mt6370_pmu_led3, red in channel order.
+The generic vendor LED entries in `k71v1_64_bsp.dts:34–64` have
+led_mode=0 (disabled), including keyboard-backlight; stock AW9524's
+separate driver supplies the actual keyboard LED class.
+
+MT6370 sink 4 has separate charge-indicator registers (vendor
+`drivers/misc/mediatek/pmic/mt6370/mt6370_pmu_rgbled.c:89–93`).
+Mainline `drivers/leds/rgb/leds-mt6370-rgb.c:159–160,854–869`
+programs RGB_EN and CHGIND_EN; registering an indicator is not a read-only
+identification operation. Existing charge illumination may be autonomous
+from firmware state. Neither stock names nor the red light remaining on
+with AW9524 off prove which physical LED is beside Q.
+
+Q-key controller remains UNIDENTIFIED. No MT6370 LED driver has been
+enabled, no indicator register has been changed, and no stock boot is
+planned. The next step is physical position/colour observation, followed
+by a separately approved MT6370 indicator test if the evidence warrants it.
+
+### Keyboard runtime pass/fail plan
+
+After explicit flash/reboot approval and both new-config escape checks:
+
+1. Load only the keyboard module, preserving Wi-Fi modules. PASS: one
+   keyboard LED class device, max=5, brightness=0, no visible backlight.
+2. With HDMI disconnected, set 1, then 0. PASS: keyboard illumination,
+   then darkness; SSH/keyboard and charging remain functional.
+3. Compare 1, 2, 3, 4, 5 briefly, then 0. PASS: visibly increasing
+   illumination, no unrelated LED change or kernel errors.
+4. Unload/reload. PASS: PWM stops, clocks balance, class returns at zero.
+5. GPIO54-high preservation requires separate observed HDMI conditions;
+   do not claim hardware PASS from source inspection alone.
+
+Build checks and artifact identities are recorded in the session log.
+Runtime keyboard result remains PENDING.
