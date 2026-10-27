@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Stock MediaTek connectivity drivers (vendor 4.4 tree, MT6771 CONSYS) on
+# mainline: BTIF, WMT core, /dev/wmtWifi and the wlan gen3 802.11 driver.
+# Hardware and protocol code is stock; the mainline port notes are tagged
+# "[port 6.18]". See docs/wifi-stock.md.
+
+config MTK_WCN_CONSYS
+	tristate "MediaTek MT6771 CONSYS: BTIF, WMT core, Wi-Fi char device"
+	depends on OF && HAS_IOMEM && REGULATOR && RESET_CONTROLLER && PINCTRL
+	help
+	  Stock MediaTek drivers for the on-die connectivity subsystem of the
+	  MT6771 (Wi-Fi/BT, A-die MT6631): the BTIF transport (btif), the WMT
+	  core (wmt_drv) and the Wi-Fi function char device (wmt_chrdev_wifi).
+	  The WMT module also does the job of the stock Android wmt_loader /
+	  wmt_launcher daemons. Firmware: ROMv4_be_patch_1_[01]_hdr.bin and
+	  WMT_SOC.cfg from the stock vendor partition.
+
+config MTK_WCN_GEN3
+	tristate "MediaTek MT6771 CONSYS Wi-Fi (wlan gen3)"
+	depends on MTK_WCN_CONSYS && CFG80211 && NL80211_TESTMODE
+	help
+	  Stock MediaTek wlan gen3 802.11 driver (wlan_drv_gen3) for the
+	  MT6771 CONSYS Wi-Fi. Firmware: WIFI_RAM_CODE_6759 from the stock
+	  vendor partition; per-unit NVRAM from nvdata.

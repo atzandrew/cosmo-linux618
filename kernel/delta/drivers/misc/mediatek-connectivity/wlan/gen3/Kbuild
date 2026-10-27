@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: GPL-2.0
+# Stock MediaTek wlan gen3 802.11 driver (wlan_drv_gen3), MT6631 / CONSYS_6771 path.
+# Flags and objects follow the stock 4.4 build for CONSYS_6771 (Makefile.vendor).
+ccflags-y += -DLINUX -DMT6631 -DDRIVER_BUILD_DATE='"6.18-cosmo"'
+ccflags-y += -DCFG_SUPPORT_DEBUG_FS=0 -DWLAN_INCLUDE_PROC -DCFG_SUPPORT_AGPS_ASSIST=1
+ccflags-y += -DCFG_SUPPORT_TSF_USING_BOOTTIME=1 -DARP_MONITER_ENABLE=1
+ccflags-y += -DCFG_SUPPORT_CHNL_CONFLICT_REVISE=1 -DCFG_SUPPORT_AEE=0 -DBUILD_QA_DBG=1
+ccflags-y += -DCFG_SUPPORT_PASSPOINT=0 -DCFG_HS20_DEBUG=0 -DCFG_ENABLE_GTK_FRAME_FILTER=0
+ccflags-y += -DCFG_MET_PACKET_TRACE_SUPPORT=0 -DWMT_IDC_SUPPORT=0 -DDBG=0
+ccflags-y += -DCFG_ENABLE_EMI_MPU=0 -DCFG_SUPPORT_WIFI_FW_LOG_UI=1 -DFW_CFG_SUPPORT
+ccflags-y += -DMTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT
+ccflags-y += -I$(src)/os -I$(src)/os/linux/include -I$(src)/os/linux/hif/ahb_sdioLike/include
+ccflags-y += -I$(src)/include -I$(src)/include/nic -I$(src)/include/mgmt
+ccflags-y += -I$(src)/../../common/common_main/include -I$(src)/../../common/common_main/linux/include
+ccflags-y += -I$(src)/../../common
+wlan_drv_gen3-objs := common/dump.o common/wlan_lib.o common/wlan_oid.o common/wlan_bow.o \
+ common/debug.o common/wlan_p2p.o common/fwcfg.o \
+ nic/nic.o nic/nic_tx.o nic/nic_rx.o nic/nic_pwr_mgt.o nic/nic_rate.o nic/cmd_buf.o \
+ nic/que_mgt.o nic/nic_cmd_event.o nic/p2p_nic.o \
+ os/linux/gl_init.o os/linux/gl_kal.o os/linux/gl_bow.o os/linux/gl_wext.o os/linux/gl_wext_priv.o \
+ os/linux/gl_ate_agent.o os/linux/gl_qa_agent.o os/linux/gl_hook_api.o os/linux/gl_proc.o \
+ os/linux/gl_rst.o os/linux/gl_cfg80211.o os/linux/gl_vendor.o os/linux/platform.o \
+ os/linux/gl_p2p.o os/linux/gl_p2p_cfg80211.o os/linux/gl_p2p_init.o os/linux/gl_p2p_kal.o os/linux/gl_cfg80211_compat.o \
+ os/linux/hif/ahb_sdioLike/arm.o os/linux/hif/ahb_sdioLike/ahb.o \
+ os/linux/hif/ahb_sdioLike/sdio_bus_driver.o os/linux/hif/ahb_sdioLike/ahb_cqdma.o \
+ mgmt/ais_fsm.o mgmt/aaa_fsm.o mgmt/assoc.o mgmt/auth.o mgmt/bss.o mgmt/cnm.o mgmt/cnm_timer.o \
+ mgmt/cnm_mem.o mgmt/hem_mbox.o mgmt/mib.o mgmt/privacy.o mgmt/rate.o mgmt/rlm.o mgmt/rlm_domain.o \
+ mgmt/rlm_obss.o mgmt/rlm_protection.o mgmt/rsn.o mgmt/saa_fsm.o mgmt/scan.o mgmt/scan_fsm.o \
+ mgmt/swcr.o mgmt/roaming_fsm.o mgmt/tkip_mic.o mgmt/hs20.o mgmt/tdls.o mgmt/wnm.o mgmt/qosmap.o \
+ mgmt/wmm.o mgmt/stats.o mgmt/wapi.o \
+ mgmt/p2p_dev_fsm.o mgmt/p2p_dev_state.o mgmt/p2p_role_fsm.o mgmt/p2p_role_state.o mgmt/p2p_func.o \
+ mgmt/p2p_scan.o mgmt/p2p_ie.o mgmt/p2p_rlm.o mgmt/p2p_assoc.o mgmt/p2p_bss.o mgmt/p2p_rlm_obss.o
+ccflags-y += -include $(src)/../../include/wcn_compat.h
+obj-$(CONFIG_MTK_WCN_GEN3) += wlan_drv_gen3.o

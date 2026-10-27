@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0
+# Stock MediaTek BTIF driver (AP <-> CONSYS MCU UART + APDMA), MT6771.
+# Flags and objects follow the stock 4.4 build for CONSYS_6771 (Makefile.vendor).
+ccflags-y += -include $(src)/../include/wcn_compat.h
+ccflags-y += -I$(src)/inc -I$(src)/plat_inc -I$(src)/../include -D BTIF_DBG_SUPPORT=1
+btif-objs := mtk_btif.o mtk_btif_exp.o btif_dma_plat.o btif_plat.o
+obj-$(CONFIG_MTK_WCN_CONSYS) += btif.o

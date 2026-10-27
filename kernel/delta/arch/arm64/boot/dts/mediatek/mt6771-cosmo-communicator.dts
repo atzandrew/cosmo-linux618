@@ -467,15 +467,18 @@
 
 	/*
 	 * CONSYS (on-die Wi-Fi/BT/GPS, A-die MT6631), vendor mt6771.dts
-	 * consys@18070000 mapped to mainline (docs/wifi-stock.md). reg:
-	 * CONN_MCU_CONFIG, AFE. Supplies at the stock voltages (vcn33 set
-	 * to 3.5 V by the driver). The CONN domain is on the child node so
-	 * the driver can power it on in the stock order.
+	 * consys@18070000 (docs/wifi-stock.md). reg as stock: CONN_MCU_CONFIG,
+	 * TOP_RGU, INFRACFG_AO, SPM (the driver maps, never claims, the
+	 * shared ones). Supplies at the stock voltages (vcn33 set to 3.5 V by
+	 * the driver). The CONN MTCMOS is switched by the driver itself: the
+	 * mainline scpsys controller does not probe on this board yet.
 	 */
 	consys: consys@18070000 {
 		compatible = "mediatek,mt6771-consys";
-		reg = <0 0x18070000 0 0x1000>,
-		      <0 0x180b6000 0 0x100>;
+		reg = <0 0x18070000 0 0x1000>,	/* CONN_MCU_CONFIG */
+		      <0 0x10007000 0 0x0100>,	/* TOP_RGU */
+		      <0 0x10001000 0 0x1000>,	/* INFRACFG_AO */
+		      <0 0x10006000 0 0x1000>;	/* SPM */
 		interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_LOW>,
 			     <GIC_SPI 291 IRQ_TYPE_LEVEL_LOW>;
 		memory-region = <&consys_mem>;
@@ -487,10 +490,36 @@
 		pinctrl-names = "on", "off";
 		pinctrl-0 = <&consys_pins_on>;
 		pinctrl-1 = <&consys_pins_off>;
+	};
 
-		conn-power {
-			power-domains = <&spm MT8183_POWER_DOMAIN_CONN>;
-		};
+	/* AP <-> CONSYS MCU transport, vendor mt6771.dts btif@1100c000 */
+	btif@1100c000 {
+		compatible = "mediatek,btif";
+		reg = <0 0x1100c000 0 0x1000>,	/* BTIF */
+		      <0 0x11000a80 0 0x80>,	/* TX DMA */
+		      <0 0x11000b00 0 0x80>;	/* RX DMA */
+		interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 139 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 140 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&infracfg CLK_INFRA_BTIF>,
+			 <&infracfg CLK_INFRA_AP_DMA>;
+		clock-names = "btifc", "apdmac";
+	};
+
+	/* CONSYS Wi-Fi data path, vendor mt6771.dts wifi@180f0000 */
+	wifi@180f0000 {
+		compatible = "mediatek,wifi";
+		reg = <0 0x180f0000 0 0x1100>,	/* WIFI-HIF */
+		      <0 0x10212180 0 0x006c>,	/* CQDMA */
+		      <0 0x10001000 0 0x1000>,	/* INFRACFG_AO */
+		      <0 0x180e0000 0 0x0070>;	/* CONN remap config */
+		interrupts = <GIC_SPI 290 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 118 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&infracfg CLK_INFRA_CQ_DMA>;
+		clock-names = "wifi-dma";
+		hardware-values = <0x00000788>,	/* HW code */
+				  <0x000a5800>,	/* FW load addr */
+				  <0x000a5800>;	/* FW start addr */
 	};
 };
 

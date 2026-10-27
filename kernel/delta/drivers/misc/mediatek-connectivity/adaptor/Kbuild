@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0
+# Stock MediaTek WMT Wi-Fi char device (/dev/wmtWifi, wmt_chrdev_wifi).
+# Flags and objects follow the stock 4.4 build for CONSYS_6771 (Makefile.vendor).
+ccflags-y += -include $(src)/../include/wcn_compat.h -I$(src)/../include
+ccflags-y += -I$(src)/../common/common_main/include -I$(src)/../common/common_main/linux/include
+ccflags-y += -D WMT_IDC_SUPPORT=0 -D MTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT -D CREATE_NODE_DYNAMIC=1
+wmt_chrdev_wifi-objs := wmt_cdev_wifi.o
+obj-$(CONFIG_MTK_WCN_CONSYS) += wmt_chrdev_wifi.o
