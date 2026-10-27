@@ -11,3 +11,4 @@ obj-$(CONFIG_MTK_SVS) += mtk-svs.o
 obj-$(CONFIG_MTK_SOCINFO) += mtk-socinfo.o
 obj-$(CONFIG_MTK_LK_OVERLAY_CLEAR) += mtk-lk-overlay-clear.o
 obj-$(CONFIG_MT6771_CONSYS) += mt6771-consys.o
+obj-$(CONFIG_COSMO_SLEEP_GUARD) += cosmo-sleep-guard.o

@@ -1748,3 +1748,41 @@ Pre-flash check:
   enabled; systemd `running`. On glass: LK picture, one short blank,
   console. Display D2 complete: the kernel owns the panel and can switch
   it fully off (bias verified off) and back on.
+
+## 2026-10-27 — Sleep S1: panel-bias guard + pm_test (pre-flash check)
+
+Research (stock 4.4 spm_v4, vendor ATF strings, mainline 6.18): stock
+suspend = SIP SPM_SUSPEND_ARGS (pcm flags 0x80098), SPM PCM watchdog 30 s
+in reset mode, SSPM SPM_SUSPEND IPI, then PSCI CPU_SUSPEND 0x01010005;
+stock system suspend never touches the display (Android blanks first:
+lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
+897c76b (Feb 2021), SPM firmware v1.18.2 on `spmfw`.
+
+- Change: built-in `cosmo-sleep-guard` (drivers/soc/mediatek). Its device
+  .suspend runs after every .prepare (mediatek-drm switches the panel off
+  in .prepare) and reads mt6370-dsvpos/dsvneg (regulator_is_enabled, MT6370
+  regmap has no cache). Either on or unreadable: -EBUSY, the suspend is
+  aborted and devices resume. A PM notifier refuses every suspend until
+  the driver has probed. Read-only. DT node `sleep-guard`. Config adds
+  PM_DEBUG + PM_SLEEP_DEBUG (/sys/power/pm_test).
+- Image `out/s1-boot.img` SHA256
+  9d424c9f4de159081eedf449f9b2a06b24adcd2deab012396eedb6aeb82d4c78
+  (Image.gz-dtb e5a3d606...). Rootfs: all modules from this build installed
+  (same 1407 files), depmod.
+- Risk flags: new kernel config; the test cycles the panel off/on through
+  the D2 driver path (user present). No panel, bias, PMIC-key, watchdog or
+  reset code changed. pm_test never enters the firmware.
+- Escapes: power-key reset and watchdog unchanged from the observed kernel
+  family; packer keys check passed. During pm_test the watchdog is stopped
+  by mtk_wdt .suspend for ~5 s (power key covers that window).
+- Rollback: d2c-boot.img (26edf97b...).
+- Note: fb0/blank reads 4 at boot while the panel is on (stale initial
+  fb_info->blank); bias state is read from the regulators instead.
+- Tests (Wi-Fi stopped, USB SSH; /usr/local/sbin/s1-test.sh, detached):
+  T1 boot: dmesg "cosmo-sleep-guard ... armed: vpos 1 vneg 1".
+  T2 pm_test=devices, display on: pass = "panel bias off", last_check
+     "pass", state write exit 0, panel back on after ~5 s, bias enabled.
+  T3 negative, mediatek_drm blacklisted (modprobe.d), LK panel lit:
+     pass = suspend refused ("panel bias on"), write fails, refused=1.
+  Fail: any hang, DSI error, bias reading on after T2's suspend, or T3
+  not refused. Stop at the first fault.

@@ -1220,6 +1220,16 @@
  * is taken by LK's mediatek,bat_gm30 data above.
  */
 / {
+	/*
+	 * Refuse system sleep while the panel bias is on (stock blanks the
+	 * display and drops the bias before every suspend). Read-only.
+	 */
+	sleep-guard {
+		compatible = "planet,cosmo-sleep-guard";
+		vpos-supply = <&mt6370_dsvpos>;
+		vneg-supply = <&mt6370_dsvneg>;
+	};
+
 	cosmo_battery: cosmo-battery {
 		compatible = "simple-battery";
 		device-chemistry = "lithium-ion";

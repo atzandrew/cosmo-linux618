@@ -110,4 +110,13 @@ config MTK_LK_OVERLAY_CLEAR
 	  buffer with transparent pixels once at boot. It writes memory only;
 	  no display register is touched.
 
+config COSMO_SLEEP_GUARD
+	bool "Cosmo Communicator: refuse sleep while the panel bias is on"
+	depends on OF && PM_SLEEP && REGULATOR
+	help
+	  Reads the MT6370 display bias rails (DSVPOS/DSVNEG) in the device
+	  suspend phase, after DRM has switched the panel off, and fails the
+	  suspend if either is still on or cannot be read. Until the driver
+	  has probed, every suspend is refused. Read-only.
+
 endmenu
