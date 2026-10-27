@@ -1521,3 +1521,16 @@ ISNK1 stopped (trigger none, brightness 0). ISNK2 started at brightness 1,
 timer 1000/1000 ms, left running for observation; ISNK3 remains off.
 Charging still reports Charging. Next: collect location/colour observation,
 then stop/switch the active test. No current increase or ISNK4 takeover.
+
+
+### ISNK2 rear indicator colour observation; ISNK3 active
+
+Observer reports the same rear charging LED changing from red to purple
+with ISNK2 active. This is consistent with an added blue component and
+matches the stock blue name; blue is inferred from mixed colour rather
+than observed in isolation. Q-key indicator remains unidentified.
+
+ISNK2 stopped (trigger none, brightness 0). ISNK3 started at brightness 1,
+timer 1000/1000 ms, left running for observation. ISNK1/2 off. Trigger and
+delays read back correctly; charging reports Charging. No ISNK4 change.
+Next: collect ISNK3 physical location/colour observation, then stop/switch.
