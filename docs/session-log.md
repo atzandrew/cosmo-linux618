@@ -1707,3 +1707,36 @@ Pre-flash check:
 - Plan: boot to SSH with LK picture (simpledrm), `dmesg -w` streamed to
   the host, then `modprobe mediatek_drm` by hand. Watchdog armed by then;
   power-key reset as the second escape.
+
+### D2b result: PASS (display on mainline, sleep-safe off/on)
+
+- Flashed with explicit approval; booted 6.18.58-cosmo #29, LK picture on
+  simpledrm, display modules not loaded, watchdog held by systemd (30 s).
+- First `modprobe mediatek_drm` failed (Exec format error) before any
+  driver ran: the rootfs modules.builtin predated D1, so depmod made the
+  old backlight.ko a dependency ("exports duplicate symbol"). Fixed on
+  the device: this build's modules.builtin{,.modinfo} installed, the
+  stale kernel/drivers/video/backlight/backlight.ko removed (built in
+  since D1), depmod. The gemini-debian cosmo rootfs needs the same.
+- Second load: all components bound (crtc 1 skipped: ext path off),
+  "panel on" 226 ms after bind, fbcon on mediatekdrmfb (135x33). On glass:
+  one short blank at takeover, console upright, colours normal.
+- Colour: red/green/blue/white framebuffer bands seen as white, blue,
+  green, red (rotation 270) — pure colours, no tint or flicker.
+- Blank (fb blank 4): "panel off, bias off"; dsvpos/dsvneg disabled;
+  DB_CTRL2 0x7a -> 0x32; BL_EN 0x7e -> 0x3e; DB_STAT 0x00. Screen and
+  backlight fully off.
+- Unblank: "panel on", bias 5.4/5.4 V enabled, DB_CTRL2 0x7a, backlight
+  766, picture correct.
+- 5 automatic cycles (5 s off / 5 s stripes): bias off/on verified every
+  cycle by register, all pass, no DSI errors.
+- Open: why the built-in D2 bind hung (not needed while the stack is
+  modular).
+
+### D2c: autoload (pre-flash check)
+
+- Same kernel as D2b; boot image packed without
+  `modprobe.blacklist=mediatek_drm`, so udev loads the display after the
+  watchdog is armed.
+- Pass: LK picture, one short blank during boot, console on
+  mediatekdrmfb, SSH up, "panel on" in dmesg. Fail: dark screen or hang.
