@@ -1842,3 +1842,13 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   "Transfer while suspended" warning; battery properties readable after
   resume; capacity follows charge_counter over the following minutes.
   Fail: the warning, or battery read errors. Reboot after (CPUs 1-7).
+
+### Sleep G1 result: PASS
+
+- Booted 6.18.58-cosmo #31. pm_test=processors (mtu3 unbound): guard
+  pass, CPU1-7 failed to come online as before (~40 s resume), write
+  exit 0, and no "Transfer while suspended" / WARNING in dmesg (S1 had
+  one from mt6358_gauge_soc_dwork_func). Battery readable after resume
+  (capacity 45, current_now -77 mA). Reboot restored CPUs 0-7.
+- Not directly observed: the gauge work running again after thaw (no
+  ftrace in this config; capacity/charge_now are computed at read time).
