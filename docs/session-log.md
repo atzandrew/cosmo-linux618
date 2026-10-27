@@ -1852,3 +1852,28 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   (capacity 45, current_now -77 mA). Reboot restored CPUs 0-7.
 - Not directly observed: the gauge work running again after thaw (no
   ftrace in this config; capacity/charge_now are computed at read time).
+
+## 2026-10-27 — CPU hotplug: CPU_ON after CPU_OFF works
+
+### H1: stock's POWER_DOWN_CORE SIP call after a CPU dies
+
+- Stock 4.4 (hps_v3 `mtk_hotplug_cb.c` CPU_DEAD/CPU_DEAD_FROZEN) calls
+  `mt_secure_call(MTK_SIP_POWER_DOWN_CORE, cpu)` = SMC 0xC2000218 after
+  every CPU dies, and MTK_SIP_POWER_DOWN_CLUSTER (0xC2000215) plus ARMPLL
+  off when a cluster empties. Stock arm64 PSCI cpu_die/cpu_kill are
+  unchanged. Mainline makes none of these calls; the next CPU_ON then
+  times out (try18, S1 pm_test=processors).
+- Test module `tools/cosmo-hp/cosmo_hp.c` (out of tree, built against
+  build/obj): CPUHP_BP_PREPARE_DYN teardown (runs on the control CPU
+  after the CPU is dead) makes the SMC for CPUs in `mask`. No cluster
+  calls, no ARMPLL or regulator changes. No new image (#31, g1-boot.img).
+- Results (pass/fail set before each run):
+  - mask=0x80, cpu7 off/on: SMC returns 0x0, "CPU7: Booted secondary
+    processor 0x103". PASS.
+  - mask=0xfe, CPU7..1 off then CPU1..7 on (big cluster fully empty):
+    all return 0x0, all seven booted, online 0-7. PASS.
+  - s1-test.sh processors (mtu3 unbound): "Disabling non-boot CPUs",
+    seven SMCs 0x0, after the 5 s wait all seven booted within 9 ms,
+    suspend exit, online 0-7. PASS (was ~40 s and CPUs 1-7 lost).
+- Not done yet: cluster power-down (0xC2000215) and ARMPLL handling on
+  empty clusters; a built-in driver in kernel/delta.
