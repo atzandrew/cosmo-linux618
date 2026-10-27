@@ -1470,3 +1470,29 @@ was confirmed: USB SSH and rescue telnet both timed out. Do not record a
 new watchdog PASS or assume the current image is normal. Next step is the
 normal indicator image flash and boot identity check. No agent-initiated
 flash, reboot, module installation or LED register write occurred.
+
+
+## 2026-10-27 — normal indicator image verified, module probe PASS
+
+Normal boot partition first 18020352 bytes SHA256 matches
+881b7ff0fbdafa935968ac9b5cc6c15b40ae1c68c84cd95713c2067214305448.
+Kernel 6.18.58-cosmo, no cosmo.wdtest=1; boot-ok Result=success,
+ExecMainStatus=0. DT has three 4000-uA indicator outputs.
+
+Installed only leds-mt6370-rgb.ko and matching led-class-multicolor.ko,
+with the previously installed dependency saved in /tmp before replacement.
+Copied hashes match build artifacts (96c3268b... and 1f60a5c7...).
+Depmod/modprobe succeeded; all three cosmo:mt6370:isnk1–3 class devices
+initially brightness 0, maximum 1, trigger none. Charging status remained
+Charging. Existing keyboard, AW9524 and Wi-Fi modules retained.
+No agent flash/reboot. Physical mapping and visual darkness unconfirmed.
+
+First bounded test: ISNK1 timer, 1000 ms on/off, 15 seconds, managed by
+systemd-run cosmo-isnk1-test with EXIT cleanup (trigger none, brightness
+0), independent of SSH lifetime. Trigger and delays read back correctly
+while the unit was active. Visual observation and final cleanup verification
+pending. No ISNK2/3 illumination requested.
+
+ISNK1 cleanup verified: systemd unit completed successfully; all three
+channels read brightness 0, trigger none. Charging remains Charging.
+Physical observation pending.
