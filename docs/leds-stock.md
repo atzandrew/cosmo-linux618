@@ -368,3 +368,18 @@ ISNK1 was restarted at brightness 1 with timer 1000/1000 ms; trigger and
 delays verified. Left running for observation, ISNK2/3 off, charger status
 Charging. Stop/switch after the next observation; no current increase.
 The runtime plan now uses persistent tests in place of timed expiry.
+
+
+### ISNK1 rear indicator observation; ISNK2 test active
+
+Visual observation identifies ISNK1 as controlling a colour component of
+the rear charging LED: the observer reports that LED changing colours.
+Exact emitted colour was not specified; do not label it verified green.
+This is not a Q-key LED mapping. Desired later policy: rear charging LED
+should follow the Q-key LED behaviour once that indicator is identified.
+No policy implementation yet.
+
+ISNK1 stopped (trigger none, brightness 0). ISNK2 started at brightness 1,
+timer 1000/1000 ms, left running for observation; ISNK3 remains off.
+Charging still reports Charging. Next: collect location/colour observation,
+then stop/switch the active test. No current increase or ISNK4 takeover.
