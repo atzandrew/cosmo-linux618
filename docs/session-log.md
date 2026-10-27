@@ -1567,3 +1567,16 @@ P0_0 red now persistently blinking 1000/1000 ms at 64/64, the previously
 used test limit (not a current increase). Await observation. P0_1 off,
 MT6370 ISNK1–3 off; automatic red charging indication not changed.
 No keyboard input code change or raw I2C write performed.
+
+
+## 2026-10-27 — internal LED closed; stock thermal policy captured
+
+- AW9524 P0_2 dark on mainline (also with keyboard backlight on), on
+  Gemian 4.4 at stock maximum, and on stock Android 9. Planet Settings
+  never drives LED group 1. Details: docs/leds-stock.md.
+- Device path for the test: Gemian restore (boot, stock dtbo, userdata),
+  then stock Android boot (25 Oct dump of `boot`, sha256 d8be455c…),
+  userdata head zeroed, `metadata` zeroed and a `boot-recovery
+  --wipe_data` message in `para` (first boot hung until then).
+- Captured stock Android thermal policy and GPU table into
+  docs/stock-reference.md.

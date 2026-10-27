@@ -429,3 +429,40 @@ P0_0 red now persistently blinking 1000/1000 ms at 64/64, the previously
 used test limit (not a current increase). Await observation. P0_1 off,
 MT6370 ISNK1–3 off; automatic red charging indication not changed.
 No keyboard input code change or raw I2C write performed.
+
+
+## 2026-10-27 — internal LED (P0_0..P0_2): not lit by any stock software
+
+Status: CLOSED as not controllable on this unit. The white dot left of Q
+(above Tab/Shift) never lit in any of the tests below.
+
+| Test | Result |
+|---|---|
+| Mainline, P0_2 timer 1000/1000 ms at 32/64 | dark |
+| Mainline, P0_2 blink with keyboard backlight on (3/5) | dark |
+| Gemian 4.4, stock driver: boot default P0_2 DIM 0x40 | dark |
+| Gemian 4.4, `printf 139 > /proc/aw9524_led_proc` (P0_2 DIM 90) | dark |
+| Stock Android 9 (Cosmo-9.0-Planet-02032021-V25): boot, charging, Caps Lock toggled | dark |
+
+Register readback on mainline (i2c-3 0x5b): 0x04/0x05 = 0 (outputs),
+0x11 = 0x02, 0x12/0x13 = 0 (all pins LED mode), same as stock init.
+DIM registers 0x20..0x2f read back 0 even while driven (write-only):
+P0_5 at 32 lit its LED while 0x29 read 0x00.
+
+Stock userspace:
+- Planet Settings (`MtkSettings.apk`, `com.android.settings.LedControlService`)
+  writes `/proc/aw9524_led_proc` with selectors for LED groups 2, 3 and 7
+  only (P1_0..2, P1_3..5, P0_3..5: the three rear LEDs). Group 1
+  (P0_0..2) is never written; `closeAllLed()` also lists only 2, 3, 7.
+- `LedControlService` reacts to lid (`com.iwrist.action.HALLOPEN/CLOSE`),
+  screen off/user present, cover-screen state (`st.sys.status`), calls,
+  media playback, Wi-Fi hotspot clients; flashing period 666 ms.
+- Android lights HAL (`lights.mt6771.so`) drives only `red`/`green`/`blue`
+  (MT6370 rear charge LED) and backlight nodes.
+- Gemian `gemian-leds` (SetCapsLock over D-Bus) writes `/proc/aw9120_reg`,
+  the Gemini PDA's controller; it has no effect on the Cosmo.
+- Neither stock Android nor Gemian has a Caps Lock LED path.
+
+Conclusion: the P0_0..P0_2 emitter is most likely not fitted on
+production units. A Caps Lock indicator would have to use a rear LED or
+the MT6370 charge LED.

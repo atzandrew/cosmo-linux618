@@ -73,3 +73,34 @@ registers. `rt5509_driver_init` runs but no RT5509 is bound: the speaker
 amp may not be an RT5509 (or not fitted). Input devices: `ACCDET`,
 `mtk-kpd`, `cf-keys`, `Integrated keyboard`, `mtk-tpd`; lid via
 `mtk-hall`. Sound card: `mt-snd-card`.
+
+## GPU DVFS (source, not read live)
+
+`drivers/misc/mediatek/base/power/mt6771/mtk_gpufreq_core.h`. Two segment
+tables, selected by efuse: SEG1 900 MHz max (Vgpu 0.900 V, Vsram_gpu
+1.000 V at OPP0; 300 MHz / 0.625 V at OPP15) and SEG2 800 MHz max. Live
+`/proc/gpufreq` is blocked by SELinux on stock Android. This unit's CPU
+table (big 2106 MHz) is the P70 bin, which pairs with SEG1 (inferred, not
+read). Idle vgpu 0.625 V matches SEG1 OPP15.
+
+## Thermal policy (stock Android 9, `/vendor/etc/.tp/thermal.conf`)
+
+Read with adb 2026-10-27 from Cosmo-9.0-Planet-02032021-V25. MediaTek
+obfuscates the file: each byte is shifted by (position in line mod 10),
+wrapping within 32..122. Active policy (`init.svc.thermal` running).
+
+| Zone | Trips (°C → cooler) |
+|---|---|
+| tzcpu | 117 → system reset; 57 → cpu_adaptive_0; 56 → cpu_adaptive_1 (only while mtktsAP ≥ 69) |
+| tzbts (board/AP NTC) | 100 → reset; 90 → shutdown; 53 → camera limit; 47/47.001 → abcct_lcmoff; 45/45.001 → abcct (charge current) |
+| tzbtspa (PA NTC) | 120 → shutdown; 110 → modem off; 100 → no IMS; 68 → adaptive modem TX |
+| tzbattery | 60 → reset |
+| tzpmic | 136 → reset |
+| tzpa, tzcharger, tzcharger2, tzwmt | 120 → reset/shutdown |
+| tzts1..5 | 150 → shutdown (disabled, 0 trips) |
+
+Notable parameters: `clctm` = `2 80000 57000 44000 47000 70000 51000 ...`
+(CPU thermal-target table), `clabcct` target 46 °C (screen on) / 48 °C
+(screen off), `clatm_setting` 0: `2000 10 15 1 635 0 250 0`, 1:
+`1000 10 15 1 400 0 220 0`. Alternative policies `.thermal_policy_00/03/05/08`
+and `.ht120.mtc` exist; `thermal.off.conf` equals `.ht120.mtc`.
