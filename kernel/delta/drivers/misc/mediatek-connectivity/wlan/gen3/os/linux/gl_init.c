@@ -720,7 +720,7 @@ static int wlanSetMacAddress(struct net_device *ndev, void *addr)
 	prAdapter = prGlueInfo->prAdapter;
 
 	COPY_MAC_ADDR(prAdapter->prAisBssInfo->aucOwnMacAddr, sa->sa_data);
-	COPY_MAC_ADDR(prGlueInfo->prDevHandler->dev_addr, sa->sa_data);
+	eth_hw_addr_set(prGlueInfo->prDevHandler, (const u8 *)sa->sa_data);	/* [port 6.18] */
 	DBGLOG(INIT, INFO, "Set connect random mac addr to " MACSTR ".\n",
 	       MAC2STR(prAdapter->prAisBssInfo->aucOwnMacAddr));
 
@@ -2365,7 +2365,7 @@ static INT_32 wlanProbe(PVOID pvData)
 				DBGLOG(INIT, WARN, "set MAC addr fail 0x%x\n", rStatus);
 				prGlueInfo->u4ReadyFlag = 0;
 			} else {
-				ether_addr_copy(prGlueInfo->prDevHandler->dev_addr, MacAddr.sa_data);
+				eth_hw_addr_set(prGlueInfo->prDevHandler, (const u8 *)MacAddr.sa_data);	/* [port 6.18] */
 				ether_addr_copy(prGlueInfo->prDevHandler->perm_addr,
 				       prGlueInfo->prDevHandler->dev_addr);
 

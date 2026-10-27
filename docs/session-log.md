@@ -1088,3 +1088,27 @@
   move CONN to genpd; mtk-pm-domains powers CONN on at registration (no
   KEEP_DEFAULT_OFF), unlike stock.
 - Device left on W1a (module unloaded state: CONSYS off).
+
+## 2026-10-27 Wi-Fi W1b: stock connectivity stack, wlan0 scans
+
+- Image `boot-w1b.img` b8ee5fab… (Image.gz-dtb 354cf47f…, 41fa7e2).
+  Pre-flash check: Image built-in config unchanged from W1a (only module
+  options: NL80211_TESTMODE, MTK_WCN_*); no change to reset, watchdog,
+  PMIC keys or display; escapes as W1a. Whole module tree replaced on the
+  device (TESTMODE changes cfg80211's ops layout).
+- Firmware from the stock vendor partition (p35) and the WIFI/WIFI_CUSTOM
+  NVRAM test copy from nvdata (p7) dumped read-only with debugfs; hashes
+  match docs/wifi-stock.md.
+- First try: chip ID 0xffffffff, so WMT took the external combo-chip power
+  path and oopsed on its missing pinctrl. Stock wmt_loader sets the SoC
+  chip ID (COMBO_IOCTL_GET_SOC_CHIP_ID + SET_CHIP_ID) before module init;
+  the in-kernel launcher now does the same (module only, no reflash).
+- Second try: CONSYS on, chip 0x0788, patches 1_1 (seq 1, 00 80 07 f0) and
+  1_0 (seq 2, 00 80 09 00) downloaded, WIFI_RAM_CODE_6759 runs, `wlan0`
+  registered, `iw dev wlan0 scan` lists 10-14 BSSs. 2.4 GHz only so far.
+- 6.18 fix: gen3 wrote netdev->dev_addr directly (6 places, one pointer
+  reassignment in P2P); now eth_hw_addr_set(). dev_addr warning gone.
+- PASS (wlan0 scanning). Open: 5 GHz missing from scans; Debian sets
+  kernel.panic_on_oops=0 at runtime (cmdline asks 1): the first oops did
+  not reset the board. Next: W2 (gemini-debian DEVICE=cosmo autoload),
+  W3 (join + SSH over Wi-Fi).

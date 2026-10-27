@@ -3,7 +3,9 @@
  * In-kernel stand-in for the stock Android wmt_loader + wmt_launcher.
  *
  * On stock the WMT driver is driven by two vendor daemons:
- *   wmt_loader:   /dev/wmtdetect COMBO_IOCTL_DO_MODULE_INIT, which in
+ *   wmt_loader:   /dev/wmtdetect COMBO_IOCTL_GET_SOC_CHIP_ID, then
+ *                 COMBO_IOCTL_SET_CHIP_ID with that ID (no external combo
+ *                 chip), then COMBO_IOCTL_DO_MODULE_INIT, which in
  *                 kernel-object mode runs mtk_wcn_common_drv_init().
  *   wmt_launcher: /dev/stpwmt WMT_IOCTL_SET_STP_MODE (BTIF full mode, FM over
  *                 the common interface), then answers the WMT core's
@@ -30,6 +32,8 @@
 #include "wmt_core.h"
 #include "wmt_lib.h"
 #include "wcn_launcher.h"
+#include "wmt_detect.h"
+#include "mtk_wcn_cmb_stub.h"
 
 extern UINT32 hif_info;	/* wmt_dev.c, set once the STP mode is configured */
 
@@ -163,7 +167,13 @@ static int wcn_launcher_thread(void *unused)
 
 INT32 wcn_launcher_start(VOID)
 {
+	UINT32 chipid;
 	INT32 ret;
+
+	/* wmt_loader: COMBO_IOCTL_GET_SOC_CHIP_ID + COMBO_IOCTL_SET_CHIP_ID */
+	chipid = wmt_plat_get_soc_chipid();
+	mtk_wcn_wmt_set_chipid(chipid);
+	wmt_detect_set_chip_type(chipid);
 
 	/* wmt_loader: COMBO_IOCTL_DO_MODULE_INIT (kernel-object mode) */
 	ret = mtk_wcn_common_drv_init();
