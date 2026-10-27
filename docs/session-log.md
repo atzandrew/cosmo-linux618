@@ -1681,3 +1681,29 @@ Pre-flash check:
   "panel off, bias off", dsvpos/dsvneg read disabled; unblank -> picture
   back, "panel on", bias enabled. Fail: flicker, colour fault, lines,
   bias reading on after blank, or any DSI error. Stop at the first fault.
+
+### D2 result: FAIL (hang), rolled back to D1
+
+- Flashed with explicit approval. On glass: LK picture, then blank as
+  Linux started (simpledrm removed), backlight on, no picture after.
+  Host USB log: gadget up 15:23:15, gone 15:23:37, up 15:24:00 (reboot
+  loop, likely panic=10), then a hang with no reset: the display drivers
+  were built in, so the bind ran before init armed the watchdog. Only the
+  power-key reset escaped. No log survived (raw `cache` holds only the old
+  Android ext4; the Debian boot writes no log there).
+- Rolled back with `mtk w boot d1-boot.img`; D1 boots as before.
+- Lesson: a built-in driver that can hang runs before the watchdog escape.
+
+### D2b: same code, display stack as modules (pre-flash check)
+
+- DRM_MEDIATEK, PHY_MTK_MIPI_DSI, DRM_PANEL_COSMO_NT36672 = m. Cmdline adds
+  `modprobe.blacklist=mediatek_drm` (alias autoload blocked; explicit
+  modprobe works). Image `out/d2b-boot.img` SHA256
+  6cced53fce234a1bca4b2340cc9177bfa7cc229cd6978ef7673849b81af616bf.
+- Installed on the rootfs from this build, then depmod: mediatek-drm.ko
+  (6d0d7d0e...), phy-mtk-mipi-dsi-drv.ko (1022547b...),
+  panel-cosmo-nt36672.ko (19ad49ec...), drm_display_helper.ko,
+  drm_dma_helper.ko. Other modules unchanged.
+- Plan: boot to SSH with LK picture (simpledrm), `dmesg -w` streamed to
+  the host, then `modprobe mediatek_drm` by hand. Watchdog armed by then;
+  power-key reset as the second escape.
