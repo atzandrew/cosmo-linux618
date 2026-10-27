@@ -271,3 +271,62 @@ Only leds-cosmo-kbd.ko was installed; existing Wi-Fi/AW9524 retained.
 
 Q-key LED remains unidentified and off by observation during the first
 backlight test. No MT6370 indicator driver enabled or indicator writes.
+
+## 2026-10-27 — MT6370 indicator identification build
+
+The board exposes the upstream MT6370 indicator driver as a module, with
+three individual channel labels: cosmo:mt6370:isnk1 through isnk3. Each
+starts off with no default trigger, led-max-microamp=4000 and expected
+max_brightness=1. This is an identification configuration, not a confirmed
+Q-key mapping. No custom indicator driver or register values are added.
+
+Stock receipts (cosmo-linux-kernel-4.4 a741a2e8):
+arch/arm64/boot/dts/mediatek/mt6370.dtsi:116–132 names sinks 1–4 green,
+blue, mt6370_pmu_led3, red. The retained stock live DT at
+/mt6370_pmu_dts/rgbled confirms those names and cc_mode triggers.
+Names do not prove wiring. The vendor driver's delayed-enable comments
+also disagree with the DT about colours; channel labels avoid assigning
+unverified physical colours. Sink 3's required color property uses white
+as a placeholder only; it is not evidence of a white LED.
+
+Mainline v6.18.58 receipts, drivers/leds/rgb/leds-mt6370-rgb.c:
+
+- 203–205: minimum nonzero current for sinks 1–3 is 4 mA, selector 1.
+- 785–800: led-max-microamp limits the LED class maximum and parses
+  default-state. 805–834: default off calls brightness_set with zero.
+- 606–639: zero selects register mode and clears only that channel's
+  enable in RGB_EN; the read/modify/write preserves ISNK4's enable.
+  Nonzero sets the channel current and enables it.
+- 159–168: affected mode registers are 0x182–0x184, current registers
+  0x186–0x188, and channel enable bits are in 0x185. These are parent
+  regmap addresses, not direct I2C offsets.
+- 862–866: declaring ISNK4 switches automatic charging indication to
+  software control. ISNK4 (reg=3) is deliberately omitted, so this path
+  is not executed and charge indication is not taken over.
+
+Probe is a hardware operation even with default off: it changes modes
+and enable bits for the three declared sinks. No display backlight,
+DSV/LDO regulator, charger, Type-C, reset or watchdog code is changed.
+The driver is modular, but rootfs module installation/udev may load it
+automatically; both image and module installation need a planned test.
+
+### Runtime plan (not yet performed)
+
+1. Obtain explicit flash/reboot approval against the session-log pre-flash
+   check; prove both recovery mechanisms on the new configuration before
+   loading the module. Existing Wi-Fi, AW9524 and keyboard modules remain.
+2. Install only the indicator module and its required multicolor-class
+   dependency, then probe. Expect three channel devices, brightness 0,
+   max 1; observe darkness and continued red charging indication.
+3. One channel at a time, use a short 1 s on/off software timer, with an
+   independent automatic cleanup after 15 s (trigger none, brightness 0).
+   Observe location and colour, especially beside Q. No automatic retry
+   at higher current if there is no visible response.
+4. Confirm off readback, no kernel errors, functional keyboard/USB and
+   charging status. Unload/reload and confirm zero/darkness. Stop on any
+   unrelated visual or charging change. Do not claim physical PASS until
+   observation is supplied.
+
+Cleanup turns off these three channels; it does not promise restoration
+of firmware mode/current values. ISNK4 automatic operation stays outside
+the declared channels. Runtime and physical mapping remain PENDING.

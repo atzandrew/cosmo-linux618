@@ -1394,3 +1394,58 @@
   SHA256 15f4f4e55a22e7c6d56740649ab93c03a204c8c04dbc5b3cd008fe8ea90ccd91.
   Keyboard module installed/loaded, brightness 0. No agent flash/reboot.
 - Q-key controller unresolved. No MT6370 LED enable or register writes.
+
+## 2026-10-27 — MT6370 general indicator build, runtime pending
+
+Enable/build authorized for the Q-key LED investigation. Upstream
+leds-mt6370-rgb is modular; DT declares only ISNK1–3, default off,
+4 mA maximum each, expected brightness range 0–1. ISNK4 is omitted to
+preserve hardware-auto red charging indication. Physical mapping remains
+unidentified; startup register effects and bounded runtime plan are in
+docs/leds-stock.md. No target writes, install, flash or reboot performed.
+
+Validation:
+
+- Full bin/build-kernel.sh PASS, release 6.18.58-cosmo.
+- Generated config diff: only LEDS_MT6370_RGB n -> m; multicolor class
+  already m. REGULATOR_MT6370 and BACKLIGHT_MT6370 remain disabled.
+- W=1 indicator object build PASS without warnings. W=1 DTB PASS with
+  existing /memory, /odm LED and i2c4 unit-address warnings only.
+- checkpatch 0 errors/0 warnings; git diff --check PASS.
+- New indicator node dt-validate PASS against the pinned upstream
+  indicator/common/multicolor schemas, isolated from unrelated schemas.
+- Both boot pack operations passed the MT6358 keys-disabled guard.
+- Indicator module vermagic: 6.18.58-cosmo SMP preempt mod_unload aarch64;
+  dependency led-class-multicolor.
+
+Artifact SHA256:
+
+- codex-mt6370-indicator-boot.img:
+  881b7ff0fbdafa935968ac9b5cc6c15b40ae1c68c84cd95713c2067214305448
+- codex-mt6370-indicator-wdtest-boot.img:
+  90a8d585f3860b5b85d208ab42a173a4034c22126d14322a2b40a6fcade3e00b
+- leds-mt6370-rgb.ko:
+  96c3268b26b5cb14b0b83733810965e4052cf0a3faa079402136d0622bbaf0b5
+- led-class-multicolor.ko:
+  1f60a5c729e9a57bfa76f6cb0f2c8bde0b0aae6eda9c47b8c9dd39bd9a7b394c
+
+### Written pre-flash check — approval and runtime still pending
+
+Change: enable modular MT6370 general indicator and declare three low-current
+outputs. New configuration: yes. Panel/display/backlight/DSV/LDO, charger,
+Wi-Fi, PMIC keys/TOP_RST_MISC, reset and watchdog code: unchanged.
+Probe modifies only declared indicator mode/current/enable fields; ISNK4
+charge-auto control is not requested. Physical wiring remains unknown.
+
+Both images retain the power-key hardware reset and the armed watchdog.
+The watchdog-test image adds cosmo.wdtest=1; normal image feeds normally.
+Neither recovery mechanism has been observed on this new configuration.
+First boot must establish recovery per AGENTS.md rule 5 before LED probing;
+manual recovery readiness must be confirmed. Previous-config observations
+do not count as new-config validation. No flash/reboot approval inferred
+from the enable/build instruction. No stock restore planned.
+
+Current device remains the normal keyboard FIFO image; keyboard/AW9524 and
+Wi-Fi retained. Last verified boot image SHA256:
+15f4f4e55a22e7c6d56740649ab93c03a204c8c04dbc5b3cd008fe8ea90ccd91.
+Runtime indicator result: PENDING.
