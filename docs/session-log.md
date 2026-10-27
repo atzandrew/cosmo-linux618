@@ -1786,3 +1786,22 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
      pass = suspend refused ("panel bias on"), write fails, refused=1.
   Fail: any hang, DSI error, bias reading on after T2's suspend, or T3
   not refused. Stop at the first fault.
+
+### Sleep S1 result: PASS (guard observed both ways)
+
+- Flashed with explicit approval; booted 6.18.58-cosmo #30.
+- T1: `cosmo-sleep-guard sleep-guard: armed: vpos 1 vneg 1` at 0.41 s.
+- T2 (pm_test=devices, display on): "panel off, bias off", guard "panel
+  bias off (vpos 0 vneg 0)", then the suspend was aborted by mtu3:
+  `ip sleep failed!!!` (-EBUSY, gadget mode, USB host attached). Panel
+  back on, no DSI errors.
+- T3 (mediatek_drm blacklisted, LK panel lit, mtu3 unbound for the run):
+  "panel bias on (vpos 1 vneg 1), refusing sleep", -EBUSY, write fails,
+  last_check "refused: vpos 1 vneg 1", refused=1. Blacklist removed.
+- T2b (devices, mtu3 unbound): pass, 5 s wait, panel on, write exit 0.
+- T4 (platform, mtu3 unbound): pass (late + noirq phases), panel on.
+- Open: mtu3 does not reach IP sleep in gadget mode (wait_for_ip_sleep,
+  U3D_SSUSB_IP_PW_STS1); suspend fails while it is bound. Test script
+  NOUSB=1 unbinds/rebinds 11201000.usb around the run.
+- Next: pm_test=processors (CPU_OFF/CPU_ON; CPU_ON after CPU_OFF fails
+  today, see try18).
