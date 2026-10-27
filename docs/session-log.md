@@ -1805,3 +1805,21 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   NOUSB=1 unbinds/rebinds 11201000.usb around the run.
 - Next: pm_test=processors (CPU_OFF/CPU_ON; CPU_ON after CPU_OFF fails
   today, see try18).
+
+### Sleep S1: pm_test=processors (expected fail, recorded)
+
+- 6.18.58-cosmo #30, mtu3 unbound for the run. Guard pass, then
+  "Disabling non-boot CPUs": psci CPU7..CPU1 killed (0-4 ms each).
+  "Enabling non-boot CPUs": CPU1..CPU7 each "failed to come online"
+  (5 s timeout, "failed in unknown state : 0x0", -EIO). Resume finished
+  on CPU0 only (`cpu/online` = 0); panel on, write exit 0. Reboot
+  restored 0-7. Matches try18: vendor ATF CPU_ON after CPU_OFF fails.
+  Stock lead: hps_v3 mtk_hotplug_cb.c CPU_UP_PREPARE(_FROZEN) for the
+  first CPU of a cluster (armpll_control, mt_pause_armpll,
+  mp_enter_suspend; big cluster vsram11 + vproc11 on).
+- Bug found: mt6358-gauge soc_dwork (system_wq) ran during the 40 s
+  resume window and read mt6370-charger over I2C while i2c-11 was
+  suspended (`i2c i2c-11: Transfer while suspended`, WARNING in
+  __i2c_smbus_xfer from mt6358_gauge_soc_dwork_func ->
+  mt6370_chg_get_property). Fix: cancel the work in the gauge's
+  .suspend and requeue it in .resume.
