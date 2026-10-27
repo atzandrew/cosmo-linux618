@@ -18,13 +18,15 @@ BUSYBOX="${BUSYBOX:-/usr/bin/busybox}"
 #    lists ttyS0 last).
 #  - *_ignore_unused: keep LK's display clocks, power and PMIC rails on.
 #  - cpuidle.off=1 until the vendor ATF's PSCI suspend is checked.
-#  - panic=10 + panic_on_oops + softlockup_panic: faults become panics; a
+#  - panic=10 + oops=panic (the plain
+#    panic_on_oops= form is not a boot parameter and was
+#    ignored until 2026-10-27): an oops becomes a panic; a
 #    panic stays on glass until the reset. PSCI reboot does not work with
 #    the vendor ATF, so the hardware watchdog (fed only while healthy) is
 #    what actually resets the board (AGENTS.md rule 5).
 #  - g_ether.*: fixed MACs for the bring-up USB network (init gives
 #    the Cosmo 10.15.19.83 and hands the host .84 by DHCP).
-CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused cpuidle.off=1 fbcon=rotate:3 fbcon=font:TER16x32 consoleblank=0 loglevel=8 panic=10 panic_on_oops=1 softlockup_panic=1 g_ether.dev_addr=42:00:15:19:83:01 g_ether.host_addr=42:00:15:19:83:00"
+CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused cpuidle.off=1 fbcon=rotate:3 fbcon=font:TER16x32 consoleblank=0 loglevel=8 panic=10 oops=panic g_ether.dev_addr=42:00:15:19:83:01 g_ether.host_addr=42:00:15:19:83:00"
 
 # EXTRA_CMDLINE is appended (e.g. cosmo.wdtest=1 for the watchdog escape
 # test); OUTNAME names the image (default boot.img).
