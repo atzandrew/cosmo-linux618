@@ -102,9 +102,15 @@ at boot, never shipped in an image.
 
 ## Gemini port (gemini-nixos `mediatek-connectivity`) vs stock 4.4
 
-- Based on the vendor 3.18 tree for MT6797/MT6630. No MT6631 code
-  (0 hits; stock 4.4 gen3 has 50), no chip 0x0788 or 0x6771 paths, no
-  ROMv4 patch addresses.
+- Based on the vendor 3.18 tree. That tree predates the `MT6631` build
+  flag (0 hits; stock 4.4 gen3 has 50), and its Makefile builds with
+  `-D MT6797 -U MT6630`. The stock 4.4 Makefile puts CONSYS_6797 in the
+  MT6631 group too, so the A-die name is not the gap; the driver version
+  and the MT6771 specifics are. No chip 0x0788 or 0x6771 paths, no ROMv4
+  patch addresses.
+- `MT6631` is a compile-time flag in gen3 (`-D$(WLAN_CHIP_ID)`). It
+  changes, among others, the firmware-download command layout
+  (`nic_init_cmd_event.h:99,148`) and the PSCN scan version.
 - Version gap: 31 k changed lines (whitespace ignored) in gen3 alone;
   `nic_cmd_event.h` (host/firmware command and event layout) has 1646 vs
   2173 lines. `WIFI_RAM_CODE_6759` is built for the 4.4 host code.
@@ -115,6 +121,16 @@ at boot, never shipped in an image.
 
 Consequence: port the stock 4.4 code (common_main, mt6771 platform
 file, BTIF, gen3) to 6.18, using the Gemini port as the recipe.
+
+## Trial compile (stock gen3 against 6.18, out of tree)
+
+First pass, with 3 header fixes (no `<linux/fb.h>`, which pulls in ACPI
+headers that clash with the driver's `ACPI_STATE_*` enum; kernel
+`<linux/stddef.h>`; `CONFIG_NL80211_TESTMODE`, which the driver requires
+and the Gemini config sets): 116 errors in 21 files, nearly all in
+`os/linux` (`gl_kal.c` 22, `gl_cfg80211.c` 15, `gl_p2p.c` 13,
+`gl_proc.c` 11, `gl_init.c` 10, `gl_wext.c` 8). Link-time (vendor
+symbol) errors not counted yet.
 
 ## Old-kernel API in the stock code (common_main + gen3, 273 files)
 
