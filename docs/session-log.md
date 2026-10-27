@@ -1131,3 +1131,51 @@
   ce4f4e4, live on the device). Oops -> reset not yet observed.
 - Open: 5 GHz absent from scans; gen3 logs every scan to the console at
   loglevel 8 (dmesg -n 1 by hand for console work).
+
+## 2026-10-27 — AW9524 LED identification controls (PARTIAL)
+
+- Stock-first evidence: docs/leds-stock.md. Stock source and backed-up
+  dtbo entry 0 agree on AW9524 at i2c3 0x5b, reset GPIO109, quarter-scale
+  global current and four RGB triplets. Physical positions still unknown.
+- Isolated branch `codex/kbd-lights`, based on d532f79. New module
+  `leds-aw9524`, `CONFIG_LEDS_AW9524=m`; i2c3 enabled, 12 stock-controlled
+  pins exposed as LED class devices using pin-based labels. All channels
+  start dark, brightness capped at 64. Reset on failure/unbind/shutdown.
+- PASS: DTB built with W=1; warnings are the existing vendor/LK nodes
+  (memory name, odm LED nodes and i2c4 unit address). Driver object built
+  with W=1. checkpatch: 0 errors, 0 warnings after using fsleep for the
+  stock 5 ms reset delays.
+- PASS: dt-doc-validate on the new binding and dt-validate restricted to
+  awinic,aw9524-leds on the compiled board DTB, using an isolated dtschema
+  environment. Hydra lacks Python development headers for pylibfdt;
+  schema validation ran on the flashing host instead.
+- Generated config comparison against the current main build: only
+  CONFIG_LEDS_AW9524=m added; no built-in configuration differences.
+- Baseline device: 6.18.58-cosmo, no LED class devices, i2c3 absent,
+  kernel.panic_on_oops=1. Read-only SHA256 of the first 18018304 bytes
+  of /dev/disk/by-partlabel/boot matches w1b-boot.img exactly:
+  b8ee5fab4db99ca505d61cb7ddd55c33740f0cddfb6a730adbab82753a10377c.
+- No LED writes or reboot performed. Runtime/visual results pending.
+- Keyboard PWM: PARTIAL (source receipts only); GPIO178 HDMI sharing and
+  FIFO support need resolving. MT6370 LEDs remain disabled. Charge-state
+  policy pending physical LED identification. Fn layout and RTC are
+  outside this LED-focused session.
+
+### Pre-flash check — AW9524 identification
+
+- Change: enable i2c3 and bind only the new AW9524 LED controller; the
+  module starts dark. No changes to PMIC keys/TOP_RST_MISC, watchdog,
+  reset path, display/panel, voltages, charger or connectivity code.
+- New config option: module only, CONFIG_LEDS_AW9524=m. First boot is
+  reserved for escape checks under AGENTS.md rule 5, before LED tests.
+- Escapes carried: disabled MT6358 keys leaves the preloader's power-key
+  reset intact; unchanged init-owned hardware watchdog and systemd
+  handover. Both were observed on prior W1a/W1b lineage. Neither has yet
+  been observed firing on the new image. Watchdog-test image adds
+  cosmo.wdtest=1 and is expected to reset without a normal root boot.
+- Rollback: byte-verified w1b-boot.img above. Gemian restore staged,
+  SHA256 745615599521a72ca94dc8df350d4587021891e98d56dced0ec600c49ac6ba2b.
+  Manual recovery readiness must be confirmed at test time.
+- Preserve installed Wi-Fi modules and rootfs service (5 GHz fix in
+  gemini-debian 99ccaf7); install only the new LED module for testing.
+- Explicit flash/reboot approval pending. No flash performed.
