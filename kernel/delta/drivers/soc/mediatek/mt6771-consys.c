@@ -12,13 +12,18 @@
  *   VCN18 / VCN28 / VCN33     -> regulators (stock voltages)
  *   A-die pinmux (GPIO113-121) -> pinctrl states "on" / "off"
  *   TOPRGU CONN MCU reset      -> reset line from mtk_wdt (BIT(12), key 0x88)
- *   SCP_SYS_CONN               -> CONN power domain (genpd, runtime PM)
+ *   SCP_SYS_CONN               -> the stock MTCMOS sequence, see below
  * CONSYS registers are touched only while the CONN domain is on.
  *
- * The CONN domain sits on the "conn-power" child node, not on the consys
- * node: platform probe powers a node's single domain on before probe
- * runs, which would turn CONN on before the supplies and the MCU reset.
- * dev_pm_domain_attach_by_id() attaches without powering on.
+ * CONN power domain: mainline's scpsys driver does not probe on this
+ * board yet (the DISP domain wants mmsys clocks, mmsys is disabled), so
+ * there is no genpd provider. Until that is fixed this module runs the
+ * stock CONN MTCMOS sequence itself (clk-mt6771-pg.c
+ * spm_mtcmos_ctrl_conn(), the code behind stock SCP_SYS_CONN): SPM
+ * CONN_PWR_CON 0x1000632c, PWR_STATUS/_2ND 0x10006180/0x184 bit 1, INFRA
+ * AXI bus protect bits 13+14 (SET 0x100012a0, CLR 0x100012a4, STA1
+ * 0x10001228). These are the registers mainline mt8183-pm-domains.h uses
+ * for CONN. The "conn-power" child node is not used yet.
  *
  * Not done here (W1a is power only): EMI remap, EMI coredump reset, the
  * VCN28 HW0 op-mode bit (PMIC 0x1d8a bit 1, sleep behaviour), firmware.
@@ -28,12 +33,9 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
-#include <linux/pm_domain.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
 #include <linux/sizes.h>
@@ -57,20 +59,36 @@
 #define AFE_RG_WBG_GPS_02	0x54
 #define AFE_RG_WBG_GPS_02_VAL	0x110a2000
 
-/* SPM, read only (owned by scpsys): CONN power control and status */
-#define SPM_CONN_PWR_CON_PA	0x1000632cUL
-#define SPM_PWR_STATUS_PA	0x10006180UL
-#define SPM_PWR_STATUS_2ND_PA	0x10006184UL
-#define SPM_CONN_TOP2_ACK	BIT(30)
-#define SPM_PWR_STATUS_CONN	BIT(1)
+/* SPM (stock clk-mt6771-pg.c) */
+#define SPM_BASE_PA		0x10006000UL
+#define SPM_POWERON_CONFIG_EN	0x000
+#define SPM_PWR_STATUS		0x180
+#define SPM_PWR_STATUS_2ND	0x184
+#define SPM_CONN_PWR_CON	0x32c
+#define PWR_RST_B		BIT(0)
+#define PWR_ISO			BIT(1)
+#define PWR_ON			BIT(2)
+#define PWR_ON_2ND		BIT(3)
+#define PWR_CLK_DIS		BIT(4)
+#define CONN_TOP2_ACK		BIT(30)	/* stock mt6771.c fallback polls it */
+#define CONN_PWR_STA_MASK	BIT(1)
+
+/* INFRACFG_AO bus protect (stock clk-mt6771-pg.c) */
+#define INFRA_BASE_PA		0x10001000UL
+#define INFRA_PROT_STA1		0x228
+#define INFRA_PROT_SET		0x2a0
+#define INFRA_PROT_CLR		0x2a4
+#define CONN_PROT_MASK		(BIT(13) | BIT(14))
+
+#define POLL_TRIES		1000	/* x 10 us; stock polls forever */
 
 #define VCN33_UV		3500000
 
 struct consys {
 	struct device *dev;
-	struct platform_device *pd_pdev;
-	struct device *pd_dev;
 	void __iomem *mcu;
+	void __iomem *spm;
+	void __iomem *infra;
 	void __iomem *afe;
 	struct regulator *vcn18, *vcn28, *vcn33;
 	struct reset_control *mcu_rst;
@@ -78,23 +96,79 @@ struct consys {
 	struct pinctrl_state *pins_on, *pins_off;
 };
 
-static u32 spm_read(unsigned long pa)
-{
-	void __iomem *p = ioremap(pa, 4);
-	u32 v;
-
-	if (!p)
-		return 0xdeadbeef;
-	v = readl(p);
-	iounmap(p);
-	return v;
-}
-
 static void consys_log_spm(struct consys *c, const char *when)
 {
-	dev_info(c->dev, "%s: SPM CONN_PWR_CON 0x%08x PWR_STATUS 0x%08x PWR_STATUS_2ND 0x%08x\n",
-		 when, spm_read(SPM_CONN_PWR_CON_PA), spm_read(SPM_PWR_STATUS_PA),
-		 spm_read(SPM_PWR_STATUS_2ND_PA));
+	dev_info(c->dev, "%s: CONN_PWR_CON 0x%08x PWR_STATUS 0x%08x/0x%08x PROT_STA1 0x%08x\n",
+		 when, readl(c->spm + SPM_CONN_PWR_CON),
+		 readl(c->spm + SPM_PWR_STATUS), readl(c->spm + SPM_PWR_STATUS_2ND),
+		 readl(c->infra + INFRA_PROT_STA1));
+}
+
+static bool conn_is_on(struct consys *c)
+{
+	return (readl(c->spm + SPM_PWR_STATUS) & CONN_PWR_STA_MASK) ||
+	       (readl(c->spm + SPM_PWR_STATUS_2ND) & CONN_PWR_STA_MASK);
+}
+
+static void conn_rmw(struct consys *c, u32 clr, u32 set)
+{
+	u32 v = readl(c->spm + SPM_CONN_PWR_CON);
+
+	writel((v & ~clr) | set, c->spm + SPM_CONN_PWR_CON);
+}
+
+/* stock spm_mtcmos_ctrl_conn(STA_POWER_ON) */
+static int conn_mtcmos_on(struct consys *c)
+{
+	int i;
+
+	conn_rmw(c, 0, PWR_ON);
+	conn_rmw(c, 0, PWR_ON_2ND);
+	for (i = 0; i < POLL_TRIES; i++) {
+		if ((readl(c->spm + SPM_PWR_STATUS) & CONN_PWR_STA_MASK) &&
+		    (readl(c->spm + SPM_PWR_STATUS_2ND) & CONN_PWR_STA_MASK))
+			break;
+		udelay(10);
+	}
+	if (i == POLL_TRIES) {
+		dev_err(c->dev, "CONN power ack timeout\n");
+		return -ETIMEDOUT;
+	}
+	conn_rmw(c, PWR_CLK_DIS, 0);
+	conn_rmw(c, PWR_ISO, 0);
+	conn_rmw(c, 0, PWR_RST_B);
+	writel(CONN_PROT_MASK, c->infra + INFRA_PROT_CLR);
+	return 0;
+}
+
+/* stock spm_mtcmos_ctrl_conn(STA_POWER_DOWN) */
+static int conn_mtcmos_off(struct consys *c)
+{
+	int i;
+
+	writel(CONN_PROT_MASK, c->infra + INFRA_PROT_SET);
+	for (i = 0; i < POLL_TRIES; i++) {
+		if ((readl(c->infra + INFRA_PROT_STA1) & CONN_PROT_MASK) == CONN_PROT_MASK)
+			break;
+		udelay(10);
+	}
+	if (i == POLL_TRIES) {
+		/* Cutting power with the bus not protected can hang the bus. */
+		dev_err(c->dev, "CONN bus protect ack timeout, leaving CONN on\n");
+		return -ETIMEDOUT;
+	}
+	conn_rmw(c, 0, PWR_ISO);
+	conn_rmw(c, 0, PWR_CLK_DIS);
+	conn_rmw(c, PWR_RST_B, 0);
+	conn_rmw(c, PWR_ON, 0);
+	conn_rmw(c, PWR_ON_2ND, 0);
+	for (i = 0; i < POLL_TRIES; i++) {
+		if (!conn_is_on(c))
+			return 0;
+		udelay(10);
+	}
+	dev_err(c->dev, "CONN power-off status timeout\n");
+	return -ETIMEDOUT;
 }
 
 /* Stock power-off order, from whatever point power-on reached. */
@@ -102,8 +176,12 @@ static void consys_power_off(struct consys *c, int reached)
 {
 	dev_info(c->dev, "power off (reached step %d)\n", reached);
 	if (reached >= 7) {
-		dev_info(c->dev, "off: CONN domain\n");
-		pm_runtime_put_sync(c->pd_dev);
+		dev_info(c->dev, "off: CONN MTCMOS\n");
+		if (conn_mtcmos_off(c)) {
+			consys_log_spm(c, "CONN off failed");
+			dev_err(c->dev, "stopping power-off here: supplies stay on\n");
+			return;
+		}
 	}
 	if (reached >= 5) {
 		dev_info(c->dev, "off: VCN28\n");
@@ -160,23 +238,21 @@ static int consys_power_on_check(struct consys *c)
 
 	consys_log_spm(c, "before CONN on");
 	dev_info(c->dev, "step 7: CONN power domain on\n");
-	ret = pm_runtime_resume_and_get(c->pd_dev);
+	ret = conn_mtcmos_on(c);
+	step = 7;	/* run the off sequence even after a failed on */
+	consys_log_spm(c, "after CONN on");
 	if (ret)
 		goto fail;
-	step = 7;
-	consys_log_spm(c, "after CONN on");
 
-	/* stock: poll conn_top2 ack (CONN_PWR_CON bit 30) */
+	/* stock mt6771.c fallback: poll conn_top2 ack (CONN_PWR_CON bit 30) */
 	for (i = 0; i < 100; i++) {
-		if (spm_read(SPM_CONN_PWR_CON_PA) & SPM_CONN_TOP2_ACK)
+		if (readl(c->spm + SPM_CONN_PWR_CON) & CONN_TOP2_ACK)
 			break;
 		udelay(10);
 	}
-	if (i == 100) {
-		dev_err(c->dev, "CONN top2 ack (bit 30) not set, not touching CONSYS\n");
-		ret = -ETIMEDOUT;
-		goto fail;
-	}
+	/* stock clk-mt6771-pg.c (the path stock runs) does not check it */
+	if (i == 100)
+		dev_warn(c->dev, "CONN top2 ack (bit 30) not set after 1 ms\n");
 	udelay(10);
 
 	dev_info(c->dev, "step 8: poll chip ID\n");
@@ -234,24 +310,10 @@ fail_early:
 	return ret;
 }
 
-static void consys_pd_pdev_del(void *data)
-{
-	struct consys *c = data;
-
-	of_platform_device_destroy(&c->pd_pdev->dev, NULL);
-}
-
-static void consys_pd_detach(void *data)
-{
-	struct consys *c = data;
-
-	dev_pm_domain_detach(c->pd_dev, false);
-}
-
 static int consys_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *mem_np, *pd_np;
+	struct device_node *mem_np;
 	struct reserved_mem *rmem;
 	struct consys *c;
 	int ret;
@@ -299,40 +361,26 @@ static int consys_probe(struct platform_device *pdev)
 		 &rmem->base, (unsigned long long)rmem->size,
 		 IS_ALIGNED(rmem->base, SZ_2M) ? "yes" : "NO");
 
-	pd_np = of_get_child_by_name(dev->of_node, "conn-power");
-	if (!pd_np)
-		return dev_err_probe(dev, -EINVAL, "conn-power node\n");
-	c->pd_pdev = of_platform_device_create(pd_np, NULL, dev);
-	of_node_put(pd_np);
-	if (!c->pd_pdev)
-		return dev_err_probe(dev, -ENOMEM, "conn-power device\n");
-	ret = devm_add_action_or_reset(dev, consys_pd_pdev_del, c);
-	if (ret)
-		return ret;
-	c->pd_dev = dev_pm_domain_attach_by_id(&c->pd_pdev->dev, 0);
-	if (IS_ERR_OR_NULL(c->pd_dev))
-		return dev_err_probe(dev, c->pd_dev ? PTR_ERR(c->pd_dev) : -ENODEV,
-				     "CONN power domain\n");
-	ret = devm_add_action_or_reset(dev, consys_pd_detach, c);
-	if (ret)
-		return ret;
-	consys_log_spm(c, "after attach");
 	/*
-	 * mtk-pm-domains powers every domain without KEEP_DEFAULT_OFF on at
-	 * registration, and pd_ignore_unused keeps it on: CONN is on since
-	 * boot, with the MCU out of reset and the supplies off. Stock powers
-	 * CONN on only after the supplies and the MCU reset, so switch it off
-	 * first (genpd powers off on the last runtime put).
+	 * SPM and INFRACFG_AO belong to other nodes (syscons); map without
+	 * claiming the regions, as the vendor driver does.
 	 */
-	if (spm_read(SPM_PWR_STATUS_PA) & SPM_PWR_STATUS_CONN) {
-		dev_info(dev, "CONN is on since boot; powering it off before the stock sequence\n");
-		ret = pm_runtime_resume_and_get(c->pd_dev);
-		if (ret)
-			return dev_err_probe(dev, ret, "CONN get\n");
-		pm_runtime_put_sync(c->pd_dev);
+	c->spm = devm_ioremap(dev, SPM_BASE_PA, SZ_4K);
+	c->infra = devm_ioremap(dev, INFRA_BASE_PA, SZ_4K);
+	if (!c->spm || !c->infra)
+		return -ENOMEM;
+
+	dev_info(dev, "SPM POWERON_CONFIG_EN 0x%08x\n",
+		 readl(c->spm + SPM_POWERON_CONFIG_EN));
+	consys_log_spm(c, "at probe");
+	if (conn_is_on(c)) {
+		dev_info(dev, "CONN is on at probe; MCU reset, then stock CONN off first\n");
+		ret = reset_control_assert(c->mcu_rst);
+		if (!ret)
+			ret = conn_mtcmos_off(c);
 		consys_log_spm(c, "after CONN off");
-		if (spm_read(SPM_PWR_STATUS_PA) & SPM_PWR_STATUS_CONN)
-			return dev_err_probe(dev, -EBUSY, "CONN still on, not running the sequence\n");
+		if (ret)
+			return dev_err_probe(dev, ret, "CONN off failed, not running the sequence\n");
 	}
 
 	ret = consys_power_on_check(c);

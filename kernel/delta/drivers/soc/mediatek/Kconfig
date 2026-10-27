@@ -91,7 +91,7 @@ config MTK_SOCINFO
 
 config MT6771_CONSYS
 	tristate "MediaTek MT6771 CONSYS power-on check"
-	depends on OF && HAS_IOMEM && REGULATOR && RESET_CONTROLLER && PM_GENERIC_DOMAINS
+	depends on OF && HAS_IOMEM && REGULATOR && RESET_CONTROLLER
 	help
 	  Runs the stock CONSYS (on-die Wi-Fi/BT) power-on order once at
 	  probe, reads the CONSYS chip ID and powers it off again. Bring-up
