@@ -1112,3 +1112,22 @@
   kernel.panic_on_oops=0 at runtime (cmdline asks 1): the first oops did
   not reset the board. Next: W2 (gemini-debian DEVICE=cosmo autoload),
   W3 (join + SSH over Wi-Fi).
+
+## 2026-10-27 Wi-Fi W2 + W3: Wi-Fi at boot, SSH over Wi-Fi untethered
+
+- W2 (gemini-debian e717114, installed on the device from that checkout,
+  no reflash): cosmo-wifi.service copies the Wi-Fi/WMT firmware from the
+  unit's `vendor` partition and the WIFI/WIFI_CUSTOM NVRAM record from
+  `nvdata` (read-only, debugfs), loads btif -> wmt_drv -> wmt_chrdev_wifi
+  -> wlan_drv_gen3 and powers Wi-Fi on. Tested from a cold boot with the
+  firmware and NVRAM copies deleted first: all six files copied, wlan0 up
+  with the NVRAM MAC 00:08:22:dc:88:fb. PASS.
+- W3: joined the home WPA2 network with NetworkManager (connection saved
+  on the device only), DHCP 192.168.0.27. With the USB cable unplugged,
+  SSH from the flashing host over Wi-Fi works. PASS.
+- Panic: panic_on_oops=1 on the cmdline was never a boot parameter (kernel
+  lists it as unknown). Now oops=panic in bin/build-boot-img.sh (7582370,
+  next image) and kernel.panic_on_oops=1 in the rootfs (gemini-debian
+  ce4f4e4, live on the device). Oops -> reset not yet observed.
+- Open: 5 GHz absent from scans; gen3 logs every scan to the console at
+  loglevel 8 (dmesg -n 1 by hand for console work).
