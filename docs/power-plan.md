@@ -98,6 +98,13 @@ glitch guard (`pmic_auxadc.c:707-713`: a jump of more than 100 mV from
 the last reading -> 5 re-reads, mean without min/max), so a bad sample
 cannot trip the 60 C power-off or stop charging.
 
+**S4b result 2026-10-26: PASS** (`boot-s4b.img` 2dc5f307…). Start value
+78 % (predicted 79 %), same 78 % after a reboot; +281 mAh in 880 s of
+charging = +6.95 % and the percent went 73 -> 80 in 1-point steps; 78 ->
+74 % with -170 mAh unplugged; BAT_TEMP guard never fired in normal use.
+Not yet observed: the charge-done anchor (100 %). The power foundation
+(S1-S4) is complete; S5/S6 and the items below stay open.
+
 Stretch goals (not blocking):
 - Battery temperature glitch: during the S4a charge test the
   battery-thermal zone stepped from 24.5 C to 15.4 C for 2 min, then back.

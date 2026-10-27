@@ -487,6 +487,12 @@
 		monitored-battery = <&cosmo_battery>;
 		power-supplies = <&mt6370_chg>;
 		mediatek,car-tune = <930>;
+		/*
+		 * Usable capacity for the state of charge: 4050 mAh measured
+		 * empty to full at 4.4 V on the same cell in the Gemini PDA
+		 * (docs/power-stock.md "Battery level"); label 4220 mAh.
+		 */
+		cosmo,charge-full-microamp-hours = <4050000>;
 	};
 };
 
@@ -971,6 +977,21 @@
 		constant-charge-voltage-max-microvolt = <4400000>;
 		constant-charge-current-max-microamp = <2000000>;
 		charge-term-current-microamp = <150000>;
+		/*
+		 * Open-circuit voltage vs charge at 25 C from the vendor
+		 * profile LK reads (battery node battery0_profile_t1, 100
+		 * points, 4276 mAh to the 3.4 V vendor shutdown voltage),
+		 * resampled every 5 %. Internal resistance = median of the
+		 * same profile's R column (1710 x 0.1 mOhm).
+		 */
+		factory-internal-resistance-micro-ohms = <171000>;
+		ocv-capacity-celsius = <25>;
+		ocv-capacity-table-0 = <4364700 100>, <4307738 95>, <4250257 90>,
+			<4193951 85>, <4139579 80>, <4085569 75>, <4041962 70>,
+			<3975218 65>, <3942225 60>, <3888570 55>, <3854918 50>,
+			<3829530 45>, <3809101 40>, <3792343 35>, <3777941 30>,
+			<3760051 25>, <3741748 20>, <3717371 15>, <3689590 10>,
+			<3677794 5>, <3400000 0>;
 	};
 
 	/*

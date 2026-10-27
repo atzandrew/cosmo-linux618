@@ -1005,3 +1005,47 @@
   `bat_temp_filter`) and a 5 C / 20 s jump warning. Not traced; the
   filter goes into S4b, the trace is a stretch goal.
 - Device left on S4a.
+
+## 2026-10-26 — power S4b: state of charge + BAT_TEMP guard (PASS)
+
+- Stock first: the vendor computes the state of charge in a closed
+  userspace daemon (`fuelgauged`), so the method is ours (docs/power-plan.md
+  S4). The 25 C profile LK reads (`battery0_profile_t1`, 100 points of
+  mAh x 10 / mV x 10 / R x 0.1 mOhm) gives 4276 mAh to 3.4 V; resampled
+  every 5 % into `ocv-capacity-table-0` on `/cosmo-battery`;
+  `factory-internal-resistance-micro-ohms` = 171000 (median R).
+- Change, gauge (`mt6358-gauge.c`): start value = OCV table at V - I x R
+  (median of 5 samples); then counted charge against
+  `cosmo,charge-full-microamp-hours` = 4050000 (Gemini measurement, same
+  cell); anchors: 100 % on charger status Full, 0 % below 3.40 V, at most
+  3 % below 3.45 V; 99 % shown until the charger reports done; 20 s poll
+  plus charger events. New values: capacity, charge_now, charge_full,
+  status Full.
+- Change, AUXADC (new delta `drivers/iio/adc/mt6359-auxadc.c`): vendor
+  BAT_TEMP guard (`pmic_auxadc.c:707-713`): below 200 mV or more than
+  100 mV from the last reading -> 5 re-reads, mean without min/max, with a
+  "BAT_TEMP jump" log line.
+- Image `boot-s4b.img` sha256
+  `2dc5f307168fdd1824adf3636ee7002677f07b7ceca8f636f8fa5335fc3b9801`.
+  Flashed (explicit OK): `mtk w boot`.
+- Results:
+  1. Start: `OCV 4124910 uV (V 4096636 uV, I -81596 uA)`, 78 %;
+     predicted 79 % from V/I before the flash: PASS.
+  2. Reboot over SSH: 78 % before, start 78 % after: PASS.
+  3. Anker PowerPort II, 880 s: +281.4 mAh = +6.95 % of 4050 mAh; percent
+     73 -> 80 in 1-point steps, never above 99: PASS. (A first attempt
+     saw no VBUS for 17 min: the charger had come out of the wall socket.)
+  4. Unplugged / on Dragon: 78 -> 74 % with -170 mAh counted (4.2 %),
+     1-point steps: PASS.
+  5. No "BAT_TEMP jump" line in ~1 h of normal use: PASS.
+  6. Charger detection (SDP / DCP) and emulated 56 / 49 / -11 / 1 C stop /
+     resume unchanged: PASS.
+- Charge current on the wall charger (question during the test): stock
+  ceiling on a 5 V DCP is 2.05 A charge / 3.2 A input; 3.0 A only with
+  PE / PE4.0 / PD and only below 85 % / 80 % (`mt6771.dts:4115-4175`,
+  `mtk_charger.c:1661`); MT6370 limits ICHG 5.0 A, AICR 3.25 A. Live at
+  73-80 %: CHG_STAT1 0x1d0 = 0x80 (power good only: no MIVR, AICR or
+  thermal regulation), VBUS 4.65 V, IBUS 1.6-1.8 A, battery current
+  1.26 -> 1.07 A: the CV loop at 4.40 V sets it. On the Dragon port 0x1d0 =
+  0xa0 (AICR loop at 500 mA).
+- Device left on S4b.

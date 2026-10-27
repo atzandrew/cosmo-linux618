@@ -27,7 +27,7 @@ yet confirmed.
 | ⬜ | Power key / keys as input | MT6358 `mt6358keys` | **fix** | disabled: mainline `mtk-pmic-keys` has the wrong MT6358 reset-register layout. Needs a corrected driver that never touches the reset enable | P2 |
 | ⬜ | Keypad block | `kp@10010000` | check (`mt6779-keypad`?) | which keys it carries on the Cosmo | P2 |
 | ⬜ | cpufreq / DVFS | big: vproc11+vsram_proc11, little+CCI: vproc12+vsram_proc12 (no external buck) | yes (mt8183) | today fixed at 1.1/1.2 GHz (LK); stock 0.79-1.99 / 0.79-2.11 GHz, OPP table for this unit in `docs/stock-reference.md` | P2 |
-| ⬜ | SVS, thermal | — | yes (mt8183) | no software thermal limit until done: idle loads only | P2 |
+| 🟡 | SVS, thermal | — | yes (mt8183) | thermal done (power S2: `cpu-thermal` critical 115 C, battery 60 C); SVS open | P2 |
 | ⬜ | cpuidle / suspend | SPM | check | Gemini lesson: plan this early; `cpuidle.off=1` today | P2 |
 | ⬜ | CPU hotplug (CPU_ON after CPU_OFF) | vendor ATF | firmware | fails today; kexec unaffected | P2 |
 | ⬜ | RTC | MT6358 RTC | yes (`rtc-mt6397`) | LK keeps boot flags in spare regs: no alarms until mapped | P2 |
@@ -39,12 +39,12 @@ yet confirmed.
 
 | | Block | Part / location | Mainline | Notes | Phase |
 |---|---|---|---|---|---|
-| ⬜ | Charger | MT6370 `subpmic_pmu@34` (i2c5) | yes (`mt6370-charger`) | today LK's 500 mA setup stays; no software charge supervision: short sessions only | P2 |
-| ⬜ | Battery level | MT6358 gauge | **new** | no mainline fuel gauge; start voltage-derived (auxadc) like the Gemini | P2 |
+| ✅ | Charger | MT6370 `subpmic_pmu@34` (i2c5) | yes + delta | as stock: BC1.2 with the PHY handover, 3.2 A / 2.0 A on a wall charger, battery temperature stop (power S3/S3b); PE/PD fast charge with Type-C | P2 |
+| ✅ | Battery level | MT6358 gauge | **new** (`mt6358-gauge`) | coulomb counter read as stock; percent from an OCV start + counted charge (power S4a/S4b) | P2 |
 | ⬜ | Main USB-C port role / PD | MT6370 TCPC `usb_type_c@4e` (i2c5) | yes (`tcpci_mt6370`) | needed for host mode and correct charging | P2 |
 | ⬜ | Second USB-C port | **FUSB301A** `@25` (i2c3) | **new** | not the FUSB302 the hardware map assumed; no mainline driver | P2 |
 | ⬜ | USB host mode | xhci in the same SSUSB block | yes | needs role switch from the TCPC | P2 |
-| ⬜ | Power off | MT6358 | check | | P2 |
+| ✅ | Power off | MT6358 | **new** (`mt6358-poweroff`) | vendor RTC sequence + RG_PWRHOLD (docs/poweroff.md) | P2 |
 
 ## Display and input
 
