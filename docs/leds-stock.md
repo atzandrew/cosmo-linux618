@@ -411,3 +411,21 @@ Retesting AW9524 P0_1 with persistent timer 1000/1000 ms, brightness 32/64,
 same setting as earlier timed negative test. Trigger/delays verified;
 left running until observation. No other AW9524 channel changed. Do not
 claim either controller ruled out from negative observations alone.
+
+
+### Caps-lock clue and primary-source internal LED mapping
+
+Observer reports no P0_1 blink and supplies the caps-lock LED name.
+P0_1 stopped and readback 0 confirmed. Primary Gemian project wiki:
+https://github.com/gemian/gemian/wiki/LEDs
+(raw https://raw.githubusercontent.com/wiki/gemian/gemian/LEDs.md)
+explicitly maps the internal RGB LED near Tab/Esc to proc selectors
+11x/12x/13x. Vendor aw9524_key.c:345–353 maps those to P0_0/P0_1/P0_2.
+Thus the first triplet has documented internal-LED intent, although this
+unit has not visibly responded in earlier tests. The caps-lock clue is
+useful for finding userspace policy but is not alone a wiring receipt.
+
+P0_0 red now persistently blinking 1000/1000 ms at 64/64, the previously
+used test limit (not a current increase). Await observation. P0_1 off,
+MT6370 ISNK1–3 off; automatic red charging indication not changed.
+No keyboard input code change or raw I2C write performed.
