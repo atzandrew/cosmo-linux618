@@ -171,6 +171,19 @@
 			alignment = <0 0x10000>;
 			alloc-ranges = <0 0x40000000 0 0x60000000>;
 		};
+
+		/*
+		 * CONSYS (Wi-Fi/BT MCU) shared memory, vendor mt6771.dts node
+		 * verbatim. Dynamic: the driver programs the chosen base into
+		 * the CONSYS EMI remap (docs/wifi-stock.md).
+		 */
+		consys_mem: consys-reserve-memory {
+			compatible = "mediatek,consys-reserve-memory";
+			no-map;
+			size = <0 0x200000>;
+			alignment = <0 0x200000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
 	};
 
 	/*
@@ -452,6 +465,33 @@
 		};
 	};
 
+	/*
+	 * CONSYS (on-die Wi-Fi/BT/GPS, A-die MT6631), vendor mt6771.dts
+	 * consys@18070000 mapped to mainline (docs/wifi-stock.md). reg:
+	 * CONN_MCU_CONFIG, AFE. Supplies at the stock voltages (vcn33 set
+	 * to 3.5 V by the driver). The CONN domain is on the child node so
+	 * the driver can power it on in the stock order.
+	 */
+	consys: consys@18070000 {
+		compatible = "mediatek,mt6771-consys";
+		reg = <0 0x18070000 0 0x1000>,
+		      <0 0x180b6000 0 0x100>;
+		interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 291 IRQ_TYPE_LEVEL_LOW>;
+		memory-region = <&consys_mem>;
+		resets = <&watchdog MT8183_TOPRGU_CONN_MCU_SW_RST>;
+		reset-names = "mcu";
+		vcn18-supply = <&mt6358_vcn18_reg>;
+		vcn28-supply = <&mt6358_vcn28_reg>;
+		vcn33-supply = <&mt6358_vcn33_reg>;
+		pinctrl-names = "on", "off";
+		pinctrl-0 = <&consys_pins_on>;
+		pinctrl-1 = <&consys_pins_off>;
+
+		conn-power {
+			power-domains = <&spm MT8183_POWER_DOMAIN_CONN>;
+		};
+	};
 };
 
 /*
@@ -645,6 +685,39 @@
 
 		pins-tx {
 			pinmux = <PINMUX_GPIO96__FUNC_UTXD0>;
+		};
+	};
+
+	/*
+	 * CONSYS A-die interface, stock consys_set_if_pinmux(): GPIO_MODE
+	 * 0x3e0/0x3f0 set GPIO113-121 to mode 1 at power-on and back to 0
+	 * at power-off. Mux only, no pin config (stock writes mode only).
+	 */
+	consys_pins_on: consys-on-pins {
+		pins-conn {
+			pinmux = <PINMUX_GPIO113__FUNC_CONN_TOP_CLK>,
+				 <PINMUX_GPIO114__FUNC_CONN_TOP_DATA>,
+				 <PINMUX_GPIO115__FUNC_CONN_BT_CLK>,
+				 <PINMUX_GPIO116__FUNC_CONN_BT_DATA>,
+				 <PINMUX_GPIO117__FUNC_CONN_WF_HB0>,
+				 <PINMUX_GPIO118__FUNC_CONN_WF_HB1>,
+				 <PINMUX_GPIO119__FUNC_CONN_WF_HB2>,
+				 <PINMUX_GPIO120__FUNC_CONN_WB_PTA>,
+				 <PINMUX_GPIO121__FUNC_CONN_HRST_B>;
+		};
+	};
+
+	consys_pins_off: consys-off-pins {
+		pins-conn {
+			pinmux = <PINMUX_GPIO113__FUNC_GPIO113>,
+				 <PINMUX_GPIO114__FUNC_GPIO114>,
+				 <PINMUX_GPIO115__FUNC_GPIO115>,
+				 <PINMUX_GPIO116__FUNC_GPIO116>,
+				 <PINMUX_GPIO117__FUNC_GPIO117>,
+				 <PINMUX_GPIO118__FUNC_GPIO118>,
+				 <PINMUX_GPIO119__FUNC_GPIO119>,
+				 <PINMUX_GPIO120__FUNC_GPIO120>,
+				 <PINMUX_GPIO121__FUNC_GPIO121>;
 		};
 	};
 };

@@ -89,6 +89,14 @@ config MTK_SOCINFO
 	  information about the SoC to the userspace including the
 	  manufacturer name, marketing name and soc name.
 
+config MT6771_CONSYS
+	tristate "MediaTek MT6771 CONSYS power-on check"
+	depends on OF && HAS_IOMEM && REGULATOR && RESET_CONTROLLER && PM_GENERIC_DOMAINS
+	help
+	  Runs the stock CONSYS (on-die Wi-Fi/BT) power-on order once at
+	  probe, reads the CONSYS chip ID and powers it off again. Bring-up
+	  check for the Cosmo Communicator Wi-Fi port; nothing stays on.
+
 config MTK_LK_OVERLAY_CLEAR
 	bool "Clear the MediaTek LK overlay layer at boot"
 	depends on OF && HAS_IOMEM
