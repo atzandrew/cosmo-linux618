@@ -90,3 +90,11 @@ No keyboard PWM, panel, reset/watchdog, charger or Wi-Fi changes.
    still functional. Reload and verify all channels start at zero.
 
 Runtime tests pending. Keyboard PWM and charge-state policy pending.
+
+## Build result
+
+Source commit 6cd95d8. Full image/module build and final W=1 driver
+compile passed. Binding and AW9524 board-node schema checks passed.
+Normal and watchdog-test images packed with the PMIC-key safeguard check;
+full hashes and pre-flash check are in docs/session-log.md. Runtime
+results remain pending; build success is not hardware validation.

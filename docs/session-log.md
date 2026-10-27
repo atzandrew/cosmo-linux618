@@ -1179,3 +1179,32 @@
 - Preserve installed Wi-Fi modules and rootfs service (5 GHz fix in
   gemini-debian 99ccaf7); install only the new LED module for testing.
 - Explicit flash/reboot approval pending. No flash performed.
+
+### AW9524 build completion and staged images
+
+- PASS: full `JOBS=6 bin/build-kernel.sh`, then incremental full rebuild
+  with the final driver source. Build host suspended during the first
+  build; after wake the build continued and completed. Release
+  6.18.58-cosmo, module tree 80 MiB. Final standalone driver compile
+  with W=1 also passed without warnings.
+- Final build source matches the committed delta (6cd95d8).
+  Module vermagic: `6.18.58-cosmo SMP preempt mod_unload aarch64`;
+  OF alias awinic,aw9524-leds; no module dependencies.
+- PASS: both images packed with bin/build-boot-img.sh, including its
+  check that MT6358 keys remain disabled with no long-press-mode.
+- Image.gz-dtb SHA256:
+  `1cdfca4b5635f4403b5939f9c9a9d4b1ecfb46e98020a7d033941f5ac077270e`.
+- Normal `codex-aw9524-boot.img` SHA256:
+  `d5d4694e7f590a2762b529d352d976e1953f03750e2d8588e85856db20bd4aec`.
+- Watchdog test `codex-aw9524-wdtest-boot.img` SHA256:
+  `ed281ef51d98a9936d79b2cf2532cd2be68ef292b99b146235544abff7afc54d`.
+  Adds cosmo.wdtest=1: init arms the watchdog and stops feeding it before
+  root handoff, so SSH is not expected and reset should occur in 31–62 s.
+- Installed-form `leds-aw9524.ko` SHA256:
+  `73f79823a1647e13d5b351532ce7528d4112bf6373b7cde8d7afd0cc8564059a`.
+- Flashing-host staging: `Build/codex-led-artifacts/6cd95d8/` because the
+  active filesystem sandbox cannot write the usual cosmo-flash directory.
+  The staging location needs to be made clear in the flash approval.
+- No modules installed on the device; no LED writes, flash or reboot.
+  Device remains on byte-verified W1b. Runtime LED tests and the two
+  new-image escape observations remain pending explicit approval.
