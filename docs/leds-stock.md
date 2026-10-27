@@ -98,3 +98,73 @@ compile passed. Binding and AW9524 board-node schema checks passed.
 Normal and watchdog-test images packed with the PMIC-key safeguard check;
 full hashes and pre-flash check are in docs/session-log.md. Runtime
 results remain pending; build success is not hardware validation.
+
+## 2026-10-27 — rear LED runtime results
+
+Status: rear LED current control PASS; complete wiring/colour mapping
+PARTIAL. Normal image boot prefix was read back and matches
+`d5d4694e7f590a2762b529d352d976e1953f03750e2d8588e85856db20bd4aec`.
+
+Visual mapping, viewed from the rear:
+
+| Position | Red | Green | Blue |
+|---|---|---|---|
+| Far right, beside camera | P0_3 | P0_4 | P0_5 |
+| Bottom-left fingerprint light | not observed | P1_1 | P1_2 |
+| Top-left fingerprint light | not observed | P1_4 | P1_5 |
+
+- All four stock third/blue channels at 32/64 lit three rear LEDs.
+  Turning P0_2 off made no visible change; P0_5 off extinguished the
+  rightmost LED; P1_2 off the bottom-left; P1_5 off the top-left.
+- Green channels P0_4/P1_1/P1_4 at 32/64 lit all three green.
+- Red candidates P0_3/P1_0/P1_3 at both 32 and 64 lit only the rightmost
+  LED. This is not proof that the fingerprint lights lack red emitters.
+- Mixed P0_3=32, P0_4=0, P0_5=32 appeared purple on the rightmost LED.
+- A red charging indicator stayed lit with all AW9524 channels zero.
+  Its controller/relationship to the Q-key LED remains unidentified.
+- P0_0 at 8 and blinking at 64 produced no identified visible response.
+  P0_1 has not been individually tested. Other unexposed pins remain
+  untested; do not infer their wiring.
+- Module unload/reload PASS: class devices removed, ID 0x23 reprobed,
+  all twelve brightness attributes returned to zero. No AW9524/I2C
+  errors appeared in the filtered log. Physical reset-line assertion
+  and per-position brightness gradation were not separately observed.
+- End state: all triggers none and all twelve brightness values zero.
+  The independent charging indicator may remain lit.
+
+### Stock red-channel recheck
+
+Vendor aw9524_key.c:338 names brightness_red=8. Lines 364–370 explicitly
+write P1_0 (DIM 0x20) for selector 2 red; 372–378 write P1_3 (DIM 0x23)
+for selector 3 red. Selector 6 writes those two and P0_3 together
+(380–385). The current module uses those same addresses. No separate
+red mode or red-enable operation appears in that path. The four unused
+named DIM outputs appear only in register definitions in the source
+search, not in these controls.
+
+The source exposes red operations for those electrical groups but does
+not identify their physical LED packages. Physical fingerprint placement
+comes from the live green/blue tests. Neither source nor the unsuccessful
+red tests establishes the installed LED part or all of its wiring.
+
+Next diagnostic, if pursued: read the chip's actual DIM and mode registers
+through the driver. LED brightness sysfs readbacks currently reflect
+software state; successful writes alone do not verify register retention.
+Live stock comparison is deferred; no stock restore is planned.
+
+### Keyboard backlight follow-up
+
+Stock dtbo entry 0 fragment@49 gpio_init_default contains 192 seven-cell
+rows. GPIO90 is mode 1 (PWM_A); other PWM_A candidates GPIO6/107/150/153
+are mode 0. This identifies the stock PWM pin without guessing.
+Vendor pwm/mtk_pwm.c:1278–1292,1367–1389 sets FIFO fields, clock/divider,
+then channel enable. pwm/mt6771/mtk_pwm_hal.c:69–98 prepares PWM top,
+HCLK and channel clocks; channel 1 base is +0x10 (122–127).
+
+Read-only live clock summary: infra_pwm and infra_pwm1 124800000 Hz,
+infra_pwm_hclk 156000000 Hz. Do not substitute the vendor header's
+nominal 66 MHz or change clock parents without evidence.
+GPIO178 is shared with HDMI: aw9524_key.c:304–316 preserves it on
+keyboard-off when GPIO54 detect is high; usb_c/fusb302/usb_typec.c:329–335
+also asserts it and reads detect. No keyboard PWM/GPIO178 writes have
+been made. The Q-key LED has not been investigated or identified.

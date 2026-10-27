@@ -1242,3 +1242,40 @@
   b8ee5fab4db99ca505d61cb7ddd55c33740f0cddfb6a730adbab82753a10377c.
   No boot-image change or LED writes occurred. New-image escape checks
   remain untested. Next reboot needs fresh approval under the task rule.
+
+## 2026-10-27 — AW9524 rear LED tests and normal-image escape checks
+
+- Watchdog-test image flashed externally after raw USB access proved
+  unavailable in the command sandbox. Automatic reboot cycles were
+  visually reported; host USB logs show gadget disconnect, preloader,
+  then gadget again. Watchdog escape PASS by observation; exact reset
+  timing and watchdog-image partition hash were not captured.
+- Normal codex-aw9524-boot.img flashed externally with explicit approval.
+  Rescue USB telnet read back the first 18018304 boot bytes:
+  d5d4694e7f590a2762b529d352d976e1953f03750e2d8588e85856db20bd4aec.
+  Release 6.18.58-cosmo; no cosmo.wdtest=1; uptime above 79 s with the
+  init-owned 31 s watchdog fed normally.
+- Rescue was selected by the existing incomplete-root-boot tripwire;
+  its marker permitted Debian on the next boot. Approved power-key reset
+  was physically performed and reported complete; USB SSH then reached
+  Debian 13. Power-key escape PASS by observation. panic_on_oops=1;
+  cosmo-boot-ok Result=success, ExecMainStatus=0.
+- Only leds-aw9524.ko installed (SHA256
+  73f79823a1647e13d5b351532ce7528d4112bf6373b7cde8d7afd0cc8564059a),
+  depmod and modprobe. Existing Wi-Fi modules/service retained.
+- Probe: `[102.712872] aw9524-leds 3-005b: AW9524 ID 0x23, LED current controls ready`.
+  Twelve devices initially brightness=0, max_brightness=64.
+- Physical mapping and colour tests: docs/leds-stock.md runtime section.
+  Rightmost RGB confirmed, including purple from red=32/blue=32.
+  Fingerprint top/bottom-left green and blue confirmed; red unobserved
+  at 32 and 64 despite matching stock's red sink assignments.
+  Independent red charging indicator remains unresolved.
+- Reload test: LED devices removed/reappeared, all twelve returned zero;
+  `[3515.796344] aw9524-leds 3-005b: AW9524 ID 0x23, LED current controls ready`.
+  No AW9524/I2C errors in filtered log. End state: all twelve off,
+  triggers none. No device reboot or flash during colour/reload tests.
+- Status: rear controls PASS; full cover/charge LED identification PARTIAL.
+  Keyboard backlight PARTIAL (source/DT/clock receipts only); Q-key LED
+  not yet investigated. Fn layout/RTC outside this LED-focused session.
+- Next: keyboard PWM1/GPIO178 and Q-key LED, stock-first; further stock
+  fingerprint-red investigation remains separate. No stock restore.
