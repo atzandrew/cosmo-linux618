@@ -1631,3 +1631,53 @@ Pre-flash check:
 - Observed on glass: 15-cycle loop 766 / 384 / 100 / bl_power 4 (off),
   every step visible, no flicker or colour fault, restored to 766.
 - Not observed: brightness at the probe switch-over from PWM to I2C.
+
+## 2026-10-27 — display D2: mainline pipeline + NT36672 panel (pre-flash check)
+
+Change:
+- mediatek-drm main path OVL0 -> OVL_2L0 -> RDMA0 -> COLOR -> CCORR -> AAL
+  -> GAMMA -> DITHER -> DSI0, mipi-tx, mmsys, mutex enabled; second path
+  (OVL_2L1, RDMA1, DPI) stays off. Built in (DRM_MEDIATEK, PHY_MTK_MIPI_DSI,
+  DRM_PANEL_COSMO_NT36672 = y).
+- scpsys power controller (&spm) disabled explicitly: with mmsys clocks
+  present it would probe and power on every domain (CONN included). It
+  never probed before (power-domain@7 clock missing), so state is
+  unchanged. power-domains and iommus removed from the enabled display
+  nodes: buffers come from CMA, scanned out by physical address as LK
+  does (M4U/SMI stay disabled).
+- New panel driver drivers/gpu/drm/panel/panel-cosmo-nt36672.c: stock
+  init table (181 commands, generated from the table verified against the
+  stock kernel and LK), then 0x11 + 120 ms, 0x29 + 10 ms. Commands < 0xB0
+  as DCS, others generic, LP mode. prepare: reset low, dsvpos then dsvneg
+  on, reset 0/20/1/10/0/10/1/20 ms, table. unprepare: 0x28 + 50 ms, 0x10 +
+  120 ms, 10 ms, dsvneg then dsvpos off, reset left high (stock); logs
+  "panel off, bias off" from the MT6370 enable bits, warns if still on.
+  prepare_prev_first, backlight via drm_panel.
+- GPIO45 to GPIO mode, output high (LK level) at probe.
+- mtk_drm_drv.c delta: aperture_remove_all_conflicting_devices() after
+  kms init, so fbcon moves from simpledrm. A bind failure before that
+  keeps simpledrm and the LK picture.
+- Boot cmdline loglevel=3 (600ae80).
+
+Pre-flash check:
+- Image `out/d2-boot.img` SHA256
+  c2501c8f68263d8fa4e4819d01b99b1949f6014999f375b693d41b10ec825c34.
+- Risk: first mainline panel write (panel rule: user present, one OK per
+  panel write). Expected on glass: LK picture, one blank at the takeover
+  (DSI/PHY re-init + panel reset and init), then the console on the new
+  framebuffer. DSI data rate is the mainline value (pclk 160.439 MHz x 24
+  / 4 = 962 Mbps per lane) instead of stock 1100 Mbps; burst mode.
+- Escapes: power-key reset and watchdog unchanged from the observed kernel
+  family; boot-image packer check passed. SSH over USB does not depend on
+  the display.
+- Rollback: d1-boot.img (2836f713...) or codex-mt6370-indicator-boot.img
+  (881b7ff0...).
+- Rootfs: new modules.builtin* copied and depmod run, so the old
+  mediatek-drm/mipi-dsi/backlight modules are not loaded over the
+  built-in drivers. Other modules unchanged.
+- Pass (boot): console readable and upright after one blank; dmesg
+  "panel on", no DSI errors. Pass (colour): red/green/blue/white bands
+  appear in that order and colour. Pass (blank): fb blank -> dark,
+  "panel off, bias off", dsvpos/dsvneg read disabled; unblank -> picture
+  back, "panel on", bias enabled. Fail: flicker, colour fault, lines,
+  bias reading on after blank, or any DSI error. Stop at the first fault.

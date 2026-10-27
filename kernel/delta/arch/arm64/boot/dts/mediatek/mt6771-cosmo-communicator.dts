@@ -1004,14 +1004,122 @@
 };
 
 /*
- * Nothing that drives the display, backlight, GPU, media engines or CPU
- * voltages probes until it is brought up on purpose (AGENTS.md rule 3).
+ * Nothing that drives the GPU, media engines or CPU voltages probes until
+ * it is brought up on purpose (AGENTS.md rule 3). The display pipeline
+ * is enabled further down (display D2); the second path (OVL_2L1,
+ * RDMA1, DPI) stays off.
  * The Debian rootfs carries every defconfig module, so an enabled
  * mt8183.dtsi node gets its driver loaded (try21: mediatek-drm, the
  * disp-pwm backlight, mipi-tx, panfrost and the mdp3/vcodec/jpeg probes
  * with WARN traces). The M4U and SMI sit in the display's memory path:
  * keep them out of the way of LK's running scanout too.
  */
+
+/*
+ * Display D2: mainline mediatek-drm main path OVL0 -> OVL_2L0 -> RDMA0 ->
+ * COLOR -> CCORR -> AAL -> GAMMA -> DITHER -> DSI0 -> NT36672 panel.
+ *
+ * Power domains and M4U stay as LK left them (pd_ignore_unused,
+ * clk_ignore_unused): the scpsys power controller is disabled explicitly,
+ * because once mmsys provides its clocks it would probe and switch on
+ * every domain (including CONN, which the Wi-Fi driver controls itself).
+ * It never probed before ("power-domain@7: failed to get clk"), so this
+ * keeps the current state. Without power-domains and iommus the display
+ * scans out physical buffers from CMA, as LK does.
+ */
+&spm {
+	status = "disabled";
+};
+
+&mipi_tx0 {
+	status = "okay";
+};
+
+&mutex {
+	/delete-property/ power-domains;
+};
+
+&ovl0 {
+	/delete-property/ power-domains;
+	/delete-property/ iommus;
+};
+
+&ovl_2l0 {
+	/delete-property/ power-domains;
+	/delete-property/ iommus;
+};
+
+&rdma0 {
+	/delete-property/ power-domains;
+	/delete-property/ iommus;
+};
+
+&color0 {
+	/delete-property/ power-domains;
+};
+
+&ccorr0 {
+	/delete-property/ power-domains;
+};
+
+&aal0 {
+	/delete-property/ power-domains;
+};
+
+&gamma0 {
+	/delete-property/ power-domains;
+};
+
+&dither0 {
+	/delete-property/ power-domains;
+};
+
+/*
+ * Panel: NT36672 (LK ID 0x8070), stock timings and sequences in the
+ * driver (drivers/gpu/drm/panel/panel-cosmo-nt36672.c). Bias = MT6370
+ * DSV over I2C. Reset = GPIO45 (stock LCM_RST pad function, MMSYS
+ * LCM_RST_B 0x150); switched to GPIO mode, output high as LK leaves it,
+ * so the bootloader picture stays until the first panel power-on.
+ * Physical rotation 270 (docs/p0-findings.md).
+ */
+&dsi0 {
+	/delete-property/ power-domains;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	panel: panel@0 {
+		compatible = "planet,cosmo-nt36672";
+		reg = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&panel_pins_default>;
+		reset-gpios = <&pio 45 GPIO_ACTIVE_LOW>;
+		vsp-supply = <&mt6370_dsvpos>;
+		vsn-supply = <&mt6370_dsvneg>;
+		backlight = <&mt6370_backlight>;
+		rotation = <270>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+};
+
+&dsi_out {
+	remote-endpoint = <&panel_in>;
+};
+
+&pio {
+	panel_pins_default: panel-pins-default {
+		pins-reset {
+			pinmux = <PINMUX_GPIO45__FUNC_GPIO45>;
+			output-high;
+		};
+	};
+};
+
 &svs {
 	status = "disabled";
 };
@@ -1020,23 +1128,7 @@
 	status = "disabled";
 };
 
-&mipi_tx0 {
-	status = "disabled";
-};
-
 &gpu {
-	status = "disabled";
-};
-
-&mmsys {
-	status = "disabled";
-};
-
-&ovl0 {
-	status = "disabled";
-};
-
-&ovl_2l0 {
 	status = "disabled";
 };
 
@@ -1044,35 +1136,7 @@
 	status = "disabled";
 };
 
-&rdma0 {
-	status = "disabled";
-};
-
 &rdma1 {
-	status = "disabled";
-};
-
-&color0 {
-	status = "disabled";
-};
-
-&ccorr0 {
-	status = "disabled";
-};
-
-&aal0 {
-	status = "disabled";
-};
-
-&gamma0 {
-	status = "disabled";
-};
-
-&dither0 {
-	status = "disabled";
-};
-
-&mutex {
 	status = "disabled";
 };
 
