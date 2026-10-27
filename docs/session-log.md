@@ -1496,3 +1496,13 @@ pending. No ISNK2/3 illumination requested.
 ISNK1 cleanup verified: systemd unit completed successfully; all three
 channels read brightness 0, trigger none. Charging remains Charging.
 Physical observation pending.
+
+
+### Persistent visual tests
+
+The observer saw nothing during the first timed ISNK1 test and requested
+that future tests remain running until visual confirmation arrives.
+ISNK1 was restarted at brightness 1 with timer 1000/1000 ms; trigger and
+delays verified. Left running for observation, ISNK2/3 off, charger status
+Charging. Stop/switch after the next observation; no current increase.
+The runtime plan now uses persistent tests in place of timed expiry.

@@ -320,10 +320,10 @@ automatically; both image and module installation need a planned test.
 2. Install only the indicator module and its required multicolor-class
    dependency, then probe. Expect three channel devices, brightness 0,
    max 1; observe darkness and continued red charging indication.
-3. One channel at a time, use a short 1 s on/off software timer, with an
-   independent automatic cleanup after 15 s (trigger none, brightness 0).
-   Observe location and colour, especially beside Q. No automatic retry
-   at higher current if there is no visible response.
+3. One channel at a time, use a 1 s on/off timer and leave it running
+   while requesting visual confirmation. Stop or switch after the observer
+   replies; do not end the test before asking. Observe location and colour,
+   especially beside Q. No higher-current retry without a separate decision.
 4. Confirm off readback, no kernel errors, functional keyboard/USB and
    charging status. Unload/reload and confirm zero/darkness. Stop on any
    unrelated visual or charging change. Do not claim physical PASS until
@@ -358,3 +358,13 @@ pending. No ISNK2/3 illumination requested.
 ISNK1 cleanup verified: systemd unit completed successfully; all three
 channels read brightness 0, trigger none. Charging remains Charging.
 Physical observation pending.
+
+
+### Persistent visual tests
+
+The observer saw nothing during the first timed ISNK1 test and requested
+that future tests remain running until visual confirmation arrives.
+ISNK1 was restarted at brightness 1 with timer 1000/1000 ms; trigger and
+delays verified. Left running for observation, ISNK2/3 off, charger status
+Charging. Stop/switch after the next observation; no current increase.
+The runtime plan now uses persistent tests in place of timed expiry.
