@@ -246,3 +246,28 @@ Q-key follow-up: P0_1 alone blinked at 32/64, 1000 ms on/off, for 30 s.
 User observed no light. Automatic cleanup and readback confirmed brightness
 0 and trigger none. This is a negative visual observation at that setting,
 not proof of the Q-key LED's wiring. No other channel was changed.
+
+## 2026-10-27 — keyboard backlight runtime PASS
+
+Normal codex-kbd-fifo-boot.img verified by boot-partition prefix SHA256
+15f4f4e55a22e7c6d56740649ab93c03a204c8c04dbc5b3cd008fe8ea90ccd91.
+Only leds-cosmo-kbd.ko was installed; existing Wi-Fi/AW9524 retained.
+
+- Probe at 43.325284 s: stock PWM1 FIFO keyboard levels 0–5 ready.
+  Initial brightness 0, maximum 5.
+- Brightness 1 for 30 s: keyboard illuminated by visual observation.
+  Q-key LED did not visibly light.
+- Levels 1,2,3,4,5 held six seconds each, then 0: all sysfs writes and
+  readbacks passed. Visual observation confirmed progressively brighter
+  keyboard illumination and darkness at zero. Typing remained functional.
+- On: GPIO54 input low, GPIO178 output high; infra_pwm, infra_pwm1 and
+  infra_pwm_hclk each prepare/enable count 1.
+- Off: GPIO178 output low; the three clock prepare/enable counts each 0.
+  Rates unchanged (PWM 124800000 Hz, HCLK 156000000 Hz).
+- Unload/reload PASS: class device removed, reprobe at 136.629525 s,
+  brightness 0/max 5. No warning/oops in the checked log; boot-ok success.
+- End state: keyboard backlight off, module installed and loaded.
+  No suspend or GPIO54-high/HDMI test performed. Those remain unverified.
+
+Q-key LED remains unidentified and off by observation during the first
+backlight test. No MT6370 indicator driver enabled or indicator writes.

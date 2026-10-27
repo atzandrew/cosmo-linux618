@@ -1378,3 +1378,19 @@
 - First keyboard PWM/GPIO178 write: brightness 1 with automatic
   brightness-zero cleanup after 30 seconds. Sysfs readback 1.
   Visual result pending. No agent flash/reboot or MT6370 LED writes.
+
+### Keyboard runtime PASS — visual levels, typing, off and reload
+
+- User observed keyboard illumination at level 1; Q-key LED did not
+  visibly light. Automatic 30 s cleanup returned brightness to 0.
+- Six seconds each at 1–5 followed by 0: user confirmed progressively
+  brighter illumination, then off, with typing still working.
+- GPIO54 stayed low. GPIO178 high while lit, low when off. PWM top,
+  channel 1 and HCLK each clock count 1 while on, 0 while off; rates
+  unchanged. Driver unload/reload succeeded, returning brightness 0/max 5.
+- No warning/oops in checked log; boot-ok Result=success, ExecMainStatus=0.
+  Suspend and HDMI-high preservation remain untested.
+- Current device: normal codex-kbd-fifo-boot.img, 6.18.58-cosmo,
+  SHA256 15f4f4e55a22e7c6d56740649ab93c03a204c8c04dbc5b3cd008fe8ea90ccd91.
+  Keyboard module installed/loaded, brightness 0. No agent flash/reboot.
+- Q-key controller unresolved. No MT6370 LED enable or register writes.
