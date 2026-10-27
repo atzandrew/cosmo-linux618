@@ -1877,3 +1877,18 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
     suspend exit, online 0-7. PASS (was ~40 s and CPUs 1-7 lost).
 - Not done yet: cluster power-down (0xC2000215) and ARMPLL handling on
   empty clusters; a built-in driver in kernel/delta.
+
+### H2: built-in cosmo-cpu-hotplug (pre-flash)
+
+- Change: `drivers/soc/mediatek/cosmo-cpu-hotplug.c`
+  (CONFIG_COSMO_CPU_HOTPLUG=y): the H1 call as a built-in driver, every
+  CPU, only on "planet,cosmo-communicator". Counters in
+  /sys/module/cosmo_cpu_hotplug/parameters/{calls,errors}. No other change.
+- Image `out/h2-boot.img` SHA256
+  c643ec1b5ae5924e8fa5b77e17c3f88214cfb946fca85fec4d7d88b10fb01258
+  (Image.gz-dtb 620e9902...). Modules from the S1 build stay installed.
+- Escapes: as S1 (power key, watchdog). Rollback: g1-boot.img (5d28b604...).
+- Test: boot log has "cosmo-cpu-hotplug: core power-down after CPU_OFF
+  enabled"; CPU7..1 off then on; s1-test.sh processors (mtu3 unbound).
+  Pass: online 0-7 after each, calls = 14 then 21, errors = 0, no
+  "failed to come online". Fail: any CPU missing or errors > 0.
