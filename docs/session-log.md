@@ -2353,3 +2353,23 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - Open: the gauge reading has only been checked against itself. MT6358
   FG_OFFSET reads 0x45 (~26 mA); stock reads current raw too. A stock
   sleep measurement on this unit is the missing control.
+
+## 2026-10-28 — Stock sleep current on this unit: ~85.5 mA (= ours)
+
+- Gemian 4.4 (stock kernel) flashed for a reference. Modems off via
+  oFono (Online/Powered false on /ril_0 and /ril_1; with the modem on,
+  319 of 320 stock sleeps were woken by CCIF0 within seconds), Wi-Fi
+  off, USB unplugged, natural autosleep.
+- Raw MT6358 coulomb counter read through stock pmic_access (CAR_CON0/1,
+  read only; stock's gauge thread latches it), logged at each change.
+  Gaps in wall time are sleeps. 10 sleeps of 110-591 s: 85.3-86.3 mA
+  each, same counter basis as cosmo-linux618 (no car_tune).
+- Mainline deep sleep (DS7/DS8): 85-88 mA. Stock's modem-off sleep SPM
+  status equals ours (r13 0x84/86040001, req_sta 0x100000, idle_sta
+  0x9ff). Mainline sleep current matches stock; the remaining current
+  is the board's, as this gauge reads it.
+- Stock FG_OFFSET 0x55, FGADC_CON0 0x2529 (adds FG_ZCV_DET_EN) vs ours
+  0x45 / 0x2129; both run FG_CAL auto calibration.
+- Seen: after reflashing Gemian, Xorg crash-looped in the hwcomposer
+  step on the first two boots, then came up on the third. RTC read
+  year 2094 under stock after mainline set it (year encoding).
