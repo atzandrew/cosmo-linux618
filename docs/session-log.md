@@ -2085,3 +2085,18 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   entered = returned = 1, online 0-7, picture normal (user). Safe fails:
   reset at ~40 s (SPM program ran, no wake: PCM watchdog) or ~62 s (no
   SPM program: TOPRGU). Hard fail: power-key long press.
+
+### DS2 result: SPM path entered, no wake (safe fail)
+
+- Flashed ds2-boot.img (37beffc5...), #34 boots as before
+  ("cosmo-spm-suspend: ready"). enable=1, `NOUSB=1 s1-test.sh none`.
+- USB dropped 20:26:38, preloader 20:27:20: reset ~40 s after entry =
+  SPM timer (10 s) + PCM watchdog (30 s), not the TOPRGU 62 s. ATF now
+  runs its SPM suspend program and arms the PCM watchdog, but neither
+  the SPM timer wake nor the ATF finish (which disarms the watchdog)
+  happened. Debian came back by itself.
+- tools/cosmo-pwr/cosmo_latch.c after the reset: PCM_WDT_LATCH_0..11,
+  WDT_LATCH_SPARE*, *_FIX all 0; the reset clears them. No post-mortem.
+- Stock steps still missing before the WFI: SSPM IPI SPM_SUSPEND,
+  GIC mask-all + SPM_IRQ0 + CIRQ, UART request-to-sleep; CONN MTCMOS
+  is on (Wi-Fi up; stock only warns).
