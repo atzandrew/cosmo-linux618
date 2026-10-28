@@ -2304,3 +2304,23 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - Next: find the remaining ~85 mA (compare stock sleep current on this
   unit; off-SoC loads: MT6370, panel/touch, keyboard, modem/radio
   rails), and the keyboard-after-resume bug.
+
+## 2026-10-28 — DS8: keyboard after deep sleep fixed (i2c4 channel mode)
+
+- Cause: MT6771 i2c4 is a multi-channel controller (vendor
+  ch_offset_default 0x100). Deep sleep clears its secure channel-mode
+  registers (base + 0xf98 ROLLBACK, + 0xf8c MULTI_DMA); LK sets them at
+  boot, mainline never does, so every transfer timed out (-110) after
+  resume. Vendor i2c-mtk.c mt_i2c_resume_noirq() restores them with
+  SIP I2C_SEC_WRITE 0xC20002A0 (id, reg, val), clocks on.
+- Proof (tools cosmo_i2cmch, 80ec98b): after a sleep, both SIP calls
+  returned 0, the timeouts stopped, and a keyboard driver rebind worked
+  (user typed).
+- Fix (c9498f2): i2c-mt65xx resume_noirq makes the two calls for buses
+  with mediatek,sec-mch-id (i2c4 = 4). Image ds8-boot.img (79047a50…,
+  #38).
+- Test: 10 s deep sleep, wake up by PCM_TIMER, 0 keyboard errors 15 s
+  after resume, keys work without a reboot (user). PASS.
+- Note: after the ds8 mtk write the first manual reset went to
+  recovery (no Linux boot in the journal); a second reset booted
+  normally.
