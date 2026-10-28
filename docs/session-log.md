@@ -1996,3 +1996,16 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   Pass: cpu1 dead DIS 0, picture back normal after resume, restored = 1,
   larb0 port0 NONSEC_CON 0x2 after resume. Fail: no or bad picture
   (blank fb0, reboot, roll back).
+
+### D1b result: PASS
+
+- Flashed d1b-boot.img (3ac5a736...). Boot normal (user); probe log
+  "larb0 port0 NONSEC_CON 0x00000002".
+- pm_test=processors with cosmo_pwr_sus: cpu1 dead 0x40006746 (DIS 0,
+  CONN 1, MFG 0), resume_noirq DIS 1, "panel on", suspend exit, write
+  exit 0, online 0-7, restored = 1. Picture back normal after resume
+  (user). After resume (cosmo_smi): larb0 ports 0-4 0x2, port 5 0x0,
+  ports 6-9 0x1, L1LEN 0xb, DUMMY 0x1, SW_FLAG 0x1 = fresh-boot values.
+- Open: PWR_STATUS bit 30 (on since D1, unnamed).
+- Next (sleep plan): in-sleep watchdog (stock SPM PCM WDT, proven with a
+  fake hang), then first deep sleep the stock way.
