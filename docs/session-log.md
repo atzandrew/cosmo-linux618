@@ -1892,3 +1892,15 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   enabled"; CPU7..1 off then on; s1-test.sh processors (mtu3 unbound).
   Pass: online 0-7 after each, calls = 14 then 21, errors = 0, no
   "failed to come online". Fail: any CPU missing or errors > 0.
+
+### H2 result: PASS
+
+- Flashed h2-boot.img (c643ec1b...), booted 6.18.58-cosmo #32. Boot log:
+  "cosmo-cpu-hotplug: core power-down after CPU_OFF enabled" at 0.19 s.
+- CPU7..1 off then on: online 0-7, calls 7, errors 0, no "failed to come
+  online". (The pre-flash plan said 14 then 21; the driver makes one call
+  per CPU going offline, so 7 then 14 is the correct count.)
+- s1-test.sh processors (mtu3 unbound): guard pass, "Disabling non-boot
+  CPUs" / "Enabling non-boot CPUs" 5 s apart, suspend exit, write exit 0,
+  online 0-7, calls 14, errors 0. Resume took ~5.3 s (was ~40 s with
+  CPUs 1-7 lost).
