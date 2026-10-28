@@ -1221,6 +1221,16 @@
 	 * Refuse system sleep while the panel bias is on (stock blanks the
 	 * display and drops the bias before every suspend). Read-only.
 	 */
+	/*
+	 * Sleep D1b: saves LK's SMI common + larb0 settings (larb0 ports 0-5
+	 * MMU off) before DISP powers off in suspend, restores them after.
+	 */
+	smi-restore@14019000 {
+		compatible = "planet,cosmo-smi-restore";
+		reg = <0 0x14019000 0 0x1000>, <0 0x14017000 0 0x1000>;
+		power-domains = <&spm MT8183_POWER_DOMAIN_DISP>;
+	};
+
 	sleep-guard {
 		compatible = "planet,cosmo-sleep-guard";
 		vpos-supply = <&mt6370_dsvpos>;

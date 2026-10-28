@@ -1958,3 +1958,41 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
      the panel comes back with a normal picture, online 0-7.
      Fail: DIS 1 at cpu1 dead, or no or bad picture after resume
      (reboot -f, then roll back).
+
+### D1 result: FAIL (DIS off works; no picture after resume)
+
+- Flashed d1-boot.img (c4304b17...). Boot: screen normal (user), disp on
+  with the 10 display devices (pm_genpd_summary), no power-controller
+  error. PWR_STATUS 0x400fff4e: bit 30 now on (was off on h2; not named
+  in stock clk-mt6771-pg.c or mainline mt8183 data; open).
+- afe-pcm and 13000000.syscon: "deferred probe timeout ... failed with
+  error -110" at 14 s (neither had a driver bound before either).
+- pm_test=processors with cosmo_pwr_sus: suspend_noirq 0x40007f4e (DIS
+  1), cpu1 dead 0x40006746 (DIS 0, CONN 1, MFG 0), resume_noirq DIS 1,
+  "panel on", online 0-7. DIS off in suspend: PASS.
+- Screen after resume: backlight on, no picture (user). No DRM/DSI
+  error in dmesg; panel init commands went through. Display blanked
+  via fb0 blank (dsvpos/dsvneg read disabled), then rebooted: normal.
+- Cause (tools/cosmo-pwr/cosmo_smi.c, read-only, DIS on):
+  fresh boot larb0 NONSEC_CON ports 0-4 = 0x2, port 5 = 0x0, ports 6-9
+  = 0x1; SMI common L1LEN (0x100) 0xb, DUMMY (0x444) 0x1, larb0
+  SW_FLAG (0x040) 0x1. After the DIS cycle: all ten ports 0x1 (F_MMU_EN,
+  MMU on), L1LEN 0x2, DUMMY 0, SW_FLAG 0. With the M4U disabled, OVL
+  and RDMA physical-address reads go nowhere.
+
+### D1b: cosmo-smi-restore (pre-flash)
+
+- Change: drivers/soc/mediatek/cosmo-smi-restore.c
+  (CONFIG_COSMO_SMI_RESTORE=y) + DT node smi-restore@14019000 in the
+  DISP domain (reg = SMI common, larb0; mapped, not requested). Saves
+  SMI common 0x100/0x220/0x230-0x23c/0x300/0x444 and larb0
+  0x024/0x040/0x200-0x208/0x380-0x3a4 in suspend_noirq (before genpd
+  powers DISP off), writes them back in resume_noirq (after genpd powers
+  it on, before the display resumes). Counter
+  /sys/module/cosmo_smi_restore/parameters/restored.
+- Image out/d1b-boot.img SHA256 3ac5a7367c48e03e22436b1811d745fdf5e7e8c19dbab000a5551feb3ae62290. Escapes as S1. Rollback:
+  h2-boot.img (c643ec1b...).
+- Test (user watching): boot normal; pm_test=processors.
+  Pass: cpu1 dead DIS 0, picture back normal after resume, restored = 1,
+  larb0 port0 NONSEC_CON 0x2 after resume. Fail: no or bad picture
+  (blank fb0, reboot, roll back).

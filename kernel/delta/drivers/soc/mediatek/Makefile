@@ -13,3 +13,4 @@ obj-$(CONFIG_MTK_LK_OVERLAY_CLEAR) += mtk-lk-overlay-clear.o
 obj-$(CONFIG_MT6771_CONSYS) += mt6771-consys.o
 obj-$(CONFIG_COSMO_SLEEP_GUARD) += cosmo-sleep-guard.o
 obj-$(CONFIG_COSMO_CPU_HOTPLUG) += cosmo-cpu-hotplug.o
+obj-$(CONFIG_COSMO_SMI_RESTORE) += cosmo-smi-restore.o

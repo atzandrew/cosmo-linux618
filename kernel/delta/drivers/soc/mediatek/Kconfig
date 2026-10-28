@@ -129,4 +129,13 @@ config COSMO_CPU_HOTPLUG
 	  death. Without this, CPU hotplug and system suspend lose every
 	  non-boot CPU. Does nothing on other machines.
 
+config COSMO_SMI_RESTORE
+	bool "Cosmo Communicator: keep LK's SMI settings across a DISP power cycle"
+	depends on OF && PM_SLEEP && HAS_IOMEM
+	help
+	  The Cosmo display scans out physical buffers with the M4U and SMI
+	  drivers disabled. Saves the SMI common and larb0 registers LK set
+	  before the DISP domain powers off in system suspend and writes
+	  them back after it powers on again.
+
 endmenu
