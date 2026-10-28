@@ -2250,3 +2250,28 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   not where cosmo-spm-suspend reads it. One run only; repeat before
   relying on it. Next: wake-source readout, then the stage A sequence
   at boot in the kernel, then sleep current.
+
+## 2026-10-28 — DS6: wake status read the stock way; timer wake confirmed
+
+- Change (b6c3434): cosmo-spm-suspend prints stock's wake status
+  (__spm_get_wakeup_status / __spm_output_wake_reason): R12 from the
+  firmware backup SPM_SW_RSV_0 (0x608), wake_misc SPM_BSI_D0_SR,
+  timer_out SPM_BSI_D1_SR, event_reg SPM_BSI_D2_SR, assert PC
+  PCM_REG_DATA_INI, r13, idle/req status, debug flags, ISR. Verdict as
+  stock: PCM_TIMER = R12 bit 0 and WAKE_MISC bit 19. DS5 read live
+  PCM_REG12 (0x130), which the firmware reuses, hence its R12 0.
+- Image ds6-boot.img (d27bfad8…, #36). Same setup as DS5 stage B:
+  Wi-Fi off, cosmo_spmirq0, cosmo_vcfs_start go=1 (PCM_REG15 0xb79,
+  SW_RSV_5 0x80000001), enable=1, steps 7, wake_s 10,
+  `NOUSB=1 s1-test.sh none`.
+- Pass set first: CPU_SUSPEND 0, "wake up by PCM_TIMER", assert_pc 0,
+  timer_out about 327680 (10 s at 32 kHz).
+- Result: CPU_SUSPEND 0; wake up by PCM_TIMER; assert_pc 0x0;
+  timer_out 327695 (10.0 s); r12 0x1, wake_misc 0x80000; r13
+  0x86040001; debug_flag 0x1910fc 0x0; idle_sta 0x9ff; req_sta
+  0x100000; event_reg 0x90100000; isr 0x0; raw_ext_sta 0x400250a9;
+  pcm_flag 0x88098 0x340; SSPM 0/0, UART 0; sleep_time 8-16 s bucket;
+  no reset; panel on after resume. PASS. Second clean timer wake (DS5
+  was the first).
+- Next: stage A at boot in the kernel (replaces cosmo_vcfs_start and
+  cosmo_spmirq0), then sleep current.
