@@ -2339,3 +2339,17 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   ~85 mA is an active load. Core-rail group not tried (wake risk, same
   expected size).
 - Seen: with fb blanked, the backlight lights briefly at each resume.
+
+## 2026-10-28 — Sleep current: GPIO160 (HDMI power) — no gain
+
+- GPIO160 = stock sil9022_hdmi_pwren (HDMI power, shared with the
+  keyboard-light supply); stock drives it low with HDMI and the light
+  off. The boot loader leaves it high and Linux never claims it.
+- tools/cosmo-pwr/cosmo_gpo sets an output pin's data-out bit (DOUT
+  0x100 + 0x10 per 32 pins). Awake A/B/A 169.6/169.5/163.5 mA, sleep
+  86.9 (high) / 86.9 (low) mA. Keyboard fine. No effect.
+- Ruled out as well: modem MD1 MTCMOS off; CONN off with Wi-Fi off
+  (PWR_STATUS bit 30 follows Wi-Fi); LEDs and keyboard light at 0.
+- Open: the gauge reading has only been checked against itself. MT6358
+  FG_OFFSET reads 0x45 (~26 mA); stock reads current raw too. A stock
+  sleep measurement on this unit is the missing control.
