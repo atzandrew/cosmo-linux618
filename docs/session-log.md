@@ -2100,3 +2100,22 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - Stock steps still missing before the WFI: SSPM IPI SPM_SUSPEND,
   GIC mask-all + SPM_IRQ0 + CIRQ, UART request-to-sleep; CONN MTCMOS
   is on (Wi-Fi up; stock only warns).
+
+### DS3: stock SSPM handshake added (module, no flash)
+
+- tools/cosmo-pwr/cosmo_sspm_peek.c (read-only): every SSPM mailbox slot
+  holds the firmware's boot tag in the stock layout (mbox1 slots 2-9 =
+  0x4d010608, IPI_ID_SPM_SUSPEND); the SSPM runs, nothing had sent an
+  IPI.
+- tools/cosmo-pwr/cosmo_sspm_spm.c: syscore suspend/resume send
+  SPM_SUSPEND / SPM_RESUME (struct spm_data, 8 words, other fields 0)
+  on mbox1 slot 2, IN_IRQ bit 1, ack polled on OUT_IRQ bit 1 (stock
+  spm_to_sspm_command, IPI_OPT_POLLING).
+- pm_test=core: SPM_SUSPEND ret 0 ack 0, SPM_RESUME ret 0 ack 0,
+  normal resume, online 0-7. PASS.
+- Real suspend (ds2 enable=1 + this module): USB dropped 20:43:48,
+  preloader 20:44:21 (DS2 without the SSPM: 42 s). Still no wake.
+  A reset ~31 s after entry fits neither the PCM watchdog (10 + 30 s)
+  nor the TOPRGU two-stage 62 s seen in DS1; the cause is not known.
+  Next: a breadcrumb that survives the reset (proven first) to tell
+  "SPM never woke" from "woke, resume hung".
