@@ -1922,3 +1922,39 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   (DIS 1, CONN 1, MFG 0). Nothing switches DIS off in suspend (&spm is
   disabled). Stock subsys_if_on() BUG()s on DIS on; CONN only warns.
   DIS is the only blocking domain.
+
+### D1: scpsys manages DISP only, DISP off in suspend (pre-flash)
+
+- Mainline facts (v6.18.58 drivers/pmdomain/mediatek/mtk-pm-domains.c):
+  scpsys_add_one_domain() powers on every domain it adds unless
+  KEEP_DEFAULT_OFF (:597-610); top-level nodes are taken with
+  for_each_available_child_of_node (:983), sub-domains with
+  for_each_child_of_node (:660, status ignored). scpsys_ctl_pwrseq_on()
+  only sets PWR_ON/PWR_ON_2ND/RST_B and clears CLK_DIS/ISO (:259-271),
+  so powering on the LK-on DISP domain changes no live bit. DISP power
+  off adds INFRA bus protection and the SMI clamp (mt8183-pm-domains.h
+  :104-128); the SMI regmap comes from device_node_to_regmap, which works
+  with &smi_common disabled.
+- mediatek-drm runtime PM: only OVL and RDMA enable it; DSI, COLOR,
+  CCORR, AAL, GAMMA, DITHER and MUTEX do not, so they count as active and
+  DISP never powers off at runtime. In system suspend genpd powers a
+  domain off once every attached device has passed suspend_noirq.
+- Change (DTS only): &spm enabled; AUDIO, CONN, MFG_ASYNC disabled; DISP
+  sub-domains CAM, ISP, VDEC, VENC, VPU_TOP deleted; power-domains
+  restored on mutex, ovl0, ovl_2l0, rdma0, color0, ccorr0, aal0, gamma0,
+  dither0, dsi0 (iommus stay deleted). Other enabled consumers of
+  disabled domains (afe-pcm: AUDIO, 13000000.syscon: MFG) have no driver
+  bound today either.
+- Image `out/d1-boot.img` SHA256
+  c4304b178b671473651006aeb0f75255d5a913e65cee20355fe32cb6dec0c9af
+  (Image.gz-dtb d56a6d3e...). Escapes: as S1 (power key, watchdog; the
+  kernel config is unchanged). Rollback: h2-boot.img (c643ec1b...).
+- Test (user watching the screen for the first boot and resume):
+  1. Boot: display normal through boot, no flicker. dmesg has no
+     mtk-power-controller error; pm_genpd_summary lists disp on with the
+     display devices; PWR_STATUS as before (CONN on, MFG/AUDIO off).
+  2. pm_test=processors with tools/cosmo-pwr/cosmo_pwr_sus loaded.
+     Pass: "cpu1 dead" shows DIS 0 (CONN 1), resume_noirq shows DIS 1,
+     the panel comes back with a normal picture, online 0-7.
+     Fail: DIS 1 at cpu1 dead, or no or bad picture after resume
+     (reboot -f, then roll back).

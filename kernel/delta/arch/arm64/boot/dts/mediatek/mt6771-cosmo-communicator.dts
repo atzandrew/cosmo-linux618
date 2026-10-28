@@ -1019,59 +1019,57 @@
  * Display D2: mainline mediatek-drm main path OVL0 -> OVL_2L0 -> RDMA0 ->
  * COLOR -> CCORR -> AAL -> GAMMA -> DITHER -> DSI0 -> NT36672 panel.
  *
- * Power domains and M4U stay as LK left them (pd_ignore_unused,
- * clk_ignore_unused): the scpsys power controller is disabled explicitly,
- * because once mmsys provides its clocks it would probe and switch on
- * every domain (including CONN, which the Wi-Fi driver controls itself).
- * It never probed before ("power-domain@7: failed to get clk"), so this
- * keeps the current state. Without power-domains and iommus the display
- * scans out physical buffers from CMA, as LK does.
+ * M4U stays as LK left it: without iommus the display scans out
+ * physical buffers from CMA, as LK does.
+ *
+ * Sleep D1: the scpsys power controller manages the DISP domain only.
+ * Its probe powers on every listed domain, so AUDIO, CONN (the Wi-Fi
+ * driver controls it itself) and MFG are disabled and the DISP
+ * sub-domains are deleted (sub-domains are added even when disabled).
+ * Powering on the already-on DISP domain only sets bits LK already set.
+ * The display nodes carry DISP again, so genpd switches the domain off in
+ * the noirq phase of system suspend (stock refuses to sleep with DIS on)
+ * and on again before the display resumes. DSI, COLOR, CCORR, AAL, GAMMA,
+ * DITHER and MUTEX have no runtime PM, so DISP never goes off at runtime.
  */
 &spm {
-	status = "disabled";
+	power-domain@MT8183_POWER_DOMAIN_AUDIO {
+		status = "disabled";
+	};
+
+	power-domain@MT8183_POWER_DOMAIN_CONN {
+		status = "disabled";
+	};
+
+	power-domain@MT8183_POWER_DOMAIN_MFG_ASYNC {
+		status = "disabled";
+	};
+
+	power-domain@MT8183_POWER_DOMAIN_DISP {
+		/delete-property/ #address-cells;
+		/delete-property/ #size-cells;
+		/delete-node/ power-domain@MT8183_POWER_DOMAIN_CAM;
+		/delete-node/ power-domain@MT8183_POWER_DOMAIN_ISP;
+		/delete-node/ power-domain@MT8183_POWER_DOMAIN_VDEC;
+		/delete-node/ power-domain@MT8183_POWER_DOMAIN_VENC;
+		/delete-node/ power-domain@MT8183_POWER_DOMAIN_VPU_TOP;
+	};
 };
 
 &mipi_tx0 {
 	status = "okay";
 };
 
-&mutex {
-	/delete-property/ power-domains;
-};
-
 &ovl0 {
-	/delete-property/ power-domains;
 	/delete-property/ iommus;
 };
 
 &ovl_2l0 {
-	/delete-property/ power-domains;
 	/delete-property/ iommus;
 };
 
 &rdma0 {
-	/delete-property/ power-domains;
 	/delete-property/ iommus;
-};
-
-&color0 {
-	/delete-property/ power-domains;
-};
-
-&ccorr0 {
-	/delete-property/ power-domains;
-};
-
-&aal0 {
-	/delete-property/ power-domains;
-};
-
-&gamma0 {
-	/delete-property/ power-domains;
-};
-
-&dither0 {
-	/delete-property/ power-domains;
 };
 
 /*
@@ -1083,7 +1081,6 @@
  * Physical rotation 270 (docs/p0-findings.md).
  */
 &dsi0 {
-	/delete-property/ power-domains;
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
