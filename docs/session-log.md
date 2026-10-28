@@ -2324,3 +2324,18 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - Note: after the ds8 mtk write the first manual reset went to
   recovery (no Linux boot in the journal); a second reset booted
   normally.
+
+## 2026-10-28 — Sleep current: PMIC regulator sleep modes (group 1) — no gain
+
+- cosmo_pmiclp (read-only): 13 MT6358 rails lack stock
+  PMIC_LP_INIT_SETTING's SRCLKEN sleep control (OP_EN 0x0001 only).
+  vrf18/vrf12/vfe28 are off anyway; the other 10 are software-enabled.
+- cosmo_pmicw: stock OP_EN/OP_CFG bits for vusb, vaud28, vaux18, va12
+  (low power on SRCLKEN0/2) and vbif28 (off on SRCLKEN0/2), runtime.
+- A-B-A, 300 s timer sleeps, USB unplugged, Wi-Fi function off, panel
+  blanked: 88.1 / 88.1 (group 1) / 86.9 mA. All PCM_TIMER wakes. No
+  measurable gain (charge counter step ~101 uAh = ~1.2 mA per run).
+  Regulator low-power modes only cut regulator quiescent current; the
+  ~85 mA is an active load. Core-rail group not tried (wake risk, same
+  expected size).
+- Seen: with fb blanked, the backlight lights briefly at each resume.
