@@ -1904,3 +1904,21 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   CPUs" / "Enabling non-boot CPUs" 5 s apart, suspend exit, write exit 0,
   online 0-7, calls 14, errors 0. Resume took ~5.3 s (was ~40 s with
   CPUs 1-7 lost).
+
+### P1: MTCMOS state and SPM firmware status (read-only, #32)
+
+- Test modules `tools/cosmo-pwr/` (out of tree, read-only): cosmo_pwr
+  reads SPM PWR_STATUS/PWR_STATUS_2ND (0x10006180/184, bit names from
+  stock clk-mt6771-pg.c:378-401) and makes SIP SPM_FIRMWARE_STATUS
+  (0xC200021B, stock mtk_spm.c:389); cosmo_pwr_sus logs the status in
+  the noirq suspend and resume phases.
+- Running: PWR_STATUS 0x000fff4e, 2ND 0x00007f4e. On: CONN, DPY, DIS,
+  IFR, MP0 CPUTOP + CPU0-3, bits 13-14 (big cluster, unnamed in stock).
+  Off: MD1, MFG (all), ISP, VEN, VDE, CAM, VPU (all), AUDIO.
+  DIS_PWR_CON 0x00000e0d, CONN 0x0000010d, MFG/AUDIO 0x0000ff12.
+- SPM_FIRMWARE_STATUS = 0x1: SPM firmware already loaded (preloader/ATF);
+  stock's first suspend check passes as is.
+- pm_test=processors: suspend_noirq and resume_noirq both 0x00007f4e
+  (DIS 1, CONN 1, MFG 0). Nothing switches DIS off in suspend (&spm is
+  disabled). Stock subsys_if_on() BUG()s on DIS on; CONN only warns.
+  DIS is the only blocking domain.
