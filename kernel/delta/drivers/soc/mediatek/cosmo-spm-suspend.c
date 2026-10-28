@@ -149,6 +149,59 @@ static int uart_sleep(bool sleep)
 	return -EBUSY;
 }
 
+/*
+ * Wake status as stock __spm_get_wakeup_status + __spm_output_wake_reason
+ * (spm_v4/mtk_spm_internal.c): the firmware's backups, not live PCM_REG12.
+ */
+#define PCM_REG_DATA_INI	0x028	/* assert PC, 0 = no assert */
+#define SPM_SRC_REQ		0x0b8
+#define PCM_REG13_DATA		0x134
+#define PCM_REG12_EXT_DATA	0x144
+#define SPM_IRQ_STA		0x158
+#define SPM_WAKEUP_STA		0x15c
+#define SPM_WAKEUP_EXT_STA	0x160
+#define SUBSYS_IDLE_STA		0x170
+#define SRC_REQ_STA		0x17c
+#define SPM_BSI_D0_SR		0x41c	/* backup of SPM_WAKEUP_MISC */
+#define SPM_BSI_D1_SR		0x420	/* backup of PCM_TIMER_OUT */
+#define SPM_BSI_D2_SR		0x424	/* PCM_EVENT_REG_STA */
+#define SPM_SW_FLAG		0x600
+#define SPM_SW_DEBUG		0x604
+#define SPM_SW_RSV_0		0x608	/* backup of PCM_REG12_DATA */
+#define SPM_SW_RSV_2		0x610
+#define WDT_LATCH_SPARE0_FIX	0x780
+#define WAKE_SRC_R12_PCM_TIMER	BIT(0)
+#define WAKE_MISC_TWAM		BIT(18)
+#define WAKE_MISC_PCM_TIMER	BIT(19)
+#define WAKE_MISC_CPU_WAKE	BIT(20)
+
+static void spm_print_wake_status(int ret)
+{
+	u32 assert_pc = readl(spm + PCM_REG_DATA_INI);
+	u32 r12 = readl(spm + SPM_SW_RSV_0);
+	u32 misc = readl(spm + SPM_BSI_D0_SR);
+	const char *why = "unknown";
+
+	if (assert_pc)
+		why = "PCM ASSERT";
+	else if ((r12 & WAKE_SRC_R12_PCM_TIMER) && (misc & WAKE_MISC_PCM_TIMER))
+		why = (r12 & ~WAKE_SRC_R12_PCM_TIMER) ? "PCM_TIMER + other R12 bits" : "PCM_TIMER";
+	else if (r12)
+		why = "wake source (R12 bits)";
+
+	pr_info("cosmo-spm-suspend: CPU_SUSPEND %d; wake up by %s; assert_pc 0x%x timer_out %u r13 0x%x debug_flag 0x%x 0x%x\n",
+		ret, why, assert_pc, readl(spm + SPM_BSI_D1_SR),
+		readl(spm + PCM_REG13_DATA), readl(spm + SPM_SW_DEBUG),
+		readl(spm + WDT_LATCH_SPARE0_FIX));
+	pr_info("cosmo-spm-suspend: r12 0x%x r12_ext 0x%x raw_sta 0x%x idle_sta 0x%x req_sta 0x%x event_reg 0x%x isr 0x%x\n",
+		r12, readl(spm + PCM_REG12_EXT_DATA), readl(spm + SPM_WAKEUP_STA),
+		readl(spm + SUBSYS_IDLE_STA), readl(spm + SRC_REQ_STA),
+		readl(spm + SPM_BSI_D2_SR), readl(spm + SPM_IRQ_STA));
+	pr_info("cosmo-spm-suspend: raw_ext_sta 0x%x wake_misc 0x%x pcm_flag 0x%x 0x%x req 0x%x\n",
+		readl(spm + SPM_WAKEUP_EXT_STA), misc, readl(spm + SPM_SW_FLAG),
+		readl(spm + SPM_SW_RSV_2), readl(spm + SPM_SRC_REQ));
+}
+
 static int cosmo_spm_enter(suspend_state_t state)
 {
 	struct arm_smccc_res res;
@@ -183,9 +236,7 @@ static int cosmo_spm_enter(suspend_state_t state)
 	last_ret = ret;
 	if ((steps & STEP_UART) && uart_ret == 0)
 		uart_sleep(false);
-	pr_info("cosmo-spm-suspend: CPU_SUSPEND %d; R12 0x%08x R13 0x%08x WAKEUP_STA 0x%08x EXT 0x%08x FSM 0x%08x SW_DEBUG 0x%08x\n",
-		ret, readl(spm + 0x130), readl(spm + 0x134), readl(spm + 0x15c),
-		readl(spm + 0x160), readl(spm + 0x178), readl(spm + 0x604));
+	spm_print_wake_status(ret);
 	if (steps & STEP_SSPM)
 		res_ret = sspm_send(SPM_CMD_RESUME, &res_ack);
 	if (steps & STEP_GIC)
