@@ -138,4 +138,14 @@ config COSMO_SMI_RESTORE
 	  before the DISP domain powers off in system suspend and writes
 	  them back after it powers on again.
 
+config COSMO_SPM_SUSPEND
+	bool "Cosmo Communicator: system suspend through the vendor SPM path"
+	depends on ARM64 && OF && SUSPEND && ARM_PSCI_FW && HAVE_ARM_SMCCC
+	help
+	  The MT6771 vendor ATF only runs its SPM suspend program (SPM
+	  timer wake, 30 s PCM watchdog) for the stock entry: SiP
+	  SPM_SUSPEND_ARGS, then PSCI CPU_SUSPEND 0x01010005. This driver
+	  provides that entry once enabled through its "enable" parameter;
+	  until then mainline PSCI SYSTEM_SUSPEND stays in use.
+
 endmenu

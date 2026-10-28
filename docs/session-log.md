@@ -2055,3 +2055,33 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - After run A the boot went to the rescue initramfs: the tripwire flag
   was still COSMO-TRY from the earlier d1b boot (not caused by the
   test). Run B's reset went straight to Debian.
+
+### DS1: first real suspend with SPM args before SYSTEM_SUSPEND: FAIL (safe)
+
+- tools/cosmo-pwr/cosmo_ds.c (syscore suspend: SIP
+  SPM_SUSPEND_ARGS(0x80098, 0, 10 s), TOPRGU watchdog re-enabled as an
+  escape); `NOUSB=1 s1-test.sh none` on #33.
+- USB dropped 20:17:40, preloader 20:18:42: reset ~62 s later (TOPRGU
+  dual mode, IRQ then reset at 2 x 31 s). No SPM timer wake at 10 s and
+  no PCM watchdog reset at ~40 s: ATF does not run its SPM suspend
+  program for PSCI SYSTEM_SUSPEND.
+- pm_test=core with the same module: SUSPEND_ARGS on CPU0 returns 0,
+  resume normal (panel on, online 0-7). The stop is inside
+  SYSTEM_SUSPEND.
+
+### DS2: stock suspend entry, built-in, off until enabled (pre-flash)
+
+- Change: drivers/soc/mediatek/cosmo-spm-suspend.c
+  (CONFIG_COSMO_SPM_SUSPEND=y). Boot unchanged: it only maps TOPRGU and
+  SPM. Writing 1 to /sys/module/cosmo_spm_suspend/parameters/enable
+  replaces the suspend ops: .enter makes SIP SPM_SUSPEND_ARGS(flags,
+  0, wake_s * 32768), then psci_cpu_suspend_enter(0x01010005) (stock).
+  keep_wdt (default on) re-enables the TOPRGU watchdog for the sleep.
+- Image out/ds2-boot.img SHA256
+  37beffc52ef738d8533fc5d1f26854ce5b42b7875a2a958295e87a464cfab08e
+  (Image.gz-dtb 7b9682f8...). Escapes as S1. Rollback: d1b-boot.img.
+- Test: enable, then `NOUSB=1 s1-test.sh none` (wake_s 10). Pass: back
+  by itself in ~10-20 s, CPU_SUSPEND -> 0 with an SPM timer wake in R12,
+  entered = returned = 1, online 0-7, picture normal (user). Safe fails:
+  reset at ~40 s (SPM program ran, no wake: PCM watchdog) or ~62 s (no
+  SPM program: TOPRGU). Hard fail: power-key long press.
