@@ -2191,3 +2191,62 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   0x83c 0xfff, 0x888 0x222, others 0. Field meanings not in stock
   (mt6763 CSPM analogue: LATCH0 = PCM_FSM_STA; awake SPM FSM reads
   0x02108490).
+
+## 2026-10-27 — DS5: stock boot-time SPM/DVFSRC start; first deep sleep wakes
+
+### Inventory: stock boot-time VcoreFS setup vs mainline
+
+- Stock Gemian 4.4 on this unit (dmesg): spm_module_init sends SIP
+  SPM_ARGS(SPMFW_IDX, 0, ext_buck 0) (`__spmfw_idx 0x0 (type:3
+  freq:3600)`), then spm_vcorefs_init: VCOREFS CMD_3 x2 (Vcore DVS
+  entries), CMD_0 (curr opp), CMD_1 (`pcm_flag: 0x8400`), dvfsrc_init,
+  mtk_rgu_cfg_dvfsrc; idle at opp 3 (Vcore 0.725 V, DDR 1600 MHz). The
+  MT6771 header is mtk_spm_vcore_dvfs_mt6771.h (DVS_EN 1, DFS_EN 1,
+  VMODEM_VCORE_COBUCK 1); its DVFS-disabled branch also starts the SPM
+  program with DIS_VCORE_DVS | DIS_VCORE_DFS and runs dvfsrc_init.
+- Not leads: clk_buf_init_pmic_clkbuf/_pmic_wrap are `#ifndef
+  __KERNEL__` (preloader does them, expdb log); mtk_spm_pmic_wrap.o is
+  not built for MT6771 (Vcore table goes to ATF through CMD_3).
+- PCM watchdog timing (W1 disassembly): PCM_WDT_VAL = PCM_TIMER_VAL +
+  30 s, so the reset time follows wake_s whether or not the wake fired;
+  varying wake_s cannot locate the hang.
+- tools/cosmo-pwr/cosmo_vcfs.c (read-only, 96428fe), mainline before
+  any change: SPM_DVFS_CMD0..15 fully set by ATF (same table as
+  upstream TF-A mt8183; CMD0 0.700 V vs stock 0.725 V); PCM_REG15 0,
+  SW_RSV_5 0xffffffff (stock 0x80000001); DVFSRC BASIC_CONTROL 0x8, all
+  other registers 0; TOPRGU LATCH_CTL 0x1f71, DEBUG_CTL2 0xff (stock
+  0x3f71 / 0x2ff). infra_dvfsrc gate open (INFRA1_CG_STA bit 7 clear,
+  kept by clk_ignore_unused only).
+
+### DS5 stage A: start the SPM program and DVFSRC as stock (awake)
+
+- tools/cosmo-pwr/cosmo_vcfs_start.c (does nothing unless go=1):
+  SPM_ARGS(SPMFW_IDX, 0, 0), VCOREFS(CMD_0, opp 0), VCOREFS(CMD_1,
+  0x8418 = stock 0x8400 | DIS_VCORE_DVS | DIS_VCORE_DFS; refuses flags
+  that enable DVS/DFS), stock dvfsrc_init writes (LP4X 3733 / LP4 2400
+  branch, QOS_EN 0). Left out: CMD_3, SSPM QoS, mtk_rgu_cfg_dvfsrc.
+  Refuses if the SPM firmware is not loaded, PCM_REG15 != 0 or the
+  DVFSRC clock is off.
+- Pass set first: SIPs return 0, PCM program starts, DVFSRC reads back
+  as written, Vcore stays 0.8 V, board stable 2 min.
+- Result (#35, ds4-boot.img, suspend inhibited): all SIPs 0; after
+  CMD_1 PCM_REG15 0x819 -> running; after 2 min SW_RSV_5 0x80000001
+  and DVFSRC LEVEL 0x00010000 (both = stock), SPM_SW_FLAG 0x8418,
+  SPM_DVS_LEVEL 0x00010002, SPM_DFS_LEVEL 1; vcore 0.800 V,
+  vsram_others 0.900 V, vdram1 1.125 V unchanged. PASS.
+
+### DS5 stage B: DS4 sleep on top of stage A — PASS (timer wake)
+
+- One variable vs DS4: stage A state. Wi-Fi off, cosmo_spmirq0 loaded,
+  cosmo-spm-suspend enable=1 (flags 0x80098/0x300, steps 7, wake_s 10,
+  keep_wdt), `NOUSB=1 s1-test.sh none`.
+- Result: suspend entry/exit clean, CPU_SUSPEND 0, entered = returned =
+  1, SSPM SPM_SUSPEND/RESUME 0/0, UART ack 0, online 0-7, panel off
+  then on, sleep guard pass. /sys/kernel/debug/sleep_time: one sleep in
+  the 8-16 s bucket (RTC-measured), suspend_stats success 1, no reset
+  (uptime continued). Picture normal after resume (user). PASS.
+- Open: R12 0 and WAKEUP_STA 0 after resume (R13 0x86040001, EXT
+  0x400250a9, FSM 0x02710640, SW_DEBUG 0x001910fc): the wake source is
+  not where cosmo-spm-suspend reads it. One run only; repeat before
+  relying on it. Next: wake-source readout, then the stage A sequence
+  at boot in the kernel, then sleep current.
