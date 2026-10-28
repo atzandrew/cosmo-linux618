@@ -769,6 +769,11 @@
 	 */
 	reg = <0 0x11008100 0 0x100>,
 	      <0 0x11000100 0 0x80>;
+	/*
+	 * Vendor bus id 4 for the secure channel-mode restore after deep
+	 * sleep (vendor i2c-mtk.c resume; without it the keyboard times out).
+	 */
+	mediatek,sec-mch-id = <4>;
 	clock-frequency = <100000>;
 	status = "okay";
 
