@@ -2275,3 +2275,32 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   was the first).
 - Next: stage A at boot in the kernel (replaces cosmo_vcfs_start and
   cosmo_spmirq0), then sleep current.
+
+## 2026-10-28 — DS7: boot-time SPM setup in the kernel; first sleep current
+
+- Change (4d688fe): cosmo-spm-suspend does the SPM IRQ0 polarity and
+  the SPM program + DVFSRC start at boot (late_initcall). Image
+  ds7-boot.img (a87a3dd0…, #37).
+- Boot check PASS: "SPM program started: SIP 0/0/0, flag 0x8418,
+  PCM_REG15 0x56d, 0 readback mismatches", boot_ready Y, spm-irq0 on
+  MT_SYSIRQ 187 Level. 10 s sleep with no tool modules loaded: wake up
+  by PCM_TIMER, timer_out 327695. PASS.
+- New bug: keyboard dead after every deep sleep. aw9523-keypad (i2c4
+  0x5b) writes time out (-110) from the resume (first at resume, then
+  every 2 s). Fresh boot fixes it. Other I2C users (gauge) fine.
+- keep_wdt finding: systemd RuntimeWatchdogSec=30s sets the TOPRGU
+  timeout to 30 s; keep_wdt re-arms TOPRGU for the sleep, so any sleep
+  longer than ~30 s is reset (a 300 s run reset ~30-45 s in; DS4's
+  ~45 s resets fit too). Long sleeps need keep_wdt=0; the in-sleep
+  escape is then the SPM PCM watchdog (wake + 30 s, W1) and the power
+  key.
+- Measurement (USB unplugged, Wi-Fi off, panel off; battery 4.04 V;
+  coulomb counter = battery charge_counter, RTC-measured time):
+  - awake idle 121 s: CAR -159 mA vs mean current_now -169 mA
+    (24 samples): CAR reading confirmed.
+  - deep sleep, wake_s 300, keep_wdt 0: wake up by PCM_TIMER,
+    timer_out 9830415 (300.0 s), dt 302 s, CAR -7164 uAh =
+    **85 mA average** (includes ~2 s of entry/exit).
+- Next: find the remaining ~85 mA (compare stock sleep current on this
+  unit; off-SoC loads: MT6370, panel/touch, keyboard, modem/radio
+  rails), and the keyboard-after-resume bug.
