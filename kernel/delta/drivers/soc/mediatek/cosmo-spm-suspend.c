@@ -18,6 +18,21 @@
  * Not done: CIRQ (stock clones edge IRQs into it so they are not lost in
  * sleep; no CIRQ node in this DT), DLPT/IMIX PMIC sampling.
  *
+ * Boot-time setup as stock (boot_init, default on; cosmo_spm_suspend.
+ * boot_init=0 on the command line skips it):
+ *   - SPM IRQ0 (SPI 187) mapped through sysirq as LEVEL_LOW as in the
+ *     stock DT, handler as stock spm_irq0_handler (SIP SPM_IRQ0_HANDLER).
+ *     Without the polarity inverter the idle line reads as pending and
+ *     ATF refuses CPU_SUSPEND (-95).
+ *   - Start the SPM firmware and DVFSRC as stock spm_module_init ->
+ *     spm_vcorefs_init in its VCORE-DVFS-disabled branch: SIP SPM_ARGS
+ *     (SPMFW_IDX), VCOREFS CMD_0 (boot opp 0), VCOREFS CMD_1 (flag 0x8418:
+ *     stock 0x8400 | DIS_VCORE_DVS | DIS_VCORE_DFS, so Vcore and the DRAM
+ *     rate stay where they are), then stock dvfsrc_init (LP4X 3733
+ *     branch). Without the running program the SPM sleep never wakes.
+ *     Left out: CMD_3 (Vcore DVS table), SSPM QoS, mtk_rgu_cfg_dvfsrc.
+ * "enable" refuses unless both succeeded.
+ *
  * Nothing changes until "enable" is written (1 = replace the suspend
  * ops; reboot to go back). keep_wdt re-enables the TOPRGU watchdog for
  * the sleep (mtk_wdt_suspend stopped it) as a second escape while the
@@ -27,14 +42,34 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/interrupt.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/psci.h>
 #include <linux/suspend.h>
 
 #define SIP_SPM_SUSPEND_ARGS	0xC200021A
 #define SIP_SPM_FW_STATUS	0xC200021B
+#define SIP_SPM_IRQ0_HANDLER	0xC200021C
+#define SIP_SPM_VCOREFS_ARGS	0xC2000220
+#define SIP_SPM_ARGS		0xC2000228
+#define SPM_ARGS_SPMFW_IDX	0
+#define VCOREFS_CMD_0		0
+#define VCOREFS_CMD_1		1
+#define SPMFW_IDX		0	/* SPMFW_LP4X_2CH_3733 (this unit: LPDDR4 3600) */
+#define EXT_BUCK		0
+#define BOOT_UP_OPP		0
+#define VCOREFS_FLAG		0x8418	/* stock 0x8400 | DIS_VCORE_DVS | DIS_VCORE_DFS */
+
+#define INFRACFG_AO_BASE	0x10001000
+#define INFRA1_CG_STA		0x94
+#define DVFSRC_CG		BIT(7)
+#define DVFSRC_BASE		0x10012000
+#define DVFSRC_LEVEL		0x0dc
+#define PCM_REG15_DATA		0x13c
+#define SPM_SW_RSV_5		0x61c
 #define STOCK_SUSPEND_STATE	0x01010005	/* stock DT idle state "SUSPEND" */
 
 #define TOPRGU_BASE		0x10007000
@@ -81,6 +116,12 @@ static uint wake_s = 10;	/* SPM timer wake */
 module_param(wake_s, uint, 0644);
 static uint steps = STEP_GIC | STEP_SSPM | STEP_UART;
 module_param(steps, uint, 0644);
+static bool boot_init = true;
+module_param(boot_init, bool, 0444);
+static bool boot_ready;
+module_param(boot_ready, bool, 0444);
+static uint irq0_count;
+module_param(irq0_count, uint, 0444);
 static bool keep_wdt = true;
 module_param(keep_wdt, bool, 0644);
 static uint entered, returned;
@@ -248,6 +289,107 @@ static int cosmo_spm_enter(suspend_state_t state)
 	return ret;
 }
 
+/* stock dvfsrc_init order, LP4X_2CH_3733 / LP4_2CH_2400 branch */
+static const struct { u16 off; u32 val; } dvfsrc_seq[] __initconst = {
+	{ 0x0e0, 0x00100000 }, { 0x0e4, 0x00210011 },	/* LEVEL_LABEL_0..3 */
+	{ 0x0e8, 0x01100100 }, { 0x0ec, 0x01210111 },	/* 4..7 */
+	{ 0x0f0, 0x02100200 }, { 0x0f4, 0x02210211 },	/* 8..11 */
+	{ 0x0f8, 0x03210321 }, { 0x0fc, 0x03210321 },	/* 12..15 */
+	{ 0x024, 0x00000032 },	/* EMI_QOS0 */
+	{ 0x028, 0x00000066 },	/* EMI_QOS1 */
+	{ 0x030, 0x000080f8 },	/* EMI_MD2SPM0 */
+	{ 0x034, 0x00000000 },	/* EMI_MD2SPM1 */
+	{ 0x068, 0x000080c0 },	/* VCORE_MD2SPM0 */
+	{ 0x604, 0x0000001c },	/* RSRV_1 */
+	{ 0x0d8, 0x00000013 },	/* TIMEOUT_NEXTREQ */
+	{ 0x09c, 0x00000002 },	/* INT_EN */
+	{ 0x00c, 0x00290209 },	/* EMI_REQUEST */
+	{ 0x010, 0x00000000 },	/* EMI_REQUEST2 */
+	{ 0x048, 0x00150000 },	/* VCORE_REQUEST */
+	{ 0x180, 0x00000000 },	/* QOS_EN (stock !CONFIG_MTK_QOS_SUPPORT) */
+	{ 0x300, 0x00400000 },	/* FORCE */
+	{ 0x000, 0x0000c07b },	/* BASIC_CONTROL */
+	{ 0x000, 0x0000017b },	/* BASIC_CONTROL */
+};
+
+static unsigned long sip(unsigned long id, unsigned long a1,
+			 unsigned long a2, unsigned long a3)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(id, a1, a2, a3, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static irqreturn_t spm_irq0(int irq, void *data)
+{
+	sip(SIP_SPM_IRQ0_HANDLER, readl(spm + SPM_IRQ_STA), 0, 0);
+	irq0_count++;
+	return IRQ_HANDLED;
+}
+
+static int __init spm_irq0_init(void)
+{
+	struct of_phandle_args a = {
+		.args_count = 3, .args = { 0, 187, IRQ_TYPE_LEVEL_LOW },
+	};
+	int virq, ret;
+
+	a.np = of_find_compatible_node(NULL, NULL, "mediatek,mt6577-sysirq");
+	if (!a.np)
+		return -ENODEV;
+	virq = irq_create_of_mapping(&a);
+	of_node_put(a.np);
+	if (!virq)
+		return -EINVAL;
+	ret = request_irq(virq, spm_irq0, 0, "spm-irq0", NULL);
+	if (ret)
+		irq_dispose_mapping(virq);
+	return ret;
+}
+
+static int __init spm_dvfs_start(void)
+{
+	void __iomem *infra, *dvfsrc;
+	unsigned long r0, r1, r2;
+	int i, bad = 0, ret = 0;
+
+	if (readl(spm + PCM_REG15_DATA)) {
+		pr_err("cosmo-spm-suspend: PCM program already running\n");
+		return -EBUSY;
+	}
+	infra = ioremap(INFRACFG_AO_BASE, 0x100);
+	dvfsrc = ioremap(DVFSRC_BASE, 0x1000);
+	if (!infra || !dvfsrc) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	if (readl(infra + INFRA1_CG_STA) & DVFSRC_CG) {
+		pr_err("cosmo-spm-suspend: DVFSRC clock off\n");
+		ret = -ENODEV;
+		goto out;
+	}
+	r0 = sip(SIP_SPM_ARGS, SPM_ARGS_SPMFW_IDX, SPMFW_IDX, EXT_BUCK);
+	r1 = sip(SIP_SPM_VCOREFS_ARGS, VCOREFS_CMD_0, BOOT_UP_OPP, 0);
+	r2 = sip(SIP_SPM_VCOREFS_ARGS, VCOREFS_CMD_1, VCOREFS_FLAG, 0);
+	for (i = 0; i < ARRAY_SIZE(dvfsrc_seq); i++) {
+		writel(dvfsrc_seq[i].val, dvfsrc + dvfsrc_seq[i].off);
+		if (readl(dvfsrc + dvfsrc_seq[i].off) != dvfsrc_seq[i].val)
+			bad++;
+	}
+	pr_info("cosmo-spm-suspend: SPM program started: SIP %lu/%lu/%lu, flag 0x%x, PCM_REG15 0x%08x SW_RSV_5 0x%08x, DVFSRC LEVEL 0x%08x, %d readback mismatches\n",
+		r0, r1, r2, VCOREFS_FLAG, readl(spm + PCM_REG15_DATA),
+		readl(spm + SPM_SW_RSV_5), readl(dvfsrc + DVFSRC_LEVEL), bad);
+	if (r0 || r1 || r2 || !readl(spm + PCM_REG15_DATA))
+		ret = -EIO;
+out:
+	if (dvfsrc)
+		iounmap(dvfsrc);
+	if (infra)
+		iounmap(infra);
+	return ret;
+}
+
 static const struct platform_suspend_ops cosmo_spm_ops = {
 	.valid = suspend_valid_only_mem,
 	.enter = cosmo_spm_enter,
@@ -264,6 +406,10 @@ static int enable_set(const char *val, const struct kernel_param *kp)
 		return ret;
 	if (!uart)
 		return -ENODEV;
+	if (on && !boot_ready) {
+		pr_err("cosmo-spm-suspend: boot setup not done; refusing enable\n");
+		return -ENODEV;
+	}
 	if (on && !enabled) {
 		suspend_set_ops(&cosmo_spm_ops);
 		enabled = true;
@@ -293,9 +439,19 @@ static int __init cosmo_spm_suspend_init(void)
 		uart = NULL;
 		return -ENOMEM;
 	}
+	if (boot_init) {
+		int ret = spm_irq0_init();
+
+		if (ret)
+			pr_err("cosmo-spm-suspend: SPM IRQ0 setup failed: %d\n", ret);
+		else if (sip(SIP_SPM_FW_STATUS, 0, 0, 0) != 1)
+			pr_err("cosmo-spm-suspend: SPM firmware not loaded\n");
+		else if (!spm_dvfs_start())
+			boot_ready = true;
+	}
 	gic_regs = min_t(int, ((readl(gicd + GICD_TYPER) & 0x1f) + 1), GIC_MAX_REGS);
-	pr_info("cosmo-spm-suspend: ready (write 1 to enable); GIC %d enable regs, SSPM slot tag 0x%08x\n",
-		gic_regs, readl(mbox + 4 * SSPM_SLOT));
+	pr_info("cosmo-spm-suspend: ready (boot setup %s; write 1 to enable); GIC %d enable regs, SSPM slot tag 0x%08x\n",
+		boot_ready ? "done" : "NOT done", gic_regs, readl(mbox + 4 * SSPM_SLOT));
 	return 0;
 }
 late_initcall(cosmo_spm_suspend_init);
