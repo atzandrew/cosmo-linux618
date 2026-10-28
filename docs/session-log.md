@@ -2169,3 +2169,25 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   0x300): enters, no wake, reset ~45 s (preloader 20:57:10, start
   20:56:21). Next: a reset-surviving breadcrumb (proven first) to tell
   "SPM never woke" from "woke, resume hung".
+
+### Post-mortem channel: expdb (no new marker needed)
+
+- ATF runtime log: RAM ring at 0xeff00000 (top of tee-reserved; "ATF
+  log service is registered (0xeff00000, aee:0xeff3c000)"), INFO level,
+  cleared at boot. tools/cosmo-pwr/cosmo_logscan.c finds and dumps it.
+- After an abnormal reset LK saves crash records to the `expdb`
+  partition (readable from Linux, /dev/disk/by-partlabel/expdb):
+  SYS_ATF_LAST (ATF log, 128 KiB from 0xeff14000), SYS_ATF_CRASH,
+  SYS_LAST_SPM_DATA (SPM 0x10006780-0x10006974 incl. PCM_WDT_LATCH_*,
+  one record at a fixed offset, overwritten by each reset), SSPM logs.
+- Saved ATF logs, every suspend attempt today: the last CPU goes down
+  ("spmc: power off core 0.1 successfully"). pm_test runs and the -95
+  runs continue with CPU_ON of cores 1-7. Every hang ends right there:
+  ATF logs nothing inside CPU_SUSPEND (also not in the -95 runs).
+  DS1: "ASSERT: get_sys_suspend_power_state_compat <149> : 0" (ATF
+  asserts on PSCI SYSTEM_SUSPEND).
+- Last SPM record (DS4 full sequence): 0x800 0x08490000, 0x808
+  0xffffffff, 0x80c 0x0000e344, 0x814 0x50140000, 0x818 0x1f, 0x838 0x3,
+  0x83c 0xfff, 0x888 0x222, others 0. Field meanings not in stock
+  (mt6763 CSPM analogue: LATCH0 = PCM_FSM_STA; awake SPM FSM reads
+  0x02108490).
