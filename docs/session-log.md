@@ -2009,3 +2009,49 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - Open: PWR_STATUS bit 30 (on since D1, unnamed).
 - Next (sleep plan): in-sleep watchdog (stock SPM PCM WDT, proven with a
   fake hang), then first deep sleep the stock way.
+
+### W1: in-sleep watchdog (SPM PCM WDT), read-only findings
+
+- ATF (tee1, v1.3(debug):897c76b, BL31 at 0x54600000 = tee1 offset
+  0xc40, disassembled): SIP SPM_ARGS (0xC2000228) case PCM_WDT (8)
+  branches to an empty function (`ret`). Stock's
+  `SPM_ARGS(PCM_WDT, 1, 30)` in spm_go_to_sleep does nothing on this
+  firmware.
+- The watchdog is armed by ATF's own suspend setup (0x546164a4, reached
+  from SPM_ARGS(SUSPEND) and the PSCI suspend path) unless
+  pwr_ctrl wdt_disable is set: PCM_CON1 bit 9 cleared, PCM_TIMER_VAL
+  clamped to 0xfff0ffff, PCM_WDT_VAL = PCM_TIMER_VAL + 0xf0000 (30 s),
+  PCM_CON1 bit 8 (WDT_EN) set; then SPM_CPU_WAKEUP_EVENT = 1 starts the
+  SPM suspend program. The finish path clears WDT_EN.
+- tools/cosmo-pwr/cosmo_rgu.c (read-only, #33): TOPRGU WDT_MODE 0x5d,
+  REQ_MODE 0x003b0013 (SPM_SCPSYS bit 1 set), REQ_IRQ_EN 0x003a0010
+  (bit 1 clear = reset mode): the boot chain already sets TOPRGU to
+  reset on the SPM request (stock wd_spmwdt_mode_config(WD_REQ_EN,
+  WD_REQ_RST_MODE)). Mainline mtk_wdt never writes REQ_MODE.
+  ATF suspend pwr_ctrl (SIP 0xC2000229, SPM_PWR_CTRL_SUSPEND = 17):
+  wake_src 0x0e87dde7, wdt_disable 0. PCM_CON1 awake 0x5808 (WDT off).
+- So the stock suspend path brings the 30 s in-sleep watchdog with it;
+  no kernel code is needed for it.
+
+### W1 test: fake hang (tools/cosmo-pwr/cosmo_pcmwdt.c, no flash, #33)
+
+- Method: on CPU3, SIP SPM_SUSPEND_ARGS(0x80098, 0, 2 s) then
+  SPM_ARGS(SUSPEND) while awake (stock legacy-sleep first half); CPU3
+  then spins with preemption off, so the SPM suspend program waits for
+  a WFI that never comes. Pass set first: "armed" shows WDT_EN and
+  WDT_VAL = TIMER + 0xf0000, the dmesg stream stops 28-40 s after
+  "armed", the board reboots by itself. Fail: "NO RESET after 60 s".
+- Armed (both runs): PCM_CON1 0x5928, TIMER 0x10000, WDT_VAL 0x100000,
+  SPM_CPU_WAKEUP_EVENT 1.
+- Run A (TOPRGU WDT on, systemd feeding it from the other CPUs): armed
+  20:05:16.7, last line t+30 s, preloader on USB 20:05:50, Debian back.
+  PASS.
+- Run B (toprgu_off=1: WDT_MODE 0x5c, EN cleared as mtk_wdt_suspend
+  does): armed 20:10:56.5, last line t+30 s, USB disconnect 20:11:27
+  (30.7 s), preloader 20:11:29, Debian 20:11:46. PASS: the SPM
+  request resets the board with the TOPRGU watchdog stopped.
+- boot_reason=4 after both (also after a watchdog `reboot -f`), so the
+  reset source is told apart by timing only.
+- After run A the boot went to the rescue initramfs: the tripwire flag
+  was still COSMO-TRY from the earlier d1b boot (not caused by the
+  test). Run B's reset went straight to Debian.
