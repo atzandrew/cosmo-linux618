@@ -2148,3 +2148,24 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   10. Pass: back by itself in ~10-20 s, CPU_SUSPEND 0, SSPM 0/0, UART 0,
   online 0-7, picture normal. Safe fails: reset ~30-60 s. Hard fail:
   power key.
+
+### DS4 results (ds4-boot.img c80d6dc8, #35)
+
+- Wi-Fi off (CONN 0), all steps, flags1 0x300: CPU_SUSPEND returns -95
+  (PSCI NOT_SUPPORTED) at once, no sleep, clean resume; SSPM 0/0, UART
+  ack 0. Same with flags1 0 and with steps 3 (no UART). steps 2 (no GIC
+  step): hang, reset ~36 s. The GIC step makes ATF refuse.
+- Cause: SPM IRQ0 (SPI 187) is pending in the GIC while SPM_IRQ_STA is 0
+  (tools/cosmo-pwr/cosmo_spmirq.c). Stock declares it IRQ_TYPE_LEVEL_LOW
+  behind the sysirq polarity block; nothing maps it on mainline, so the
+  inverter bit is clear and the idle line reads as asserted. Enabling it
+  for sleep gives ATF a pending wake.
+- tools/cosmo-pwr/cosmo_spmirq0.c maps SPI 187 through sysirq as
+  LEVEL_LOW and requests it with stock's handler (read SPM_IRQ_STA, SIP
+  SPM_IRQ0_HANDLER 0xC200021C): GIC pending 1 -> 0, no interrupts.
+- Probably also DS2/DS3: with SPI 187 disabled the SPM wake could not
+  reach the CPU.
+- Full stock sequence with the IRQ claimed (Wi-Fi off, steps 7, flags1
+  0x300): enters, no wake, reset ~45 s (preloader 20:57:10, start
+  20:56:21). Next: a reset-surviving breadcrumb (proven first) to tell
+  "SPM never woke" from "woke, resume hung".
