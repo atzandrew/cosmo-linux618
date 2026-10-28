@@ -2119,3 +2119,32 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   nor the TOPRGU two-stage 62 s seen in DS1; the cause is not known.
   Next: a breadcrumb that survives the reset (proven first) to tell
   "SPM never woke" from "woke, resume hung".
+
+### DS4: every stock suspend step (pre-flash)
+
+- Inventory, stock vs ours before DS4 (mtk_sleep.c, mtk_spm_sleep.c,
+  mtk_spm_sleep_mt6771.c, mtk_spm_internal.c, 8250_mtk.c):
+  - pcm_flags 0x80098: same. pcm_flags1: stock 0x300
+    (__sync_big_buck_ctrl_pcm_flag: BIG_BUCK_OFF|ON, set unless MCDI or
+    hotplug turned the big buck off); ours 0.
+  - GIC: stock masks every SPI except SPM IRQ0 (SPI 187); ours left them.
+  - SSPM SPM_SUSPEND/RESUME: added in DS3 (module).
+  - UART: stock requests UART0 sleep (reg 0x2d, ack 0x2e) before WFI and
+    skips the sleep if there is no ack; ours none.
+  - CONN: Wi-Fi was on. `echo 0 > /dev/wmtWifi` (stock Wi-Fi off) runs
+    mtk_wcn_consys_hw_pwr_off; PWR_STATUS then 0x000fff4c: CONN off,
+    and the unnamed bit 30 off as well.
+  - Not ported: CIRQ (keeps edge IRQs that arrive during sleep; no node
+    in this DT), DLPT/IMIX PMIC sampling (battery estimate only).
+- Change: cosmo-spm-suspend does all of the above in stock order, each
+  step switchable through the "steps" parameter (bit 0 GIC, 1 SSPM,
+  2 UART), flags1 parameter (default 0x300). Still off until enabled.
+  Refuses (stock: BUG) if the SPM firmware is not loaded or DIS/MFG/ISP/
+  VEN/CAM/VPU/VDE MTCMOS is on.
+- Image out/ds4-boot.img SHA256
+  c80d6dc8727a3504af4c015faaa8cd8ee1ecaee32297d61a0fd738cca9b0af2e
+  (Image.gz-dtb a9692d19...). Escapes as S1. Rollback: ds2-boot.img.
+- Test: Wi-Fi off (CONN 0), enable, `NOUSB=1 s1-test.sh none`, wake_s
+  10. Pass: back by itself in ~10-20 s, CPU_SUSPEND 0, SSPM 0/0, UART 0,
+  online 0-7, picture normal. Safe fails: reset ~30-60 s. Hard fail:
+  power key.
