@@ -2435,3 +2435,27 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   hold reset the board at ~10 s by the user's count (stock measured ~8 s,
   same TD value); previous boot's journal ends without a shutdown. PASS.
   logind watched mtk-pmic-keys and did nothing. Service back after reset.
+
+## 2026-10-29 — Display on wake from deep sleep: PASS (no code change)
+
+- Stock: system suspend does not touch the display. mtkfb_resume() only
+  logs; the panel comes back when userspace unblanks the fb
+  (mtkfb_blank UNBLANK -> mtkfb_late_resume -> primary_display_resume).
+- Earlier "backlight flash, no picture" runs: the sleep-current scripts
+  blanked fb0 before the sleeps and unblanked only at the end.
+- Test tools/sleep-tests/disp1.sh (pk2 #40), 10 s deep sleep, PCM_TIMER
+  wake, r13 0x86040001, Wi-Fi function off, mtu3 unbound for the run.
+  Pass: picture + backlight after resume, no flicker, no DSI error.
+  - A, display on: panel off + bias off, guard pass, "panel on" after
+    resume, bias on, backlight 766. Picture normal on glass. PASS.
+  - B, fb0 blanked first: backlight 0, bias off. After resume, still
+    blanked, the kernel turned the panel on by itself ("panel on", bias
+    on, bl_power 0, backlight 766); unblank 2 s later exit 0. Picture
+    normal on glass. PASS.
+- Open: B differs from stock. The fbdev blank commits the CRTC inactive,
+  so the state saved by drm_mode_config_helper_suspend should keep it
+  off on resume; the path that turns it back on is not identified. Likely
+  also the source of the short backlight light-up at each resume seen in
+  the sleep-current runs.
+- Note: fb0/blank in sysfs is stale after resume (reads 1 with the panel
+  on); use the dsvpos/dsvneg regulator state.
