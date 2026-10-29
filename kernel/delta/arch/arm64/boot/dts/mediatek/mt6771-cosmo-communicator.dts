@@ -1437,3 +1437,8 @@
 		};
 	};
 };
+
+&mt6358rtc {
+	/* LK and the vendor kernel count the RTC year from 1968 */
+	mediatek,rtc-year-base-1968;
+};
