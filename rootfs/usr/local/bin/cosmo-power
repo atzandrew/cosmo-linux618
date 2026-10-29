@@ -1,0 +1,7 @@
+#!/bin/sh
+# reboot / shutdown / poweroff / halt for any user, no password: this is a
+# single-user handheld, and anyone at the device can already hold the power
+# key. Non-root calls go through sudo (rule in /etc/sudoers.d/cosmo-power).
+cmd=/usr/sbin/$(basename "$0")
+[ "$(id -u)" -eq 0 ] && exec "$cmd" "$@"
+exec sudo -n "$cmd" "$@"

@@ -1,0 +1,19 @@
+#!/bin/sh
+# Tell the Cosmo initramfs that this root system came up: once sshd is
+# running, overwrite the tripwire flag (8 MiB into the raw `cache` partition)
+# with COSMO-OK. No network is needed, so a boot with USB unplugged also
+# counts. If sshd never starts, the flag stays COSMO-TRY and the next boot
+# goes to the rescue initramfs.
+set -e
+dev=/dev/disk/by-partlabel/cache
+[ -b "$dev" ] || { echo "cosmo-boot-ok: no $dev" >&2; exit 1; }
+i=0
+until systemctl is-active --quiet ssh.service; do
+    i=$((i + 1))
+    [ "$i" -le 90 ] || { echo "cosmo-boot-ok: sshd not running after 90 s: boot NOT confirmed" >&2; exit 1; }
+    sleep 1
+done
+printf 'COSMO-OK\0' | dd of="$dev" bs=512 seek=16384 count=1 conv=sync,notrunc status=none
+sync
+addr=$(ip -4 -o addr show 2>/dev/null | awk '$2 != "lo" {printf "%s %s ", $2, $4}')
+echo "cosmo-boot-ok: sshd running, boot confirmed (${addr:-no IPv4 address})"

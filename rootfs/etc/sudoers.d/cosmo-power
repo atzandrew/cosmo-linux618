@@ -1,0 +1,3 @@
+# Any user may reboot or power off without a password (see
+# /usr/local/bin/cosmo-power).
+ALL ALL=(root) NOPASSWD: /usr/sbin/reboot, /usr/sbin/shutdown, /usr/sbin/poweroff, /usr/sbin/halt

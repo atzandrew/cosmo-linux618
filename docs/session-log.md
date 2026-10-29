@@ -2389,3 +2389,23 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   Alarm +60 s read back 2026-10-29 00:32:14, AL_YEA low bits 0x3a.
   Reboot: "setting system clock to 2026-10-29T00:33:23 UTC" at 0.31 s.
   PASS.
+
+## 2026-10-29 — "reboot into recovery" = rescue initramfs; boot-ok without USB
+
+- The screen seen after some reboots was the rescue initramfs, not LK
+  recovery. Read-only checks: RTC_PDN1 recovery bits clear (live and in
+  every LK entry in `expdb`), `para` BCB empty, `expdb` LK ring 7 normal
+  boots + 1 power-off charging boot (mode 8), no recovery boot. LK's
+  recovery key is PMIC key 17 (sw KEY_VOLUMEUP).
+- Cause: cosmo-boot-ok only wrote COSMO-OK once usb0 had an address. Boot
+  -3 on 2026-10-28 17:19 (USB unplugged) logged "usb0 has no address after
+  90 s: boot NOT confirmed"; the next boot went to rescue.
+- Fix: cosmo-boot-ok now confirms once ssh.service is active (no network
+  needed). Files now in the repo under rootfs/ (they were device-only).
+  Installed; manual run wrote COSMO-OK. Unplugged-boot acceptance test
+  still to do.
+- reboot/shutdown/poweroff/halt for any user without a password:
+  /usr/local/bin wrappers + /etc/sudoers.d/cosmo-power. As a normal user
+  over SSH, `shutdown -k +5` and `shutdown -c` worked.
+- Power-key hold reboots: no Linux input device for the power key (MT6358
+  keys disabled), so a hold only fires the PMIC long-press hardware reset.
