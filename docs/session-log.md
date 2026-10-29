@@ -2429,3 +2429,9 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   TOP_RST_MISC reads 0x1225 after boot (else stop, back to rtc1); with
   cosmo-power-key stopped, an 8 s hold resets the board; tap = nothing;
   3 s hold = clean poweroff (journal line on the next boot).
+- Result on pk2 (#40): TOP_RST_MISC 0x1225 after boot (unchanged). PASS.
+  3 s hold: clean poweroff twice (14:51, 14:52; journal "held 3 s,
+  powering off", full shutdown). PASS. With cosmo-power-key stopped, a
+  hold reset the board at ~10 s by the user's count (stock measured ~8 s,
+  same TD value); previous boot's journal ends without a shutdown. PASS.
+  logind watched mtk-pmic-keys and did nothing. Service back after reset.
