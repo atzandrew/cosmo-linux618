@@ -2373,3 +2373,19 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - Seen: after reflashing Gemian, Xorg crash-looped in the hwcomposer
   step on the first two boots, then came up on the third. RTC read
   year 2094 under stock after mainline set it (year encoding).
+
+## 2026-10-28 — RTC year in the vendor encoding (rtc1) — PASS
+
+- Stock capture: TC_YEA 0x3a = 58 for 2026; vendor mtk_rtc_common.c
+  RTC_MIN_YEAR 1968, RTC_MIN_YEAR_OFFSET = 68 for time and alarm.
+- Change (03caf2f): rtc-mt6397 applies a year offset of 68 when the DT
+  has "mediatek,rtc-year-base-1968" (Cosmo &mt6358rtc), range
+  1968-2095. Image rtc1-boot.img (470dd569…, #39).
+- Pass set first: RTC = UTC date after NTP with raw TC_YEA 0x3a; correct
+  clock at early boot after a reboot; alarm reads back with the right
+  year.
+- Result: first boot read 2094 (old encoding, as expected); after the
+  NTP sync CONFIG_RTC_SYSTOHC rewrote it: rtc0 2026-10-29, TC_YEA 0x3a.
+  Alarm +60 s read back 2026-10-29 00:32:14, AL_YEA low bits 0x3a.
+  Reboot: "setting system clock to 2026-10-29T00:33:23 UTC" at 0.31 s.
+  PASS.
