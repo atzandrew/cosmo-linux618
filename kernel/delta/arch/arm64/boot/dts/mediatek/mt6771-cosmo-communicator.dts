@@ -572,15 +572,28 @@
  * power supply", on glass 2026-10-25).
  */
 /*
- * Keys driver OFF: mainline mtk-pmic-keys uses the wrong MT6358 bit layout
- * for TOP_RST_MISC and clears RG_PWRKEY_RST_EN (bit 9) whatever the DT says
- * (vendor upmu_hw.h; docs/p0-findings.md). That stranded the board twice
- * (2026-10-25). Disabled, nothing in Linux writes TOP_RST_MISC and the
- * stock 0x1325 from the preloader stays: power-key hold resets in ~8 s.
- * AGENTS.md rule 5; bin/build-boot-img.sh refuses a DTB where it is on.
+ * PMIC keys (stock: kpd_sw_pwrkey 116 = KEY_POWER, kpd_sw_rstkey 115 =
+ * KEY_VOLUMEUP on the home-key input). The driver delta uses the MT6358
+ * TOP_RST_MISC layout (vendor upmu_hw.h; docs/p0-findings.md); mainline's
+ * MT6397 layout cleared RG_PWRKEY_RST_EN and stranded the board twice
+ * (2026-10-25). Stock kernel (hal_kpd.c, all MT6771 defconfigs
+ * CONFIG_ONEKEY_REBOOT_NORMAL_MODE) sets PWRKEY_RST_EN 1, HOMEKEY_RST_EN 0;
+ * live value under mainline 0x1225 (the preloader's 0x1325 is overwritten).
+ * long-press-mode 1 + power-off-time-sec 1 write bits 13:12 = 1, 9 = 1,
+ * 8 = 0: the same value, so the ~8 s power-key hold reset stays. Not a wake source yet (sleep wake sources are
+ * separate work). bin/build-boot-img.sh checks these values.
  */
 &mt6358keys {
-	status = "disabled";
+	mediatek,long-press-mode = <1>;
+	power-off-time-sec = <1>;
+
+	power {
+		/delete-property/ wakeup-source;
+	};
+
+	home {
+		linux,keycodes = <KEY_VOLUMEUP>;
+	};
 };
 
 &mfg_async {

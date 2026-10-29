@@ -2409,3 +2409,23 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   over SSH, `shutdown -k +5` and `shutdown -c` worked.
 - Power-key hold reboots: no Linux input device for the power key (MT6358
   keys disabled), so a hold only fires the PMIC long-press hardware reset.
+
+## 2026-10-29 — PMIC power key on (pk2, not yet flashed)
+
+- Stock: all MT6771 defconfigs CONFIG_ONEKEY_REBOOT_NORMAL_MODE; hal_kpd.c
+  sets PWRKEY_RST_EN 1, HOMEKEY_RST_EN 0. Live TOP_RST_MISC under rtc1 =
+  0x1225 (bits 13:12 = 1, 9 = 1, 8 = 0); the preloader's 0x1325 does not
+  survive to Linux. Key status (TOPSTATUS bits 1/3) and interrupt enables
+  (PSC_TOP_INT_CON0 bits 0-3) in mainline match vendor upmu_hw.h.
+- Delta drivers/input/keyboard/mtk-pmic-keys.c: MT6358 TOP_RST_MISC layout
+  (HOMEKEY_RST bit 8, PWRKEY_RST bit 9, time bits 13:12).
+- DT: mt6358keys on, long-press-mode 1, power-off-time-sec 1 (writes
+  0x1200 under mask 0x3300 = unchanged 0x1225); no wakeup-source yet; home
+  input = KEY_VOLUMEUP (stock kpd_sw_rstkey 115).
+- bin/build-boot-img.sh guard: keys may be on only with the fixed driver
+  and these values.
+- Userspace: cosmo-power-key (hold 3 s = poweroff), logind ignores the key.
+- Image pk2-boot.img 6ee40b41…. Test pass/fail written before flashing:
+  TOP_RST_MISC reads 0x1225 after boot (else stop, back to rtc1); with
+  cosmo-power-key stopped, an 8 s hold resets the board; tap = nothing;
+  3 s hold = clean poweroff (journal line on the next boot).

@@ -41,15 +41,32 @@ file -L "$BUSYBOX" | grep -q "aarch64.*statically linked" \
 [[ -f "$OUT/Image.gz-dtb" ]] || { echo "run bin/build-kernel.sh first" >&2; exit 1; }
 
 # AGENTS.md rule 5: never pack an image that can strand the device.
-# mainline mtk-pmic-keys clears the MT6358 power-key reset enable, so the
-# keys node must be disabled (and no long-press property may appear).
+# Mainline mtk-pmic-keys used the MT6397 TOP_RST_MISC layout on the MT6358
+# and cleared the power-key reset enable. The keys node may be on only with
+# the fixed driver (kernel/delta) and the stock long-press setting (mode 1,
+# time 1 = stock 0x1225 bits 13:8, one-key reset); otherwise disabled
+# with no long-press property.
 DTB="$OUT/mt6771-cosmo-communicator.dtb"
 DTC="$ROOT/build/obj/scripts/dtc/dtc"
 DTS_TEXT="$("$DTC" -q -I dtb -O dts "$DTB")"
-KEYS="$(awk '/compatible = "mediatek,mt6358-keys"/{f=1} f&&/status =/{print; exit}' <<<"$DTS_TEXT")"
-if [[ "$KEYS" != *'"disabled"'* || "$DTS_TEXT" == *"long-press-mode"* ]]; then
-	echo "REFUSING: mt6358-keys must be disabled and no long-press-mode set (AGENTS.md rule 5)" >&2
-	exit 1
+KEYS_NODE="$(awk '/compatible = "mediatek,mt6358-keys"/{f=1} f{print} f&&/^\t*};$/&&++n==3{exit}' <<<"$DTS_TEXT")"
+KEYS_STATUS="$(grep -m1 'status =' <<<"$KEYS_NODE" || true)"
+KDRV="$ROOT/kernel/delta/drivers/input/keyboard/mtk-pmic-keys.c"
+if [[ "$KEYS_STATUS" == *'"disabled"'* ]]; then
+	if [[ "$DTS_TEXT" == *"long-press-mode"* ]]; then
+		echo "REFUSING: long-press-mode set while mt6358-keys is disabled (AGENTS.md rule 5)" >&2
+		exit 1
+	fi
+else
+	if ! grep -q 'mediatek,long-press-mode = <0x01>;' <<<"$KEYS_NODE" \
+		|| ! grep -q 'power-off-time-sec = <0x01>;' <<<"$KEYS_NODE" \
+		|| ! grep -qE 'MTK_PMIC_MT6358_PWRKEY_RST[[:space:]]+BIT\(9\)' "$KDRV" \
+		|| ! grep -qE 'MTK_PMIC_MT6358_HOMEKEY_RST[[:space:]]+BIT\(8\)' "$KDRV" \
+		|| ! grep -qE 'MTK_PMIC_MT6358_RST_DU_MASK[[:space:]]+GENMASK\(13, 12\)' "$KDRV" \
+		|| ! grep -q '.rst_lprst_mask = MTK_PMIC_MT6358_RST_DU_MASK,' "$KDRV"; then
+		echo "REFUSING: mt6358-keys on without the MT6358 driver fix and stock long-press values (AGENTS.md rule 5)" >&2
+		exit 1
+	fi
 fi
 
 RD="$(mktemp -d)"

@@ -1,0 +1,28 @@
+#!/bin/sh
+# Power key: hold 3 s = clean power off. A shorter press does nothing (for
+# now). logind ignores the key (logind.conf.d/cosmo-power-key.conf) because
+# its own long press is fixed at 5 s. The PMIC's ~8 s hold reset is separate
+# hardware and still works if Linux is hung.
+HOLD=3
+dev=
+for n in /sys/class/input/event*/device/name; do
+    [ "$(cat "$n" 2>/dev/null)" = "mtk-pmic-keys" ] || continue
+    dev=/dev/input/$(basename "$(dirname "$(dirname "$n")")")
+    break
+done
+[ -n "$dev" ] || { echo "cosmo-power-key: no mtk-pmic-keys input device" >&2; exit 0; }
+echo "cosmo-power-key: watching $dev (hold ${HOLD} s = power off)"
+timer=
+# struct input_event on arm64 = 24 bytes: 16 time, u16 type, u16 code,
+# s32 value. As 12 u16 words: $9 = type, $10 = code, $11 = value (low).
+stdbuf -o0 od -An -v -tu2 -w24 "$dev" | while read -r _ _ _ _ _ _ _ _ type code val _; do
+    [ "$type" = 1 ] && [ "$code" = 116 ] || continue
+    if [ "$val" = 1 ]; then
+        [ -n "$timer" ] && kill "$timer" 2>/dev/null
+        ( sleep "$HOLD"; echo "cosmo-power-key: held ${HOLD} s, powering off"; systemctl poweroff ) &
+        timer=$!
+    elif [ "$val" = 0 ] && [ -n "$timer" ]; then
+        kill "$timer" 2>/dev/null
+        timer=
+    fi
+done

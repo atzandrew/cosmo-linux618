@@ -1,0 +1,10 @@
+[Unit]
+Description=Cosmo power key: hold 3 s to power off
+
+[Service]
+ExecStart=/usr/local/sbin/cosmo-power-key
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
