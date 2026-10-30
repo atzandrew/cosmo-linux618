@@ -1,5 +1,8 @@
 #!/bin/sh
-# CPU DVFS step C1 check (docs/cpufreq.md). Run as root on the Cosmo.
+# CPU DVFS step check (docs/cpufreq.md, C1 onwards). Run as root on the Cosmo.
+# When mtk-ccifreq is bound, each step also checks the CCI: the other
+# cluster is held at 793 MHz, so the CCI must run at the OPP paired with
+# the swept frequency (same index, required-opps).
 #   c1-test.sh steps         every OPP of both policies, PLL readback
 #   c1-test.sh stress SECS   all 8 CPUs at max OPP, md5 check, temps
 #   c1-test.sh volts         Vproc/Vsram now
@@ -24,6 +27,31 @@ hw_khz() {
 	dmesg | grep "cosmo_cpuclk: $1 " | tail -1 | sed 's/.*-> \([0-9]*\) kHz/\1/'
 }
 
+DF=$(ls -d /sys/class/devfreq/* 2>/dev/null | head -1)
+# CCI kHz paired with policy $1 at CPU kHz $2 (same OPP index: docs/cpufreq.md)
+cci_for() {
+	case $2 in
+	793000) echo 273000; return;; 910000) echo 338000; return;;
+	1014000) echo 403000; return;; 1131000) echo 481000; return;;
+	1248000) echo 546000; return;; 1326000) echo 624000; return;;
+	1417000) echo 689000; return;; 1508000) echo 767000; return;;
+	1586000) echo 845000; return;;
+	esac
+	if [ $1 = 0 ]; then
+		case $2 in
+		1625000) echo 871000;; 1677000) echo 923000;; 1716000) echo 962000;;
+		1781000) echo 1027000;; 1846000) echo 1092000;; 1924000) echo 1144000;;
+		1989000) echo 1196000;;
+		esac
+	else
+		case $2 in
+		1651000) echo 871000;; 1716000) echo 923000;; 1781000) echo 962000;;
+		1846000) echo 1027000;; 1924000) echo 1092000;; 1989000) echo 1144000;;
+		2106000) echo 1196000;;
+		esac
+	fi
+}
+
 check_volts() {
 	volts | while read n uv; do
 		case $n in vproc*) [ "$uv" = 800000 ] || echo "FAIL $n $uv";; esac
@@ -32,10 +60,12 @@ check_volts() {
 
 steps() {
 	for p in 0 4; do
+		echo userspace > $CF/policy$p/scaling_governor || { echo "FAIL governor"; return 1; }
+		echo 793000 > $CF/policy$p/scaling_setspeed
+	done
+	for p in 0 4; do
 		pol=$CF/policy$p
 		[ $p = 0 ] && name="LL" || name="L"
-		old=$(cat $pol/scaling_governor)
-		echo userspace > $pol/scaling_governor || { echo "FAIL governor"; return 1; }
 		for f in $(cat $pol/scaling_available_frequencies); do
 			echo $f > $pol/scaling_setspeed
 			sleep 0.3
@@ -43,15 +73,27 @@ steps() {
 			hw=$(hw_khz "$name")
 			d=$(( hw > f ? hw - f : f - hw ))
 			v=$(check_volts)
-			if [ $d -le $((f / 1000)) ] && [ "$cur" = "$f" ] && [ -z "$v" ]; then
-				echo "PASS policy$p $f kHz: cur $cur hw $hw"
+			ok=1
+			[ $d -le $((f / 1000)) ] && [ "$cur" = "$f" ] && [ -z "$v" ] || ok=0
+			c=""
+			if [ -n "$DF" ]; then
+				want=$(cci_for $p $f); chw=$(hw_khz CCI)
+				cdf=$(( $(cat $DF/cur_freq) / 1000 ))
+				[ "$chw" = "$want" ] && [ "$cdf" = "$want" ] || ok=0
+				c=" cci hw $chw devfreq $cdf want $want"
+			fi
+			if [ $ok = 1 ]; then
+				echo "PASS policy$p $f kHz: cur $cur hw $hw$c"
 			else
-				echo "FAIL policy$p $f kHz: cur $cur hw $hw $v"; fail=1
+				echo "FAIL policy$p $f kHz: cur $cur hw $hw$c $v"; fail=1
 			fi
 		done
-		echo $old > $pol/scaling_governor
+		echo 793000 > $pol/scaling_setspeed
 	done
-	echo "CCI hw $(hw_khz CCI) kHz (expect 598000, unchanged)"
+	for p in 0 4; do
+		echo schedutil > $CF/policy$p/scaling_governor
+	done
+	echo "CCI hw $(hw_khz CCI) kHz${DF:+ devfreq $(cat $DF/cur_freq)}"
 	volts
 	[ $fail = 0 ] && echo "steps PASS" || echo "steps FAIL"
 }
@@ -69,7 +111,7 @@ stress() {
 	done
 	while [ $(date +%s) -lt $end ]; do
 		sleep 10
-		echo "$(date +%T) temp $(cat /sys/class/thermal/thermal_zone0/temp) $(check_volts) hwLL $(hw_khz LL) hwL $(hw_khz L)"
+		echo "$(date +%T) temp $(cat /sys/class/thermal/thermal_zone0/temp) $(check_volts) hwLL $(hw_khz LL) hwL $(hw_khz L) hwCCI $(hw_khz CCI)"
 	done
 	wait
 	for p in 0 4; do

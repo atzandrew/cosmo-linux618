@@ -117,9 +117,10 @@ CCI governor). Stock's coupling is in SSPM firmware and not known.
   793-1131), both Vproc rails pinned at 0.800 V in the DTS, CCI without
   proc-supply (mtk-ccifreq unbound, CCI stays at LK's 598 MHz). Tests
   frequency switching only; no voltage change.
-- C2 (planned): CCI divider to /1 at boot without raising the real rate
-  (ccipll 1196 -> 598 MHz first, then divider /2 -> /1), then CCI
-  devfreq with the pin still on.
+- C2: mtk-cci-devfreq first moves the divider /2 -> /1 at 598 MHz
+  (ccipll 1196 -> 598 MHz, then the divider; the real rate never goes
+  above 598 MHz), CCI intermediate clk26m instead of mainpll (1092 MHz
+  undivided), CCI proc-supply on, pin still on.
 - C3 (planned, user present): remove the pin, one rail at a time; then
   widen the tables one step per test.
 - Idle (planned): read SSPM mailbox 3 (MCDI) first; CPU_SLEEP only

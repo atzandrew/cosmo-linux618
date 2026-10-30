@@ -2534,3 +2534,55 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   - 10 s deep sleep (as DS8): wake up by PCM_TIMER, keyboard and display
     after wake, then `steps` again PASS.
   - Fail: any hang or reset, any step FAIL, md5 mismatch, Vproc change.
+
+### C1 result: PASS (c1-boot.img ffc568dc…, #40, Image 5caad925…)
+
+- Boot: policy0 (793-1417 MHz) and policy4 (793-1131 MHz) on schedutil;
+  "Running at unlisted initial frequency" 1099999 / 1199999 -> 1131000
+  kHz; mtk-ccifreq "failed to get proc regulator" as planned; Vproc11/12
+  800000, Vsram 900000.
+- steps: all 11 OPPs PASS (cpuinfo_cur_freq = target, PLL readback
+  exact, Vproc 800000). CCI 598000 unchanged.
+- stress 300: 8 workers, no md5 mismatch, runs 2213-2216 (CPU0-3) and
+  2545-2547 (CPU4-7), temperature 40.9 -> 46.7 °C, Vproc 800000 throughout.
+- Deep sleep (tools/sleep-tests/disp1.sh on, 10 s) twice: wake up by
+  PCM_TIMER, timer_out 327695, panel off/on. With both policies held at
+  1131 MHz (userspace), the PLLs read 1131/1131 MHz after resume: the
+  ARMPLL settings survive deep sleep. steps PASS after resume. Picture
+  and keyboard normal throughout (user).
+- Unrelated: after the second run Wi-Fi failed one 4-way handshake and
+  NetworkManager gave up ("no-secrets"); `nmcli con up` fixed it.
+
+### C2 test module: CCI divider /2 -> /1 at the same rate (no flash)
+
+- tools/cosmo-pwr/cosmo_ccidiv.c on c1 (#40): ccipll 1196 -> 598 MHz
+  (posdiv /2 -> /4, one write), then MCUCFG 0x7c0 divider sel 10 -> 8.
+  Real rate 598000 -> 299000 -> 598000 kHz; clk now reports 598000
+  (DIV 0x03150aff -> 0x03100aff). exercise=1: through clk26m as the
+  intermediate parent to 546000, 481000, 598000 kHz, each exact. steps
+  PASS afterwards, Vproc 800000. PASS.
+- Mainline's CCI intermediate (armpll_div_pll1 = mainpll 1092 MHz) would
+  run the CCI at 1092 MHz during every change once the divider is /1;
+  stock pairs that rate with 0.894-0.950 V. clk26m is a parent of the
+  same mux and lies below every OPP.
+
+### C2: CCI devfreq on, Vproc still pinned (pre-flash check)
+
+- Change: kernel/delta/drivers/devfreq/mtk-cci-devfreq.c (module):
+  probe moves LK's divider /2 to /1 at 598 MHz as the test module did,
+  only on planet,cosmo-communicator and only from LK's exact state
+  (divider /2, ccipll 1196 MHz), else refuses to probe. DTS: CCI
+  proc-supply vproc12, intermediate clk26m. Tables and the 0.800 V pin
+  unchanged. No new config.
+- Risk flags: none of the listed ones. New: CCI rate changes 273-689
+  MHz at 0.800 V (stock needs 0.600-0.800 V there).
+- Escapes: power-key reset, watchdog (both observed, unchanged).
+  Rollback: pk2-boot.img (its DTB has no CCI supply; the new module
+  would still run the divider fix, then fail at the regulator as today).
+- Test (c1-test.sh, now with CCI checks):
+  - boot: "cosmo: CCI divider /2 -> /1 at 598 MHz", one devfreq device,
+    no ccifreq/cpufreq errors.
+  - steps: other cluster held at 793 MHz; PASS each if the CPU checks of
+    C1 pass and CCI PLL readback = devfreq cur_freq = the paired OPP.
+  - stress 300 and one 10 s deep sleep as C1; steps PASS after resume.
+  - Fail: any hang or reset, any FAIL line, Vproc change.

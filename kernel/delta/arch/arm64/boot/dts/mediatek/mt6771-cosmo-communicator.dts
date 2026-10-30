@@ -1463,10 +1463,14 @@
  * Vsram follows Vproc in the MT6358 (bootloader tracking: +100 mV,
  * 0.900-1.11875 V), so only proc-supply is given.
  *
- * Step C1: tables end where stock needs at most 0.800 V, and both Vproc
- * rails are pinned at 0.800 V (LK's value), so no voltage changes. The
- * CCI node has no proc-supply yet: mtk-ccifreq stays unbound and
- * mediatek-cpufreq keeps Vproc at or above the boot voltage.
+ * Steps C1-C2: tables end where stock needs at most 0.800 V, and both
+ * Vproc rails are pinned at 0.800 V (LK's value), so no voltage changes.
+ *
+ * CCI: mtk-cci-devfreq first moves LK's divider /2 to /1 at the same
+ * 598 MHz (kernel/delta/drivers/devfreq/mtk-cci-devfreq.c). Its
+ * intermediate clock is clk26m, not mainpll: with the divider at /1,
+ * mainpll would run the CCI at 1092 MHz during every change, which stock
+ * pairs with 0.894-0.950 V. 26 MHz is below every OPP.
  */
 / {
 	cosmo_cl0_opp: opp-table-cosmo-cluster0 {
@@ -1612,10 +1616,13 @@
 };
 
 &cci {
+	clocks = <&mcucfg CLK_MCU_BUS_SEL>, <&clk26m>;
+	clock-names = "cci", "intermediate";
 	operating-points-v2 = <&cosmo_cci_opp>;
+	proc-supply = <&mt6358_vproc12_reg>;
 };
 
-/* C1 pin: LK's 0.800 V. Removed one step at a time with the user present. */
+/* C1-C2 pin: LK's 0.800 V. Removed one step at a time with the user present. */
 &mt6358_vproc11_reg {
 	regulator-min-microvolt = <800000>;
 	regulator-max-microvolt = <800000>;
