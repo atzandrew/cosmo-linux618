@@ -1623,10 +1623,9 @@
 };
 
 /*
- * Vproc limits for the current step. C3a: vproc11 down to the big table's
- * lowest value, still no higher than LK's 0.800 V; vproc12 (little + CCI)
- * still pinned at 0.800 V. Changed one step at a time with the user
- * present.
+ * Vproc limits for the current step. C3a-C3b: each rail down to its
+ * table's lowest value (vproc12 = little + CCI), still no higher than
+ * LK's 0.800 V. Changed one step at a time with the user present.
  */
 &mt6358_vproc11_reg {
 	regulator-min-microvolt = <706250>;
@@ -1634,6 +1633,6 @@
 };
 
 &mt6358_vproc12_reg {
-	regulator-min-microvolt = <800000>;
+	regulator-min-microvolt = <600000>;
 	regulator-max-microvolt = <800000>;
 };

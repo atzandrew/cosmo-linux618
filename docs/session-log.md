@@ -2622,3 +2622,30 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   - 10 s deep sleep; steps PASS after resume.
   - 10 min idle at schedutil (big mostly 793 MHz / 0.70625 V): no hang.
   - Fail: any hang or reset, any FAIL line.
+
+### C3a result: PASS (c3a-boot.img b046145d…, 4f79839)
+
+- Boot: vproc11 706250 [706250-800000], vproc12 800000 pinned, no new
+  errors.
+- steps: 11/11 PASS; vproc11 read 706250 / 731250 / 756250 / 781250 at
+  big 793 / 910 / 1014 / 1131 MHz, 706250 while little swept; Vsram11
+  900000 (tracking floor).
+- First stress run (00:38) lost its output when the network changed; the
+  boot ran on to a clean poweroff at 01:05 with no kernel faults. Rerun
+  detached to /var/tmp/c3a-stress.log (result below when read).
+- Idle: next boot up 3 h, big at 793 MHz / 0.70625 V for 99.96 % of the
+  time (time_in_state 1092044 of 1092439 x 10 ms), no faults.
+
+### C3b: little + CCI Vproc follows the table (pre-flash check, user present)
+
+- Change: DTS only. vproc12 constraints 800000-800000 -> 600000-800000.
+  Little 793-1417 MHz at 0.600-0.800 V and CCI 273-689 MHz at 0.600-0.800
+  V (stock's values on this unit; little/CCI never above the base
+  table); the rail runs at the higher of the little and CCI requests.
+  Vsram12 stays at its 0.900 V floor. vproc11 as C3a.
+- Last downward step: nothing can exceed 0.800 V. Lowest = stock's hard
+  floor (0.600 V, MIN_VPROC_VOLT and EEM VMIN_VAL).
+- Escapes: power-key reset, watchdog (observed). Rollback: c3a-boot.img.
+- Test: steps (vproc12 = max(little, CCI) table value at each step),
+  stress 300 (logged on the device), 10 s deep sleep + steps, idle at
+  schedutil. Fail: any hang or reset, any FAIL line.
