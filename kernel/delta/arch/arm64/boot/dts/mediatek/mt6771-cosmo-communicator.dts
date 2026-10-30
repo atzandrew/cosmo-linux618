@@ -1780,7 +1780,9 @@
  * CPU idle (I1a): core power-down only, as stock's "mcdi" state
  * (cpuidle-mt67xx_acao_v3.c: exit 300 us, residency 4500 us for CPUs
  * 0-3, 1500 us for CPUs 4-7; PSCI 0x00010001 = stock MCDI_CPU). No
- * cluster power-down yet.
+ * cluster power-down yet. I1a (on at boot) hung the boot; since I1b the
+ * states start disabled (cosmo,boot-disabled, kernel/delta
+ * drivers/cpuidle/dt_idle_states.c) and are enabled per CPU at runtime.
  */
 &{/cpus/idle-states} {
 	COSMO_CPU_OFF_LL: cosmo-cpu-off-ll {
@@ -1790,6 +1792,7 @@
 		entry-latency-us = <300>;
 		exit-latency-us = <300>;
 		min-residency-us = <4500>;
+		cosmo,boot-disabled;
 	};
 
 	COSMO_CPU_OFF_L: cosmo-cpu-off-l {
@@ -1799,6 +1802,7 @@
 		entry-latency-us = <300>;
 		exit-latency-us = <300>;
 		min-residency-us = <1500>;
+		cosmo,boot-disabled;
 	};
 };
 

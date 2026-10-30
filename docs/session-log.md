@@ -2793,3 +2793,35 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   stress 120 md5 0; CPU7..1 off/on (cosmo-cpu-hotplug errors 0);
   10 s deep sleep, temp readable after; then steps PASS. Fail: any hang
   or reset, RCU stall, CPU missing.
+
+### I1a result: FAIL (i1a-boot.img 409c6b0d…, 2cbb91b) — hang at boot, no watchdog reset
+
+- Boot stopped at the framebuffer cursor; nothing further on screen. No
+  journal for that boot (journalctl --list-boots: th1 boot, then the
+  recovery boot), so it never reached the root system; pstore empty (no
+  panic). The board did NOT reset by itself; a power-key hold (10-15 s)
+  reset it. Flashed back th1.
+- Watchdog: until userspace opens /dev/watchdog the kernel feeds a
+  running watchdog itself (watchdog core, handle_boot_enabled). A partial
+  hang (some CPU still running kernel code) keeps it fed, so the
+  watchdog escape only covers a dead kernel or a stuck init, not this
+  case. Candidate: watchdog.open_timeout= (reset-path change, needs an
+  explicit yes).
+- expdb: the saved ATF logs end after the boot-time "spmc: power on core"
+  lines (as in the DS work, ATF logs nothing inside CPU_SUSPEND); no
+  help locating the hang.
+
+### I1b: idle state present but off at boot, enabled per CPU at runtime (pre-flash)
+
+- Change vs I1a: kernel/delta/drivers/cpuidle/dt_idle_states.c sets
+  CPUIDLE_FLAG_OFF for DT states with `cosmo,boot-disabled` (cpuidle
+  registers that as "disabled by user"; writing 0 to
+  cpuN/cpuidle/stateM/disable enables it). Both COSMO_CPU_OFF states get
+  the property. Boot therefore idles as th1 (WFI only).
+- Test, one CPU at a time (pass/fail first): boot as th1; enable state1
+  on cpu7 only; PASS if cpu7's state1 usage rises within 60 s and the
+  system stays responsive (shell, cpu7 runs a taskset job) for 2 min.
+  FAIL: usage stays 0 with cpu7 unresponsive, RCU stall, hang. Then
+  cpu4-6, then cpu1-3, then cpu0, each the same way.
+- Escapes: power-key reset (observed today). Watchdog does not cover a
+  partial hang (above). Rollback: th1-boot.img.
