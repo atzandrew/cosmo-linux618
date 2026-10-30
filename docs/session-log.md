@@ -2755,3 +2755,41 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   units) for the run: little 1924 MHz 1604, 1846 MHz 165; big 1989 MHz
   1594: the cpu-thermal trips throttle after a sleep. The C1 frequency
   cap used as mitigation is gone with the reboot.
+
+## 2026-10-30 — CPU idle: stock inventory; I1a core power-down only (pre-flash)
+
+- Stock kernel side (MT6771, mcdi_v1 + mtk_mcdi_governor.c +
+  cpuidle-mt67xx_acao_v3.c): states WFI and "mcdi"; entry = PSCI
+  CPU_SUSPEND 0x00010001 (core off) or 0x01010001 (cluster off) via
+  arm_cpuidle_suspend. No SIP calls (MTK_SIP_KERNEL_MCDI_ARGS is
+  defined but unused). Only SSPM mailbox 3 writes: AVAIL_CPU_MASK = online
+  CPUs (init, every hotplug), CPU_ISOLATION_MASK 0, PAUSE_ACTION/ACK
+  around hotplug, CLUSTER_n_CAN_POWER_OFF before a cluster-off,
+  BUCK_POWER_OFF_MASK. MCDI SRAM 0x0011b000 (0x800) cleared from +8 at
+  boot (debug/profiling area).
+- Vendor ATF (tee1 v1.3, atf.dis): has its own core/cluster power control
+  (plat/mediatek/mt6771/drivers/spmc/mtspmc.c, "spmc: power off core"),
+  writes mailbox 3 slot 5 and slot 16 itself (0x10480014, 0x10480040)
+  and SSPM cfgreg 0x104400d8 / 0x10440204.
+- Live, mainline th1 (tools/cosmo-pwr/cosmo_sspm_peek.c, now with mailbox
+  3): ACTION_STAT 2 (WAIT_EVENT), AVAIL_CPU_MASK 0, counters 0, slot 5
+  0x001013c8, slot 16 0x1: the SSPM MCDI controller runs and waits.
+  tools/cosmo-pwr/cosmo_mcdi.c write=1 (stock init values, avail 0xff,
+  iso 0): accepted, state unchanged (WAIT_EVENT) after 1 s. Broadcast
+  clockevent present (mtk-clkevt) for local-timer-stop states.
+
+### I1a: cpuidle on, core power-down only, mailbox untouched (pre-flash check)
+
+- Change: cmdline drops `cpuidle.off=1`; DTS: every CPU gets one idle
+  state COSMO_CPU_OFF_{LL,L} (PSCI 0x00010001 = stock MCDI_CPU,
+  local-timer-stop, exit 300 us, residency 4500 us little / 1500 us big =
+  cpuidle-mt67xx_acao_v3.c). No cluster state. SSPM mailbox left at its
+  boot values (one variable: does core-off need the MCDI controller?).
+  Thermal/cpufreq as th1. No new config (ARM_PSCI_CPUIDLE=y already).
+- Risk: a core that never wakes -> RCU stall -> hang -> watchdog reset.
+  Escapes: power-key reset, watchdog (observed). Rollback: th1-boot.img.
+- Test: state1 usage counts rise on all 8 CPUs, no RCU stall or
+  "failed to come online" for 10 min idle; c1-test.sh steps PASS;
+  stress 120 md5 0; CPU7..1 off/on (cosmo-cpu-hotplug errors 0);
+  10 s deep sleep, temp readable after; then steps PASS. Fail: any hang
+  or reset, RCU stall, CPU missing.

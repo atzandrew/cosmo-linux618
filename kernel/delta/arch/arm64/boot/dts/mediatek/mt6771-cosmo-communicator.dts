@@ -1775,3 +1775,38 @@
 	regulator-min-microvolt = <600000>;
 	regulator-max-microvolt = <1000000>;
 };
+
+/*
+ * CPU idle (I1a): core power-down only, as stock's "mcdi" state
+ * (cpuidle-mt67xx_acao_v3.c: exit 300 us, residency 4500 us for CPUs
+ * 0-3, 1500 us for CPUs 4-7; PSCI 0x00010001 = stock MCDI_CPU). No
+ * cluster power-down yet.
+ */
+&{/cpus/idle-states} {
+	COSMO_CPU_OFF_LL: cosmo-cpu-off-ll {
+		compatible = "arm,idle-state";
+		local-timer-stop;
+		arm,psci-suspend-param = <0x00010001>;
+		entry-latency-us = <300>;
+		exit-latency-us = <300>;
+		min-residency-us = <4500>;
+	};
+
+	COSMO_CPU_OFF_L: cosmo-cpu-off-l {
+		compatible = "arm,idle-state";
+		local-timer-stop;
+		arm,psci-suspend-param = <0x00010001>;
+		entry-latency-us = <300>;
+		exit-latency-us = <300>;
+		min-residency-us = <1500>;
+	};
+};
+
+&cpu0 { cpu-idle-states = <&COSMO_CPU_OFF_LL>; };
+&cpu1 { cpu-idle-states = <&COSMO_CPU_OFF_LL>; };
+&cpu2 { cpu-idle-states = <&COSMO_CPU_OFF_LL>; };
+&cpu3 { cpu-idle-states = <&COSMO_CPU_OFF_LL>; };
+&cpu4 { cpu-idle-states = <&COSMO_CPU_OFF_L>; };
+&cpu5 { cpu-idle-states = <&COSMO_CPU_OFF_L>; };
+&cpu6 { cpu-idle-states = <&COSMO_CPU_OFF_L>; };
+&cpu7 { cpu-idle-states = <&COSMO_CPU_OFF_L>; };
