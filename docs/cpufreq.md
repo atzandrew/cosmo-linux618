@@ -121,7 +121,8 @@ CCI governor). Stock's coupling is in SSPM firmware and not known.
   (ccipll 1196 -> 598 MHz, then the divider; the real rate never goes
   above 598 MHz), CCI intermediate clk26m instead of mainpll (1092 MHz
   undivided), CCI proc-supply on, pin still on.
-- C3 (planned, user present): remove the pin, one rail at a time; then
-  widen the tables one step per test.
+- C3a / C3b: unpin vproc11, then vproc12, OPPs as C1 (down only, to
+  stock's values; lowest 0.600 V = stock's floor).
+- C4: full tables, constraints = each table's range.
 - Idle (planned): read SSPM mailbox 3 (MCDI) first; CPU_SLEEP only
   before cluster states.

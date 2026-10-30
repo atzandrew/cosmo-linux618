@@ -2649,3 +2649,37 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - Test: steps (vproc12 = max(little, CCI) table value at each step),
   stress 300 (logged on the device), 10 s deep sleep + steps, idle at
   schedutil. Fail: any hang or reset, any FAIL line.
+
+### C3b result: PASS (c3b-boot.img 7d4bb8e6…, 2942b3c)
+
+- C3a stress rerun (detached, /var/tmp/c3a-stress.log): 300 s, no md5
+  mismatch, vproc11 781250 throughout, 49.1 -> 52.7 °C. C3a PASS stands.
+- C3b boot: vproc12 600000 [600000-800000], vproc11 as C3a.
+- steps: 11/11 PASS; vproc12 600000 ... 800000 with little 793 ... 1417
+  MHz; during the big sweep vproc12 follows the paired CCI OPP (637500 at
+  CCI 338 MHz ... 706250 at 481 MHz) = max(little, CCI). Vsram 900000.
+- stress 120 at the top OPPs: no mismatch, vproc11 781250, vproc12 800000.
+- stress 120 at the bottom OPPs (new `stress SECS min`: both policies
+  held at 793 MHz): no mismatch at vproc12 600000 (little 793 MHz + CCI
+  273 MHz, stock's 0.600 V floor) and vproc11 706250.
+- Test scope trimmed from here (user): sleep once at the end of C4,
+  short stress on downward steps, bottom-OPP stress added.
+
+### C4: full tables (pre-flash check, user present)
+
+- Change: DTS only. All 16 OPPs per table (docs/cpufreq.md "Our table"):
+  little 793-1989 MHz at 0.600-1.000 V, big 793-2106 MHz at 0.70625-1.050
+  V, CCI 273-1196 MHz at 0.600-1.000 V. Constraints vproc11
+  706250-1050000, vproc12 600000-1000000. Vsram follows (tracking): up
+  to 1.100 V for little/CCI and the 1.11875 V ceiling for big top OPPs.
+- First voltage rise above LK's 0.800 V. Highest = big 2106 MHz at
+  1.050 V (stock's base table and EEM ceiling for big; stock ran 1.025 V
+  warm on this unit).
+- Thermal: mt8183.dtsi cpu-thermal passive trips 68/80 °C throttle both
+  clusters now that cpufreq exists; critical 115 °C powers off.
+- Escapes: power-key reset, watchdog (observed). Rollback: c3b-boot.img.
+- Test: steps (32 OPPs, each: PLL, Vproc per table, Vsram per tracking,
+  CCI pairing); stress 300 at max with temperature (throttling at the
+  passive trips is expected, not a fail; check_volts follows the actual
+  OPP); one 10 s deep sleep, then steps again. Fail: any hang or reset,
+  any FAIL line, a critical trip.

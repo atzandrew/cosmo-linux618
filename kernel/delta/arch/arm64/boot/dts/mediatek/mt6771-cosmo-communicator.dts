@@ -1463,8 +1463,7 @@
  * Vsram follows Vproc in the MT6358 (bootloader tracking: +100 mV,
  * 0.900-1.11875 V), so only proc-supply is given.
  *
- * Steps C1-C2: tables end where stock needs at most 0.800 V, and both
- * Vproc rails are pinned at 0.800 V (LK's value), so no voltage changes.
+ * Full tables since step C4 (C1-C3 used only the OPPs up to 0.800 V).
  *
  * CCI: mtk-cci-devfreq first moves LK's divider /2 to /1 at the same
  * 598 MHz (kernel/delta/drivers/devfreq/mtk-cci-devfreq.c). Its
@@ -1512,6 +1511,51 @@
 			opp-microvolt = <800000>;
 			required-opps = <&cosmo_cci_689>;
 		};
+		opp-1508000000 {
+			opp-hz = /bits/ 64 <1508000000>;
+			opp-microvolt = <818750>;
+			required-opps = <&cosmo_cci_767>;
+		};
+		opp-1586000000 {
+			opp-hz = /bits/ 64 <1586000000>;
+			opp-microvolt = <843750>;
+			required-opps = <&cosmo_cci_845>;
+		};
+		opp-1625000000 {
+			opp-hz = /bits/ 64 <1625000000>;
+			opp-microvolt = <856250>;
+			required-opps = <&cosmo_cci_871>;
+		};
+		opp-1677000000 {
+			opp-hz = /bits/ 64 <1677000000>;
+			opp-microvolt = <881250>;
+			required-opps = <&cosmo_cci_923>;
+		};
+		opp-1716000000 {
+			opp-hz = /bits/ 64 <1716000000>;
+			opp-microvolt = <893750>;
+			required-opps = <&cosmo_cci_962>;
+		};
+		opp-1781000000 {
+			opp-hz = /bits/ 64 <1781000000>;
+			opp-microvolt = <925000>;
+			required-opps = <&cosmo_cci_1027>;
+		};
+		opp-1846000000 {
+			opp-hz = /bits/ 64 <1846000000>;
+			opp-microvolt = <950000>;
+			required-opps = <&cosmo_cci_1092>;
+		};
+		opp-1924000000 {
+			opp-hz = /bits/ 64 <1924000000>;
+			opp-microvolt = <975000>;
+			required-opps = <&cosmo_cci_1144>;
+		};
+		opp-1989000000 {
+			opp-hz = /bits/ 64 <1989000000>;
+			opp-microvolt = <1000000>;
+			required-opps = <&cosmo_cci_1196>;
+		};
 	};
 
 	cosmo_cl1_opp: opp-table-cosmo-cluster1 {
@@ -1537,6 +1581,66 @@
 			opp-hz = /bits/ 64 <1131000000>;
 			opp-microvolt = <781250>;
 			required-opps = <&cosmo_cci_481>;
+		};
+		opp-1248000000 {
+			opp-hz = /bits/ 64 <1248000000>;
+			opp-microvolt = <812500>;
+			required-opps = <&cosmo_cci_546>;
+		};
+		opp-1326000000 {
+			opp-hz = /bits/ 64 <1326000000>;
+			opp-microvolt = <831250>;
+			required-opps = <&cosmo_cci_624>;
+		};
+		opp-1417000000 {
+			opp-hz = /bits/ 64 <1417000000>;
+			opp-microvolt = <856250>;
+			required-opps = <&cosmo_cci_689>;
+		};
+		opp-1508000000 {
+			opp-hz = /bits/ 64 <1508000000>;
+			opp-microvolt = <868750>;
+			required-opps = <&cosmo_cci_767>;
+		};
+		opp-1586000000 {
+			opp-hz = /bits/ 64 <1586000000>;
+			opp-microvolt = <893750>;
+			required-opps = <&cosmo_cci_845>;
+		};
+		opp-1651000000 {
+			opp-hz = /bits/ 64 <1651000000>;
+			opp-microvolt = <906250>;
+			required-opps = <&cosmo_cci_871>;
+		};
+		opp-1716000000 {
+			opp-hz = /bits/ 64 <1716000000>;
+			opp-microvolt = <925000>;
+			required-opps = <&cosmo_cci_923>;
+		};
+		opp-1781000000 {
+			opp-hz = /bits/ 64 <1781000000>;
+			opp-microvolt = <950000>;
+			required-opps = <&cosmo_cci_962>;
+		};
+		opp-1846000000 {
+			opp-hz = /bits/ 64 <1846000000>;
+			opp-microvolt = <975000>;
+			required-opps = <&cosmo_cci_1027>;
+		};
+		opp-1924000000 {
+			opp-hz = /bits/ 64 <1924000000>;
+			opp-microvolt = <1000000>;
+			required-opps = <&cosmo_cci_1092>;
+		};
+		opp-1989000000 {
+			opp-hz = /bits/ 64 <1989000000>;
+			opp-microvolt = <1025000>;
+			required-opps = <&cosmo_cci_1144>;
+		};
+		opp-2106000000 {
+			opp-hz = /bits/ 64 <2106000000>;
+			opp-microvolt = <1050000>;
+			required-opps = <&cosmo_cci_1196>;
 		};
 	};
 
@@ -1571,6 +1675,42 @@
 		cosmo_cci_689: opp-689000000 {
 			opp-hz = /bits/ 64 <689000000>;
 			opp-microvolt = <800000>;
+		};
+		cosmo_cci_767: opp-767000000 {
+			opp-hz = /bits/ 64 <767000000>;
+			opp-microvolt = <818750>;
+		};
+		cosmo_cci_845: opp-845000000 {
+			opp-hz = /bits/ 64 <845000000>;
+			opp-microvolt = <843750>;
+		};
+		cosmo_cci_871: opp-871000000 {
+			opp-hz = /bits/ 64 <871000000>;
+			opp-microvolt = <856250>;
+		};
+		cosmo_cci_923: opp-923000000 {
+			opp-hz = /bits/ 64 <923000000>;
+			opp-microvolt = <881250>;
+		};
+		cosmo_cci_962: opp-962000000 {
+			opp-hz = /bits/ 64 <962000000>;
+			opp-microvolt = <893750>;
+		};
+		cosmo_cci_1027: opp-1027000000 {
+			opp-hz = /bits/ 64 <1027000000>;
+			opp-microvolt = <925000>;
+		};
+		cosmo_cci_1092: opp-1092000000 {
+			opp-hz = /bits/ 64 <1092000000>;
+			opp-microvolt = <950000>;
+		};
+		cosmo_cci_1144: opp-1144000000 {
+			opp-hz = /bits/ 64 <1144000000>;
+			opp-microvolt = <975000>;
+		};
+		cosmo_cci_1196: opp-1196000000 {
+			opp-hz = /bits/ 64 <1196000000>;
+			opp-microvolt = <1000000>;
 		};
 	};
 };
@@ -1623,16 +1763,15 @@
 };
 
 /*
- * Vproc limits for the current step. C3a-C3b: each rail down to its
- * table's lowest value (vproc12 = little + CCI), still no higher than
- * LK's 0.800 V. Changed one step at a time with the user present.
+ * Vproc limits = each table's range (vproc12 = little + CCI), so a wrong
+ * request can never leave stock's values for this unit.
  */
 &mt6358_vproc11_reg {
 	regulator-min-microvolt = <706250>;
-	regulator-max-microvolt = <800000>;
+	regulator-max-microvolt = <1050000>;
 };
 
 &mt6358_vproc12_reg {
 	regulator-min-microvolt = <600000>;
-	regulator-max-microvolt = <800000>;
+	regulator-max-microvolt = <1000000>;
 };

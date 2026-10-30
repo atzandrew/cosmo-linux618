@@ -4,7 +4,7 @@
 # cluster is held at 793 MHz, so the CCI must run at the OPP paired with
 # the swept frequency (same index, required-opps).
 #   c1-test.sh steps         every OPP of both policies, PLL readback
-#   c1-test.sh stress SECS   all 8 CPUs at max OPP, md5 check, temps
+#   c1-test.sh stress SECS [min]  all 8 CPUs at max (or min) OPP, md5 check, temps
 #   c1-test.sh volts         Vproc/Vsram now
 # Needs /home/atzero/cosmo_cpuclk.ko (tools/cosmo-pwr, read-only).
 set -u
@@ -154,7 +154,13 @@ stress() {
 	secs=$1
 	want=$(head -c 16M /dev/zero | md5sum | cut -d' ' -f1)
 	for p in 0 4; do
-		echo performance > $CF/policy$p/scaling_governor
+		if [ "${2:-max}" = min ]; then
+			# lowest OPP = lowest voltage, the tightest margin
+			echo userspace > $CF/policy$p/scaling_governor
+			cat $CF/policy$p/scaling_min_freq > $CF/policy$p/scaling_setspeed
+		else
+			echo performance > $CF/policy$p/scaling_governor
+		fi
 	done
 	echo "start $(date +%T): policy0 $(cat $CF/policy0/scaling_cur_freq) policy4 $(cat $CF/policy4/scaling_cur_freq)"
 	end=$(( $(date +%s) + secs ))
@@ -174,7 +180,7 @@ stress() {
 
 case ${1:-} in
 steps) steps ;;
-stress) stress ${2:-300} ;;
+stress) stress ${2:-300} ${3:-max} ;;
 volts) volts ;;
-*) echo "usage: $0 steps | stress SECS | volts"; exit 2 ;;
+*) echo "usage: $0 steps | stress SECS [min] | volts"; exit 2 ;;
 esac
