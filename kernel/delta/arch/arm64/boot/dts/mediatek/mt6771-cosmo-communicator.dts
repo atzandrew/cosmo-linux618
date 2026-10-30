@@ -1455,3 +1455,173 @@
 	/* LK and the vendor kernel count the RTC year from 1968 */
 	mediatek,rtc-year-base-1968;
 };
+
+/*
+ * CPU DVFS (docs/cpufreq.md). Stock frequencies (fy5tTbl, CPU level
+ * V5_T); each voltage is the higher of stock's base table and the
+ * EEM-adjusted value stock ran on this unit (docs/stock-reference.md).
+ * Vsram follows Vproc in the MT6358 (bootloader tracking: +100 mV,
+ * 0.900-1.11875 V), so only proc-supply is given.
+ *
+ * Step C1: tables end where stock needs at most 0.800 V, and both Vproc
+ * rails are pinned at 0.800 V (LK's value), so no voltage changes. The
+ * CCI node has no proc-supply yet: mtk-ccifreq stays unbound and
+ * mediatek-cpufreq keeps Vproc at or above the boot voltage.
+ */
+/ {
+	cosmo_cl0_opp: opp-table-cosmo-cluster0 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-793000000 {
+			opp-hz = /bits/ 64 <793000000>;
+			opp-microvolt = <600000>;
+			required-opps = <&cosmo_cci_273>;
+		};
+		opp-910000000 {
+			opp-hz = /bits/ 64 <910000000>;
+			opp-microvolt = <637500>;
+			required-opps = <&cosmo_cci_338>;
+		};
+		opp-1014000000 {
+			opp-hz = /bits/ 64 <1014000000>;
+			opp-microvolt = <668750>;
+			required-opps = <&cosmo_cci_403>;
+		};
+		opp-1131000000 {
+			opp-hz = /bits/ 64 <1131000000>;
+			opp-microvolt = <706250>;
+			required-opps = <&cosmo_cci_481>;
+		};
+		opp-1248000000 {
+			opp-hz = /bits/ 64 <1248000000>;
+			opp-microvolt = <737500>;
+			required-opps = <&cosmo_cci_546>;
+		};
+		opp-1326000000 {
+			opp-hz = /bits/ 64 <1326000000>;
+			opp-microvolt = <768750>;
+			required-opps = <&cosmo_cci_624>;
+		};
+		opp-1417000000 {
+			opp-hz = /bits/ 64 <1417000000>;
+			opp-microvolt = <800000>;
+			required-opps = <&cosmo_cci_689>;
+		};
+	};
+
+	cosmo_cl1_opp: opp-table-cosmo-cluster1 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-793000000 {
+			opp-hz = /bits/ 64 <793000000>;
+			opp-microvolt = <706250>;
+			required-opps = <&cosmo_cci_273>;
+		};
+		opp-910000000 {
+			opp-hz = /bits/ 64 <910000000>;
+			opp-microvolt = <731250>;
+			required-opps = <&cosmo_cci_338>;
+		};
+		opp-1014000000 {
+			opp-hz = /bits/ 64 <1014000000>;
+			opp-microvolt = <756250>;
+			required-opps = <&cosmo_cci_403>;
+		};
+		opp-1131000000 {
+			opp-hz = /bits/ 64 <1131000000>;
+			opp-microvolt = <781250>;
+			required-opps = <&cosmo_cci_481>;
+		};
+	};
+
+	cosmo_cci_opp: opp-table-cosmo-cci {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		cosmo_cci_273: opp-273000000 {
+			opp-hz = /bits/ 64 <273000000>;
+			opp-microvolt = <600000>;
+		};
+		cosmo_cci_338: opp-338000000 {
+			opp-hz = /bits/ 64 <338000000>;
+			opp-microvolt = <637500>;
+		};
+		cosmo_cci_403: opp-403000000 {
+			opp-hz = /bits/ 64 <403000000>;
+			opp-microvolt = <668750>;
+		};
+		cosmo_cci_481: opp-481000000 {
+			opp-hz = /bits/ 64 <481000000>;
+			opp-microvolt = <706250>;
+		};
+		cosmo_cci_546: opp-546000000 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <737500>;
+		};
+		cosmo_cci_624: opp-624000000 {
+			opp-hz = /bits/ 64 <624000000>;
+			opp-microvolt = <768750>;
+		};
+		cosmo_cci_689: opp-689000000 {
+			opp-hz = /bits/ 64 <689000000>;
+			opp-microvolt = <800000>;
+		};
+	};
+};
+
+&cpu0 {
+	operating-points-v2 = <&cosmo_cl0_opp>;
+	proc-supply = <&mt6358_vproc12_reg>;
+};
+
+&cpu1 {
+	operating-points-v2 = <&cosmo_cl0_opp>;
+	proc-supply = <&mt6358_vproc12_reg>;
+};
+
+&cpu2 {
+	operating-points-v2 = <&cosmo_cl0_opp>;
+	proc-supply = <&mt6358_vproc12_reg>;
+};
+
+&cpu3 {
+	operating-points-v2 = <&cosmo_cl0_opp>;
+	proc-supply = <&mt6358_vproc12_reg>;
+};
+
+&cpu4 {
+	operating-points-v2 = <&cosmo_cl1_opp>;
+	proc-supply = <&mt6358_vproc11_reg>;
+};
+
+&cpu5 {
+	operating-points-v2 = <&cosmo_cl1_opp>;
+	proc-supply = <&mt6358_vproc11_reg>;
+};
+
+&cpu6 {
+	operating-points-v2 = <&cosmo_cl1_opp>;
+	proc-supply = <&mt6358_vproc11_reg>;
+};
+
+&cpu7 {
+	operating-points-v2 = <&cosmo_cl1_opp>;
+	proc-supply = <&mt6358_vproc11_reg>;
+};
+
+&cci {
+	operating-points-v2 = <&cosmo_cci_opp>;
+};
+
+/* C1 pin: LK's 0.800 V. Removed one step at a time with the user present. */
+&mt6358_vproc11_reg {
+	regulator-min-microvolt = <800000>;
+	regulator-max-microvolt = <800000>;
+};
+
+&mt6358_vproc12_reg {
+	regulator-min-microvolt = <800000>;
+	regulator-max-microvolt = <800000>;
+};

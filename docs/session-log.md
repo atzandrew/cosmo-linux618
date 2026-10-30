@@ -2487,3 +2487,50 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   the script exited with USB unbound and fb0 blanked (backlight on, no
   picture: the kernel's own unblank at resume). Fixed with an EXIT
   trap that rebinds USB, resets the parameters and unblanks.
+
+## 2026-10-29 — CPU DVFS: stock inventory; C1 frequency switching (pre-flash)
+
+### Inventory (details: docs/cpufreq.md)
+
+- Stock runs CPU DVFS in the SSPM (`CONFIG_HYBRID_CPU_DVFS`, set by
+  SSPM support): the kernel only fills CSRAM 0x0011bc00 and sends IPIs.
+  Mainline mediatek-cpufreq does the same steps in the kernel, in the
+  same order as stock's kernel-side path.
+- Vsram is tracked to Vproc in the MT6358 (read live: TRACKING_CON0..3
+  0x0006 0x1000 0x6340 0x0000 for both rails = Vproc + 100 mV, 0.900 to
+  1.11875 V). Matches every stock Vsram value. Proc supply only.
+- This unit's base table is fy5tTbl (V5_T); stock-reference.md values
+  are after EEM. Stock EEM bounds: little/CCI <= base, big <= base +
+  62.5 mV; colder than 25 °C uses another table. Our table: per OPP the
+  higher of base and stock's observed value.
+- Live clocks (tools/cosmo-pwr/cosmo_cpuclk.c, read-only, #40): LL
+  1.100 GHz, L 1.200 GHz, CCI 598 MHz (ccipll 1.196 GHz with the MCUCFG
+  divider at /2; mainline clk-mt8183 does not model that divider).
+  Vproc11/12 0.800 V, Vsram 0.900 V.
+- Stock idle: WFI + MCDI (cpuidle-mt67xx_acao_v3.c), same PSCI params as
+  mainline, plus SSPM MCDI mailbox writes that mainline lacks.
+
+### C1: cpufreq, frequency switching only (pre-flash check)
+
+- Change: DTS only. Own OPP tables (stock frequencies), proc-supply on
+  CPUs 0-7, little 793-1417 and big 793-1131 MHz (all OPPs where the table
+  needs <= 0.800 V), vproc11/vproc12 constraints pinned to 800000 uV. CCI
+  gets the table but no supply (mtk-ccifreq stays unbound; CCI stays at
+  598 MHz). Kernel Image unchanged (5caad925…).
+- Risk flags: none of PMIC keys / TOP_RST_MISC, watchdog, reset path,
+  display, new kernel config. PMIC write: the regulator core sets the
+  pinned 0.800 V once at boot (same value). New frequency/voltage pairs:
+  little 1248-1417 MHz at 0.800 V (stock needs 0.7375-0.800 V).
+- Escapes: power-key reset (observed, pk2 #40), watchdog (observed,
+  try11+; unchanged). Rollback: pk2-boot.img.
+- Test (tools/cpufreq-tests/c1-test.sh):
+  - boot: policy0 + policy4 exist, schedutil, no cpufreq errors;
+    mtk-ccifreq still "failed to get proc regulator".
+  - `steps`: every OPP of both policies under userspace; PASS each if
+    cpuinfo_cur_freq = target and PLL x divider readback within 0.1 %
+    and Vproc11/12 = 800000. CCI readback 598000 at the end.
+  - `stress 300`: 8 md5 workers at max OPP 5 min: no hang, no md5
+    mismatch, Vproc stays 0.800 V, temp below 68 °C (first passive trip).
+  - 10 s deep sleep (as DS8): wake up by PCM_TIMER, keyboard and display
+    after wake, then `steps` again PASS.
+  - Fail: any hang or reset, any step FAIL, md5 mismatch, Vproc change.
