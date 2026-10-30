@@ -2459,3 +2459,31 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   the sleep-current runs.
 - Note: fb0/blank in sysfs is stale after resume (reads 1 with the panel
   on); use the dsvpos/dsvneg regulator state.
+
+## 2026-10-29 — Sleep with Wi-Fi on: CONN2AP wakes the AP after ~1 s
+
+- Test (tools/sleep-tests/wifi1.sh 10; no flash, pk2-boot.img #40): Wi-Fi
+  left on and associated (no `/dev/wmtWifi` off), fb0 blanked, USB
+  controller unbound, 10 s timer, keep_wdt 1. Pass/fail fixed first:
+  pass = timer wake after ~10 s and Wi-Fi works without a restart;
+  partial = early wake by another source or Wi-Fi needs a restart;
+  safe fail = watchdog reset; hard fail = power-key reset.
+- Result, 3 runs: **partial**. Deep sleep entered every time
+  (CPU_SUSPEND 0, no hang), but woken after ~1 s (timer_out 32317 and
+  32413 = 0.99 s; third run under 1 s) by r12 0x20 = CONN2AP_SPM_WAKEUP_B.
+  r13 0x86046001 (Wi-Fi off: 0x86040001): CONN_STATE and CONN_SRCCLKENA
+  set; req_sta 0x100400 (Wi-Fi off: 0x100000). Wi-Fi associated and
+  pinging the gateway 5 s after resume, no restart.
+- Wake mask is stock's (ATF pwr_ctrl wake_src 0x0e87dde7, CONN2AP bit 5
+  included), so the difference is in what the Wi-Fi chip does.
+- Lead: stock turns on the firmware's host-suspend mode from userspace,
+  driver command `SETSUSPENDMODE 1` (wlanSetSuspendMode: packet filter,
+  multicast list, net address offload; CFG_ENABLE_EARLY_SUSPEND is 0 in
+  include/config.h). Our port cannot receive it: the command arrives as
+  SIOCDEVPRIVATE+1, which 6.18 routes to ndo_siocdevprivate, and
+  gl_init.c only sets ndo_do_ioctl. Not yet known whether the ~1 s wake
+  is traffic or a chip-side timer.
+- Script bug in the first version: a sleep under 1 s divided by zero,
+  the script exited with USB unbound and fb0 blanked (backlight on, no
+  picture: the kernel's own unblank at resume). Fixed with an EXIT
+  trap that rebinds USB, resets the parameters and unblanks.
