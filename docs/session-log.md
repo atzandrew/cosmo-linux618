@@ -2586,3 +2586,39 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
     C1 pass and CCI PLL readback = devfreq cur_freq = the paired OPP.
   - stress 300 and one 10 s deep sleep as C1; steps PASS after resume.
   - Fail: any hang or reset, any FAIL line, Vproc change.
+
+### C2 result: PASS (c2-boot.img d49e101b…, #40 DTB, module from 055fb57)
+
+- Boot: "mtk-ccifreq cci: cosmo: CCI divider /2 -> /1 at 598 MHz (div
+  0x03100aff)" at 3.0 s; devfreq cci, governor passive, 273-689 MHz;
+  Vproc 800000.
+- steps: 11/11 PASS, CCI PLL = devfreq = paired OPP at every step
+  (273 ... 689 MHz). A mismatch read right after switching back to
+  schedutil was a race (steady-state reads agree, 5 samples).
+- stress 300: no md5 mismatch, CCI 689 MHz throughout, 46.1 -> 48.9 °C,
+  runs 2219-2224 / 2550-2554 (C1: 2213-2216 / 2545-2547).
+- 10 s deep sleep: wake up by PCM_TIMER, panel off/on, Wi-Fi back on its
+  own; steps PASS after resume.
+- c1-test.sh now checks Vproc11/12 against the table (clamped to the DTS
+  constraints) and Vsram against the MT6358 tracking rule; a forced
+  wrong expectation (0.700 V) prints FAIL for both rails.
+
+### C3a: big-cluster Vproc follows the table (pre-flash check, user present)
+
+- Change: DTS only. vproc11 constraints 800000-800000 -> 706250-800000.
+  Big OPPs unchanged (793-1131 MHz at 0.70625 / 0.73125 / 0.75625 /
+  0.78125 V = stock's EEM values on this unit, each above stock's base
+  table). Vsram11 stays at its 0.900 V floor. vproc12 stays pinned.
+- First voltage change of the project on the CPU rails. Down only:
+  nothing can exceed 0.800 V.
+- Escapes: power-key reset, watchdog (observed, unchanged; a CPU fault
+  at too low a voltage ends in the watchdog reset). Rollback: c2-boot.img.
+- Test:
+  - boot: vproc11 at a table value for policy4's frequency, no errors.
+  - steps: as C2, plus vproc11 = table value at each big OPP (0.70625
+    at 793 MHz ... 0.78125 at 1131 MHz), vproc12 800000, Vsram per the
+    tracking rule.
+  - stress 300 (big at 1131 MHz / 0.78125 V): no md5 mismatch.
+  - 10 s deep sleep; steps PASS after resume.
+  - 10 min idle at schedutil (big mostly 793 MHz / 0.70625 V): no hang.
+  - Fail: any hang or reset, any FAIL line.
