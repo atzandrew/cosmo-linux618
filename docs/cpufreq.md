@@ -123,6 +123,8 @@ CCI governor). Stock's coupling is in SSPM firmware and not known.
   undivided), CCI proc-supply on, pin still on.
 - C3a / C3b: unpin vproc11, then vproc12, OPPs as C1 (down only, to
   stock's values; lowest 0.600 V = stock's floor).
-- C4: full tables, constraints = each table's range.
+- C4: full tables, constraints = each table's range. PASS 2026-10-30:
+  all 32 OPPs exact; full-speed stress reaches the 80 °C passive trip in
+  ~75 s and throttles one or two OPPs, no md5 errors.
 - Idle (planned): read SSPM mailbox 3 (MCDI) first; CPU_SLEEP only
   before cluster states.

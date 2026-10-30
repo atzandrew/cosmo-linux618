@@ -93,7 +93,8 @@ expect() { # rail table-uV
 	r=$(reg $1); clampc $2 $(cat $r/min_microvolts) $(cat $r/max_microvolts)
 }
 
-# Compare Vproc11/12 and Vsram11/12 with the current OPPs. Empty = OK.
+# Exact check (steps: nothing moves). Vproc11/12 = table value for the
+# current OPPs, Vsram = tracking rule. Empty = OK.
 check_volts() {
 	f0=$(cat $CF/policy0/cpuinfo_cur_freq); f4=$(cat $CF/policy4/cpuinfo_cur_freq)
 	t12=$(v_little $f0)
@@ -109,6 +110,11 @@ check_volts() {
 	w=$(clampc $((g11 + 100000)) 900000 1118750); [ $s11 = $w ] || echo "FAIL vsram_proc11 $s11 want $w"
 	w=$(clampc $((g12 + 100000)) 900000 1118750); [ $s12 = $w ] || echo "FAIL vsram_proc12 $s12 want $w"
 }
+
+# No voltage check during stress: under full load each shell reading
+# takes ~1 s, about ten thermal throttle intervals (polling-delay-passive
+# 100 ms), so OPP and voltage reads cannot be paired (C4, session-log).
+# Stress records the voltages; the md5 check is the pass/fail.
 
 steps() {
 	for p in 0 4; do
@@ -169,7 +175,7 @@ stress() {
 	done
 	while [ $(date +%s) -lt $end ]; do
 		sleep 10
-		echo "$(date +%T) temp $(cat /sys/class/thermal/thermal_zone0/temp) v11 $(cat $(reg vproc11)/microvolts) v12 $(cat $(reg vproc12)/microvolts) $(check_volts) hwLL $(hw_khz LL) hwL $(hw_khz L) hwCCI $(hw_khz CCI)"
+		echo "$(date +%T) temp $(cat /sys/class/thermal/thermal_zone0/temp) v11 $(cat $(reg vproc11)/microvolts) v12 $(cat $(reg vproc12)/microvolts) hwLL $(hw_khz LL) hwL $(hw_khz L) hwCCI $(hw_khz CCI)"
 	done
 	wait
 	for p in 0 4; do

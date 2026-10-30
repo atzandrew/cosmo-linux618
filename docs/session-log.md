@@ -2683,3 +2683,27 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   passive trips is expected, not a fail; check_volts follows the actual
   OPP); one 10 s deep sleep, then steps again. Fail: any hang or reset,
   any FAIL line, a critical trip.
+
+### C4 result: PASS (c4-boot.img ebb342fc…, 899ccb2)
+
+- Boot: all 16 OPPs per policy and CCI listed; Vsram = Vproc + 100 mV
+  (vproc11 868750 -> vsram 968750).
+- steps: 32/32 PASS, exact readback at every OPP, up to little 1989 MHz
+  / vproc12 1.000 V / CCI 1196 MHz and big 2106 MHz / vproc11 1.050 V.
+- stress 300 at max (performance): 71 -> 80 °C in 75 s, then the
+  cpu-thermal passive trips (step_wise, 100 ms) throttle both clusters
+  one or two OPPs (little 1846-1989, big 1924-2106 MHz, CCI 1092-1196),
+  peak 82.4 °C, no critical trip. md5 mismatches 0 (runs 2995-3009 /
+  4367-4378). Two more throttled runs (120 s each): md5 0.
+- Voltage readings during throttled stress: the sampling check reported
+  one-OPP mismatches both ways (34 lines), then "LOW" in 12/107 and
+  8/76 samples with a before/after read. Timed: every reading under full
+  load takes 908-1191 ms (LOW ones 953-1188 ms), about ten throttle
+  intervals, so OPP and voltage reads cannot be paired at all; the
+  method is invalid under load, and the check is removed from stress.
+  Evidence for correct ordering: the static sweep, the driver order
+  (Vproc up before a rate rise, down after a drop), md5 0 throughout.
+  A tight check would need a kernel-side sampler or tracing (CONFIG_FTRACE
+  is off).
+- 10 s deep sleep: wake up by PCM_TIMER, panel off/on, Wi-Fi back; 32/32
+  steps PASS after resume.
