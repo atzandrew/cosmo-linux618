@@ -2707,3 +2707,41 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   is off).
 - 10 s deep sleep: wake up by PCM_TIMER, panel off/on, Wi-Fi back; 32/32
   steps PASS after resume.
+
+### Benchmark: LK speeds vs full tables (c4, md5 of 512 MiB, MB/s)
+
+- Caps little 1131 / big 1248 MHz (nearest OPPs to LK's 1100 / 1200):
+  CPU0 110, CPU4 173, all 8 869 total.
+- Full tables: CPU0 195 (x1.77), CPU4 291 (x1.68), all 8 1527 (x1.76),
+  i.e. in line with the clock ratios (1989/1131, 2106/1248).
+
+## 2026-10-30 — CPU thermal sensor dead after deep sleep (pre-flash TH1)
+
+- Found during the benchmark: cpu-thermal temp returns -ENODATA ("No
+  data available") after any deep sleep, until reboot. Direct test:
+  fresh boot 41.9 °C; one 10 s deep sleep (disp1.sh); then -ENODATA on
+  every read. With the zone unreadable no passive or critical trip can
+  fire. Present since deep sleep works (DS5+, 2026-10-27); it matters
+  now that full-speed stress reaches 80 °C in ~75 s. Mitigation until
+  fixed: scaling_max_freq capped to the C1 OPPs (1417 / 1131 MHz).
+- Mainline auxadc_thermal.c sets up the controller only in probe (no PM
+  ops). Unbind + bind of 1100b000.thermal-sensor after a sleep restores
+  the readings (39.9 °C) and both cpufreq cooling links.
+- Stock tscpu_thermal_suspend/resume (thermal/common/thermal_zones/
+  mtk_ts_cpu.c:1524-1675): suspend pauses periodic sensing and turns the
+  TS buffer off; resume resets the controller (tscpu_reset_thermal,
+  INFRA_GLOBALCON_RST_0), turns the buffer on, waits 200 us, reads all
+  sensors once, re-initialises all banks, releases periodic sensing and
+  re-arms the HW protection.
+- Change TH1: kernel/delta/drivers/thermal/mediatek/auxadc_thermal.c:
+  probe's hardware steps (buffer on, all banks) moved to
+  mtk_thermal_hw_init(), also run from a new resume callback after
+  device_reset_optional() (the DTS reset, infracfg THERM_SW_RST). No
+  suspend callback (sleep current already = stock). Built in, no new
+  config. Tables, constraints unchanged (c4).
+- Risk flags: none of the listed ones. Escapes: power-key reset,
+  watchdog (observed). Rollback: c4-boot.img.
+- Test: boot temp readable; 10 s deep sleep (disp1.sh); temp readable
+  after resume and within a few °C of before; then 60 s full-speed
+  stress shows the reading rising and the passive trip throttling.
+  Fail: -ENODATA after resume, any hang or reset.
