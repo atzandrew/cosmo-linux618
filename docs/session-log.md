@@ -2745,3 +2745,13 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   after resume and within a few °C of before; then 60 s full-speed
   stress shows the reading rising and the passive trip throttling.
   Fail: -ENODATA after resume, any hang or reset.
+
+### TH1 result: PASS (th1-boot.img 342feae2…, #41, cf0a972)
+
+- Boot 38.5 °C; 10 s deep sleep (disp1.sh, wake up by PCM_TIMER); after
+  resume 38.2 / 37.7 / 37.7 °C, no -ENODATA.
+- Then 90 s full-speed stress: 73.7 -> 79.7 °C, plateau just under the
+  80 °C passive trip, 51.0 °C after; md5 0. time_in_state (10 ms
+  units) for the run: little 1924 MHz 1604, 1846 MHz 165; big 1989 MHz
+  1594: the cpu-thermal trips throttle after a sleep. The C1 frequency
+  cap used as mitigation is gone with the reboot.
