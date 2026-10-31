@@ -2855,3 +2855,34 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - Next: built-in MCDI mailbox init as stock (avail mask at boot and on
   hotplug with PAUSE handshake, isolation 0) so idle can be on from boot;
   then hotplug and deep sleep with idle on; awake current A/B.
+- Unattended soak (same boot, 17:20 -> 18:06, device awake in a pocket,
+  all 8 CPUs with core-off): no reset, no RCU stall or lockup; stress
+  120 md5 0. Share of idle time in core-off: CPU0 61 % (1592 s vs 1016 s
+  WFI), CPU1-3 87-90 %, CPU4-7 93-98 %. No suspend in that boot.
+
+### I2: stock MCDI init built in, core-off on from boot (pre-flash check)
+
+- Stock hotplug path (mcdi_v1/mtk_mcdi.c:929-975): mcdi_pause(true) at
+  CPU_UP_PREPARE / CPU_DOWN_PREPARE = governor uses WFI only + wake all
+  CPUs and wait until they are powered on (mcdi_wakeup_all_cpu);
+  after CPU_ONLINE / CPU_DEAD / failure: mcdi_avail_cpu_cluster_update()
+  + mcdi_pause(false). The SSPM PAUSE handshake (mcdi_task_pause) is only
+  used for SODI/DPIDLE (mtk_mcdi_governor.c:488), not for hotplug.
+- Change: drivers/soc/mediatek/cosmo-cpu-hotplug.c: arch_initcall (all
+  CPUs online, before cpuidle-psci at device_initcall) writes
+  CPU_ISOLATION_MASK 0 and AVAIL_CPU_MASK = online mask; around hotplug
+  a CPU latency QoS request of 0 + wake_up_all_idle_cpus() (= stock's
+  pause), then the new online mask (BP prepare state: pause before up,
+  mask + resume after dead; AP online state: mask + resume when up,
+  pause before down). Counter /sys/module/cosmo_cpu_hotplug/parameters/
+  mcdi_mask_writes. DTS: cosmo,boot-disabled removed (core-off on from
+  boot, as stock). dt_idle_states.c keeps the property support.
+- Risk: as I1a if the init is missed (boot hang, long-press reset).
+  Escapes: PMIC long press (observed twice today). Rollback: th1-boot.img
+  (or i1b-boot.img: idle off at boot).
+- Test: boot reaches the desktop; "MCDI avail mask 0xff, isolation 0";
+  state1 usage rising on all 8 CPUs; c1-test.sh steps PASS; CPU7..1
+  off then on (cosmo-cpu-hotplug errors 0, online 0-7, mask writes +14,
+  mailbox avail 0xff after); one 10 s deep sleep (disp1.sh), then
+  state1 usage still rising, temp readable, steps PASS. Fail: hang,
+  missing CPU, RCU stall.

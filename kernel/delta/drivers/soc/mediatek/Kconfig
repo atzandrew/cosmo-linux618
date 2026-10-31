@@ -127,7 +127,10 @@ config COSMO_CPU_HOTPLUG
 	  CPU_ON if the kernel first makes the SiP call
 	  MTK_SIP_POWER_DOWN_CORE for it, as stock 4.4 does after every CPU
 	  death. Without this, CPU hotplug and system suspend lose every
-	  non-boot CPU. Does nothing on other machines.
+	  non-boot CPU. Also gives the SSPM MCDI controller stock's
+	  available-CPU mask at boot and after every hotplug; without it a
+	  core powered down in CPU idle is never powered back on. Does
+	  nothing on other machines.
 
 config COSMO_SMI_RESTORE
 	bool "Cosmo Communicator: keep LK's SMI settings across a DISP power cycle"
