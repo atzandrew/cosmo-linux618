@@ -3036,3 +3036,15 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   shutdown and reboot. OVL0 IRQ ~60/s during the test.
 - Rule for later display tests: say what the screen will show before
   the run; no flashing patterns.
+- glmark2-es2-drm --winsys-options=drm-device=/dev/dri/card2 (stdin
+  held open, 180 s timeout): runs on glass in portrait (native panel
+  orientation), user: "a few stutters here and there, but it's working
+  better than expected". 17 scenes done before the timeout cut the
+  [buffer] scene (exit 124, timeout, not a hang): build 494 fps,
+  texture 410-429, shading 188-389, bump 219-322, effect2d 101 / 36,
+  pulsar 307, desktop blur 46, shadow 175 (unsynced, above 60 Hz).
+  No panfrost fault or CMA error in dmesg.
+- DVFS: devfreq 300 <-> 420 MHz, 27 transitions, mostly 420 under load.
+  vgpu 0.625 V at 300, 0.6625 V at 420; vsram_gpu 0.850 V throughout
+  (= max(vgpu + 100 mV, 0.850 V) for every G2 OPP). Thermal zones 39 C
+  right after the run. G2b PASS for DVFS and rails at these OPPs.
