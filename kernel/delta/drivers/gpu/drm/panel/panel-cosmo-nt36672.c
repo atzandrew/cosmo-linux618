@@ -18,6 +18,7 @@
  * as generic writes; all sent in low-power mode.
  */
 
+#include <linux/backlight.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
@@ -425,6 +426,14 @@ static int cosmo_panel_probe(struct mipi_dsi_device *dsi)
 	ret = drm_panel_of_backlight(&ctx->panel);
 	if (ret)
 		return dev_err_probe(dev, ret, "no backlight\n");
+
+	/*
+	 * LK leaves the backlight on. Turn it off before the DSI host and
+	 * the panel are reset for the takeover: a lit panel with no video
+	 * shows white. drm_panel_enable() turns it back on once the new
+	 * picture runs, so the takeover is a short black blank.
+	 */
+	backlight_disable(ctx->panel.backlight);
 
 	ctx->panel.prepare_prev_first = true;
 	drm_panel_add(&ctx->panel);

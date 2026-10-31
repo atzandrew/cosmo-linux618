@@ -3225,3 +3225,25 @@ Image T1:
   panel init; not needed here so far.
 - Not done: touch as a wake source, palm/edge handling, deep-sleep
   command (0x50 0x11) before suspend (the panel power-off covers it).
+
+## 2026-10-31 — BF1: no white flash at the display takeover
+
+- Seen on glass: a white flash while the kernel takes the display over
+  from LK. LK leaves the backlight on; the DSI host and panel are reset
+  for the takeover with it still lit, and a lit panel with no video
+  shows white.
+- Change: the panel driver turns the backlight off at probe
+  (backlight_disable); drm_panel_enable() turns it on again once the new
+  picture runs. No panel command, bias, reset or init change.
+- Kernel image unchanged (Image.gz-dtb 1de6966a…, = t1b); only
+  panel-cosmo-nt36672.ko changes (b023c0f2…), installed + depmod.
+  Rollback: the t1b module.
+- Pass: LK picture, then black (no white) until the console / greeter,
+  normal brightness after; no flicker or colour fault.
+  Fail: white flash still there, screen stays dark, any display fault.
+
+### BF1 result: PASS
+
+- Rebooted with the new module (b023c0f2… loaded): LK picture, then
+  black instead of the white flash, then the greeter at normal
+  brightness. No flicker or colour fault.
