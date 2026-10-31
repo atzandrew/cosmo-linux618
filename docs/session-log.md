@@ -2902,3 +2902,26 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - Open: awake idle current A/B (cpuidle on vs off, USB unplugged);
   cluster power-down (stock MCDI_CLUSTER 0x01010001 + CLUSTER_n_CAN_
   POWER_OFF mailbox write before entry).
+
+## 2026-10-30 — I2: awake idle current, core-off on vs off
+
+- Image i2-boot.img (unchanged). Script tools/cpufreq-tests/idle-ab.sh
+  (root): waits for USB unplug, backlight 0, Wi-Fi off, 60 s settle,
+  then A/B/A 180 s segments: A = core-off on, B = state1 disabled on all
+  8 CPUs. Current = battery charge_counter over RTC time (DS7 method),
+  plus the mean of current_now every 5 s. Restores everything at the end.
+- Fixed in advance: valid if A1/A2 within 5 mA and CAR vs current_now
+  within 10 %; material if B - A >= 5 mA.
+- Run 1 (invalid as a core-off test): fb0 blank read 4 but the panel
+  and backlight were lit (brightness 766). A/B/A CAR 520/529/524 mA.
+  fb0 blank does not turn the backlight off on this image.
+- Run 2, backlight 0 (panel and DSV bias still on), battery 4.13 V,
+  20 °C: A1 193 mA (current_now 216), B1 199 (210), A2 191 (212).
+  A drift 2 mA: valid. CAR vs current_now 11 %: just outside the
+  10 % limit. CAR says core-off saves ~7 mA, current_now says ~0
+  (slightly the other way).
+- Result: not material. Awake idle with core-off on is ~192 mA with
+  the panel powered and the backlight off; most of it is outside the
+  CPU cores. Core-off stays on (stock does it; no cost seen).
+- Next: cluster power-down research (ATF handling of mailbox 3
+  CLUSTER_n_CAN_POWER_OFF / ATF_ACTION_DONE) before any code.
