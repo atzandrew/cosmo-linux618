@@ -2951,3 +2951,11 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   the four hogs with the stated levels; pins 101/102/111/177 read back
   as stock; core-off idle usage still rising; keyboard, Wi-Fi, display
   as i2. Fail: no boot, a hog missing or a wrong level.
+
+### G1 result: PASS (g1-boot.img 61cafc3a…, f7f5853)
+
+- Boot to Debian; Wi-Fi up, display on, core-off usage rising.
+- /sys/kernel/debug/gpio: gpio-101 cam-rst0-idle out lo, gpio-102
+  cam-rst1-idle out lo, gpio-111 extamp2-idle out lo, gpio-177
+  typec-177-idle out hi (= stock).
+- Error-level journal identical to the previous (i2) boot.
