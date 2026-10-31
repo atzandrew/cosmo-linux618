@@ -2986,3 +2986,20 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   still about 85 mA and wakes. Fail: no boot, display fault, GPU fault
   or oops in dmesg, a rail outside its limits, sleep current clearly
   above g1 or no wake.
+
+### G2 result: PASS for boot and sleep (g2-boot.img 4d6e96b2…, f4bf3ba)
+
+- Boot to Debian; the clk-mt8183-mfg -110 is gone, no other new error
+  lines. `panfrost 13040000.gpu: mali-g72 id 0x6221 major 0x0 minor 0x3`,
+  shader_present 0x7 (MP3), l2_present 0x1; devfreq lists the five OPPs.
+- Idle: mfg, mfg_core0/1, mfg_2d off; mfg_async stays on (13000000.syscon
+  active: panfrost keeps the BG3D clock prepared). vgpu 0.6625 V and
+  vsram_gpu 0.850 V stay enabled: mainline panfrost on mt8183b only drops
+  clock and regulator in system suspend (no GPU_PM_RT). Stock switches
+  the GPU bucks off whenever the GPU is idle; awake idle cost not
+  measured yet.
+- Sleep, tools/sleep-tests/gpu1.sh 300 (USB unplugged, Wi-Fi off, fb0
+  blanked, keep_wdt 0): wake up by PCM_TIMER, dt 300 s, CAR -7063 uAh =
+  **84.8 mA** average (g1/DS7: 85 mA). Wake OK.
+- Open: VSRAM tracking at the other OPPs (only 420 MHz seen; needs GPU
+  load, next with Mesa).
