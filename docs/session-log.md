@@ -2825,3 +2825,33 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   cpu4-6, then cpu1-3, then cpu0, each the same way.
 - Escapes: power-key reset (observed today). Watchdog does not cover a
   partial hang (above). Rollback: th1-boot.img.
+
+### I1b/I1c results (i1b-boot.img 3bbb1c22…, #42, 8bc625e)
+
+- Watchdog gap (I1a): user decision 2026-10-30, no watchdog change; the
+  PMIC long press (8-15 s, hardware reset) is the escape. The 3 s
+  power-off goes through Linux (key event -> systemd) and does not work
+  when userspace is frozen. The keyboard and console kept working during
+  the partial hang (interrupts on the running CPUs).
+- I1b boot: psci_idle + menu; state1 present on all CPUs, disabled
+  (default_status disabled); residency 4500 / 1500 us. Name shows as
+  "cosmo-cpu-off-l" on CPU0-3 too (16-char name cut to 15).
+- I1b, cpu7 state1 enabled, SSPM mailbox at boot values (AVAIL_CPU_MASK
+  0): FAIL. cpu7's WFI count froze at 5633 and state1 usage stayed 0
+  (counted on exit): cpu7 powered down on its first entry and never woke.
+  Ping answered, SSH hung (work needing all CPUs blocked); long-press
+  reset.
+- I1c (tools/cpufreq-tests/i1c.sh, i1c-rest.sh), same image: first
+  tools/cosmo-pwr/cosmo_mcdi.ko write=1 (stock init: AVAIL_CPU_MASK =
+  online 0xff, CPU_ISOLATION_MASK 0; controller stays WAIT_EVENT), then
+  state1 on cpu7: usage 35 after 5 s, 153 after 40 s, 39.4 s of 40 s in
+  core-off; a job pinned to cpu7 runs. Then cpu6..cpu0 one at a time,
+  20 s each: usage 0 -> 73-1876, 17.0-19.9 s of 20 s in core-off, a
+  pinned job runs on each, then on all 8. PASS: core power-down needs
+  stock's MCDI AVAIL_CPU_MASK (the SSPM powers the core back on).
+- With all 8 enabled: c1-test.sh steps 32/32 PASS. stress 120 started
+  detached (/var/tmp/i1-stress.log), unattended idle soak while the user
+  is out (device awake, no sleep).
+- Next: built-in MCDI mailbox init as stock (avail mask at boot and on
+  hotplug with PAUSE handshake, isolation 0) so idle can be on from boot;
+  then hotplug and deep sleep with idle on; awake current A/B.
