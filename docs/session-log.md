@@ -3063,3 +3063,21 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   0.900 / 1.000 V); no panfrost fault in dmesg; no flicker on glass.
   Fail: no boot, GPU fault or reset, a rail off the stock value, over
   70 C, any display fault.
+
+### G3 result: PASS (g3-boot.img 1a5b2706…, 0281093)
+
+- Boot OK; devfreq lists 16 OPPs. glmark2 (200 s timeout, cut inside
+  the last [buffer] scene again): 1 s samples, 142 of 178 at 900 MHz
+  with vgpu 0.900 V, vsram_gpu 1.000 V, mfg_bg3d 899999268 Hz; 300 MHz
+  samples 0.625 / 0.850 V, 320 MHz 0.63125 / 0.850 V. The few mixed
+  samples (e.g. cur_freq 900 MHz with vgpu 0.725 V and bg3d 620 MHz)
+  are reads straddling a transition (devfreq, regulators and clock are
+  read one after another); each matches one OPP's clock and voltage.
+- simple_ondemand mostly jumps between 300 and 900 MHz (98 transitions).
+- Max thermal zone 52.2 C. No panfrost fault, CMA or regulator error.
+- Scores about double G2b: build 903 fps, texture 656-671, shading
+  380-659, bump 401-647, effect2d 206 / 74, pulsar 594, desktop blur 97,
+  shadow 336, buffer 144-146.
+- Open: GPU cooling device (stock thermal policy has no GPU trip in
+  thermal.conf; check before long GPU loads), awake idle cost of the GPU
+  rails staying on.
