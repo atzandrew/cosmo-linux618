@@ -3125,3 +3125,25 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   the KWin freeze with OVL_2L0 masked is understood. Next: with the
   user present, mask OVL_2L0 and clear its INTSTA first, collect KMS
   debug and KWin logs during the freeze.
+
+## 2026-10-31 — Refresh mismatch traced; not the stutter
+
+- Pushed f2d25e6..3fb3878. The OVL_2L0 patch is held: CMDQ is in use
+  (GCE IRQ +210 in 5 s of kmscube, about one per flip), so page-flip
+  events come from the GCE callback (ddp_cmdq_cb), not the vblank IRQ;
+  the stray OVL_2L0 vblank only double-counts.
+- Stock LCM (aeon_nt36672_fhd_dsi_vdo_x600_xinli): BURST_VDO_MODE,
+  PLL_CLOCK 550 (fixed), same porches, ssc_disable 1; stock ddp_dsi
+  bytes hfp*3-12, (hbp+hsa)*3-10.
+- Mainline live (read-only): MODE_CTRL 3 (burst), PS_WC 3240, HSA 38,
+  HBP 71, HFP 108 (mtk_dsi_config_vdo_timing_per_line_lp subtracts the
+  estimated LP cycles from HFP/HBP), MIPITX PLL_CON0 0x9418f847 =
+  962.63 Mbps (exact for clock 160439 kHz). 60.051 Hz = a 3645-byte line
+  vs htotal*3 = 3648: the LP estimate is about one byte cycle too large.
+- Live DSI writes, user watching, one OK each: HFP 108 -> 111: 59.983 Hz;
+  -> 110 (kmscube spinning): 59.983 Hz, no visible fault. HFP moves in
+  4-byte steps, so 60.000 is not reachable by HFP alone (108 = 60.051,
+  109-112 = 59.983). Restored 108.
+- Plasma + weston-presentation-shm at HFP 110 (59.983 Hz): 78 of 714
+  frames "0 then 33 ms", c2p ramps down 36 -> 10 ms as before. Same as
+  at 60.051 Hz: the refresh mismatch is not the stutter cause.
