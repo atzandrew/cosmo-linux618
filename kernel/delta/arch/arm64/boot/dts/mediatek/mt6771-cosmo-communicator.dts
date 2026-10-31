@@ -567,11 +567,6 @@
 };
 
 /*
- * GPU power-domain supplies, as mt8183-kukui.dtsi. Missing, the whole
- * scpsys power controller fails to probe ("power-domain@2: failed to get
- * power supply", on glass 2026-10-25).
- */
-/*
  * PMIC keys (stock: kpd_sw_pwrkey 116 = KEY_POWER, kpd_sw_rstkey 115 =
  * KEY_VOLUMEUP on the home-key input). The driver delta uses the MT6358
  * TOP_RST_MISC layout (vendor upmu_hw.h; docs/p0-findings.md); mainline's
@@ -596,12 +591,42 @@
 	};
 };
 
+/*
+ * GPU power-domain supplies, as mt8183-kukui.dtsi. Missing, the whole
+ * scpsys power controller fails to probe ("power-domain@2: failed to get
+ * power supply", on glass 2026-10-25). The order matches stock
+ * (mtk_gpufreq_core.c): VSRAM_GPU on, then VGPU, then MFG_ASYNC, MFG,
+ * CORE0..2; off in reverse.
+ */
 &mfg_async {
 	domain-supply = <&mt6358_vsram_gpu_reg>;
 };
 
 &mfg {
 	domain-supply = <&mt6358_vgpu_reg>;
+};
+
+/*
+ * GPU rails (GPU G2). Stock MT6771 GPU DVFS table for this unit: efuse
+ * 0x11f10050 = 0x2200000c (speed bin 0x02, turbo bit 3 set) selects
+ * segment 4, 300 MHz / VGPU 0.625 V up to 900 MHz / 0.900 V, VSRAM_GPU
+ * 0.850 V up to 1.000 V. Stock sets VSRAM_GPU = max(VGPU + 100 mV,
+ * 0.850 V); mtk-regulator-coupler does the same from these limits.
+ */
+&mt6358_vgpu_reg {
+	regulator-min-microvolt = <625000>;
+	regulator-max-microvolt = <900000>;
+
+	regulator-coupled-with = <&mt6358_vsram_gpu_reg>;
+	regulator-coupled-max-spread = <100000>;
+};
+
+&mt6358_vsram_gpu_reg {
+	regulator-min-microvolt = <850000>;
+	regulator-max-microvolt = <1000000>;
+
+	regulator-coupled-with = <&mt6358_vgpu_reg>;
+	regulator-coupled-max-spread = <100000>;
 };
 
 /*
@@ -1040,10 +1065,12 @@
  * M4U stays as LK left it: without iommus the display scans out
  * physical buffers from CMA, as LK does.
  *
- * Sleep D1: the scpsys power controller manages the DISP domain only.
- * Its probe powers on every listed domain, so AUDIO, CONN (the Wi-Fi
- * driver controls it itself) and MFG are disabled and the DISP
- * sub-domains are deleted (sub-domains are added even when disabled).
+ * Sleep D1: the scpsys power controller manages the DISP domain.
+ * Its probe powers on every listed domain, so AUDIO and CONN (the Wi-Fi
+ * driver controls it itself) are disabled and the DISP sub-domains are
+ * deleted (sub-domains are added even when disabled). Since GPU G2 it
+ * also manages the MFG domains for panfrost; genpd switches them off
+ * when the GPU is idle and in suspend (stock sleep checks MFG is off).
  * Powering on the already-on DISP domain only sets bits LK already set.
  * The display nodes carry DISP again, so genpd switches the domain off in
  * the noirq phase of system suspend (stock refuses to sleep with DIS on)
@@ -1056,10 +1083,6 @@
 	};
 
 	power-domain@MT8183_POWER_DOMAIN_CONN {
-		status = "disabled";
-	};
-
-	power-domain@MT8183_POWER_DOMAIN_MFG_ASYNC {
 		status = "disabled";
 	};
 
@@ -1143,8 +1166,43 @@
 	status = "disabled";
 };
 
+/*
+ * GPU G2: Mali-G72 MP3 with panfrost. Only the five lowest stock
+ * segment-4 OPPs for the first test (300-420 MHz, VGPU at most
+ * 0.6625 V, VSRAM_GPU 0.850 V); the full table comes after.
+ */
 &gpu {
-	status = "disabled";
+	mali-supply = <&mt6358_vgpu_reg>;
+	operating-points-v2 = <&cosmo_gpu_opp>;
+	status = "okay";
+};
+
+/ {
+	cosmo_gpu_opp: opp-table-cosmo-gpu {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-300000000 {
+			opp-hz = /bits/ 64 <300000000>;
+			opp-microvolt = <625000>;
+		};
+		opp-320000000 {
+			opp-hz = /bits/ 64 <320000000>;
+			opp-microvolt = <631250>;
+		};
+		opp-340000000 {
+			opp-hz = /bits/ 64 <340000000>;
+			opp-microvolt = <637500>;
+		};
+		opp-380000000 {
+			opp-hz = /bits/ 64 <380000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-420000000 {
+			opp-hz = /bits/ 64 <420000000>;
+			opp-microvolt = <662500>;
+		};
+	};
 };
 
 &ovl_2l1 {

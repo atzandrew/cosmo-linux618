@@ -2959,3 +2959,30 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   cam-rst1-idle out lo, gpio-111 extamp2-idle out lo, gpio-177
   typec-177-idle out hi (= stock).
 - Error-level journal identical to the previous (i2) boot.
+
+## 2026-10-30 — GPU G2: panfrost on the lowest stock OPPs (pre-flash check)
+
+- Stock inventory (vendor mt6771 mtk_gpufreq_core.c/.h): the segment
+  comes from efuse 0x11f10050. This unit reads 0x2200000c (bin 0x02,
+  turbo bit 3) = segment 4, the same table as segment 1: 16 OPPs,
+  300 MHz / 0.625 V to 900 MHz / 0.900 V, VSRAM_GPU 0.850-1.000 V,
+  VSRAM = max(VGPU + 100 mV, 0.850 V). The mainline mt8183 table equals
+  stock segment 2 (800 MHz max) and matches segment 4 at every shared
+  frequency. Stock power-on order: VSRAM_GPU, VGPU, then MFG_ASYNC,
+  MFG, CORE0..2; off in reverse. Stock parks the GPU on 26 MHz while the
+  PLL changes (mainline: mfg mux notifier, same) and also limits EMI GPU
+  outstanding requests during the change (not in mainline; noted).
+- Change (DTS only, modules unchanged): MFG_ASYNC and its sub-domains
+  enabled; vgpu 0.625-0.900 V and vsram_gpu 0.850-1.000 V, coupled with
+  100 mV spread (mtk-regulator-coupler); &gpu okay, mali-supply = vgpu,
+  OPPs 300/320/340/380/420 MHz only (VGPU at most 0.6625 V).
+- Image g2-boot.img 4d6e96b2… (= g1 + the above). Escapes: PMIC long
+  press (observed many times); rollback g1-boot.img.
+- Pass: boot to Debian; clk-mt8183-mfg probes (no -110); panfrost
+  probes and reports the Mali-G72; vgpu/vsram_gpu stay within the new
+  limits, with vsram = max(vgpu + 100 mV, 0.850 V) at each GPU OPP
+  (tolerance: one regulator step); MFG domains off when the GPU is idle
+  (pm_genpd_summary); display, Wi-Fi and keyboard as g1; deep sleep
+  still about 85 mA and wakes. Fail: no boot, display fault, GPU fault
+  or oops in dmesg, a rail outside its limits, sleep current clearly
+  above g1 or no wake.
