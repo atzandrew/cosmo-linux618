@@ -3003,3 +3003,21 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   **84.8 mA** average (g1/DS7: 85 mA). Wake OK.
 - Open: VSRAM tracking at the other OPPs (only 420 MHz seen; needs GPU
   load, next with Mesa).
+
+## 2026-10-30 — GPU G2b: Mesa on glass, CMA for scanout
+
+- Mesa 25.0.7 (trixie: kmscube, glmark2-es2-drm, mesa-utils installed on
+  the device for the test): EGL/GBM up, "OpenGL ES 3.1 Mesa 25.0.7",
+  renderer "Mali-G72 (Panfrost)". Since G2 panfrost is card1 and
+  mediatek-drm card2.
+- kmscube -D /dev/dri/card2 failed: DRM_IOCTL_MODE_CREATE_DUMB -ENOMEM,
+  `cma: alloc failed, req-size: 2333 pages`, 32 MB CMA with 2808 pages
+  free in three pieces, then a segfault in kmscube. Scanout buffers
+  come from CMA because the display runs without the M4U.
+- Change: boot cmdline cma=256M (bin/build-boot-img.sh). Kernel and DTS
+  as g2. Image g2b-boot.img 475cb181…; escapes: PMIC long press,
+  rollback g2/g1.
+- Pass: boot; CmaTotal 262144 kB; kmscube on card2 spins on glass for
+  20 s with no GPU fault in dmesg; GPU devfreq moves between OPPs with
+  vsram = max(vgpu + 100 mV, 0.850 V). Fail: no boot, kmscube error, GPU
+  fault, rail outside its limits.

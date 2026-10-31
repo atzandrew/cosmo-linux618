@@ -18,6 +18,9 @@ BUSYBOX="${BUSYBOX:-/usr/bin/busybox}"
 #    lists ttyS0 last).
 #  - *_ignore_unused: keep LK's display clocks, power and PMIC rails on.
 #  - cpuidle on since I1a (docs/session-log.md): core power-down only.
+#  - cma=256M: the display scans out physical buffers (no M4U), so
+#    every scanout buffer (9.3 MB at 1080x2160) comes from CMA; the
+#    32 MB default could not hold a GPU client's buffers (GPU G2b).
 #  - loglevel=3: only critical messages on glass (driver debug output
 #    filled the console); oops and panic still print in full because
 #    the kernel goes verbose when it dies. Everything is in dmesg.
@@ -29,7 +32,7 @@ BUSYBOX="${BUSYBOX:-/usr/bin/busybox}"
 #    what actually resets the board (AGENTS.md rule 5).
 #  - g_ether.*: fixed MACs for the bring-up USB network (init gives
 #    the Cosmo 10.15.19.83 and hands the host .84 by DHCP).
-CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused fbcon=rotate:3 fbcon=font:TER16x32 consoleblank=0 loglevel=3 panic=10 oops=panic g_ether.dev_addr=42:00:15:19:83:01 g_ether.host_addr=42:00:15:19:83:00"
+CMDLINE="bootopt=64S3,32N2,64N2 log_buf_len=4M cma=256M console=tty0 clk_ignore_unused pd_ignore_unused regulator_ignore_unused fbcon=rotate:3 fbcon=font:TER16x32 consoleblank=0 loglevel=3 panic=10 oops=panic g_ether.dev_addr=42:00:15:19:83:01 g_ether.host_addr=42:00:15:19:83:00"
 
 # EXTRA_CMDLINE is appended (e.g. cosmo.wdtest=1 for the watchdog escape
 # test); OUTNAME names the image (default boot.img).
