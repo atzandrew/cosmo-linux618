@@ -3081,3 +3081,47 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - Open: GPU cooling device (stock thermal policy has no GPU trip in
   thermal.conf; check before long GPU loads), awake idle cost of the GPU
   rails staying on.
+
+## 2026-10-30 late — Desktop D0: Plasma Wayland on panfrost (no flash)
+
+- Test install on the device (as Mesa; not in gemini-debian yet): the
+  gemini-debian desktop.list core (plasma-desktop, plasma-workspace,
+  kwin-wayland, ...), no display manager. Gemini skel kwinrc and
+  kwinoutputconfig.json copied unchanged (DSI-1, scale 2, Rotated90:
+  same panel size and fbcon=rotate:3 as the Gemini).
+- Session by hand: systemd-run PAMName=login on tty7 (tty2 hung: chvt 2
+  started autovt@tty2, which owned the tty), dbus-run-session
+  startplasma-wayland. KWin 6.3.6 supportInformation: DRM backend,
+  atomic modesetting, compositing OpenGL, "Mali-G72 (Panfrost)",
+  Mesa 25.0.7. kscreen: DSI-1 1080x540 logical (landscape, scale 2).
+- Journal: repeated `mtk_gem_prime_import_sg_table: sg_table is not
+  contiguous` (KWin offering a panfrost buffer to mediatek-drm for
+  direct scanout; no M4U, so only CMA buffers import). Open.
+- Frame pacing, weston-presentation-shm -f, 12 s, 712 frames: 600 at
+  1 vblank, 56 at 2 vblanks, 56 at ~0 (always as "0 then 33 ms": two
+  client frames reported in one flip, then a gap = a repeated frame,
+  ~4-5 per second; matches the "stutters" seen in glmark2). Commit to
+  presentation latency ramps 42 -> 9 ms between glitches.
+- Two display findings (tools/display/vblank-period.py, drmWaitVBlank
+  on card2, 600 waits):
+  1. Real refresh 60.051 Hz (16652.5 us), the mode says 60.000 Hz
+     (clock 160439 kHz, 1216 x 2199 = 16666.6 us).
+  2. The vblank sequence advances by 2 per frame (599 of 599 steps):
+     OVL_2L0 (0x14009000) INTEN = 0x201e, LK's value (mainline only
+     writes 0x2 or 0). Every OVL/RDMA in the path has mtk_crtc_ddp_irq
+     registered (mtk_crtc.c, register_vblank_cb per comp), so OVL_2L0's
+     frame-done interrupt runs the vblank handler too, 60 us after
+     OVL0's. RDMA0 INTEN 0xa6 (its IRQ count is 0).
+- Live test (devmem write, no flash): OVL_2L0 INTEN 0x201e -> 0. Stray
+  IRQ stopped, vblank sequence steps 1, drmWaitVBlank still OK
+  (60.049 Hz) via OVL0. But KWin then froze (weston client got no more
+  presentation events); OVL0 INTEN read 0 and its IRQ count stopped, so
+  KWin was not waiting on a vblank: cause not known. Writing 0x201e back
+  gave an OVL_2L0 interrupt storm (1.48 M in 3 s; a status bit latched
+  while masked does not clear), SSH over USB and Wi-Fi lost; ~1 min
+  later the board reset (watchdog escape worked) and booted g3 normally.
+- Not done: the kernel fix (disable vblank on comps 1..n in
+  mtk_crtc_ddp_hw_init) is written but not built or committed until
+  the KWin freeze with OVL_2L0 masked is understood. Next: with the
+  user present, mask OVL_2L0 and clear its INTSTA first, collect KMS
+  debug and KWin logs during the freeze.
