@@ -126,5 +126,6 @@ CCI governor). Stock's coupling is in SSPM firmware and not known.
 - C4: full tables, constraints = each table's range. PASS 2026-10-30:
   all 32 OPPs exact; full-speed stress reaches the 80 °C passive trip in
   ~75 s and throttles one or two OPPs, no md5 errors.
-- Idle (planned): read SSPM mailbox 3 (MCDI) first; CPU_SLEEP only
-  before cluster states.
+- Idle I2 (2026-10-30): core power-down on all CPUs from boot; needs
+  stock's SSPM MCDI init (AVAIL_CPU_MASK), done by cosmo-cpu-hotplug.
+  Cluster power-down not yet.

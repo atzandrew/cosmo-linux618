@@ -2886,3 +2886,19 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   mailbox avail 0xff after); one 10 s deep sleep (disp1.sh), then
   state1 usage still rising, temp readable, steps PASS. Fail: hang,
   missing CPU, RCU stall.
+
+### I2 result: PASS (i2-boot.img 706469ac…, #43, c6f8188)
+
+- Boot: "cosmo-cpu-hotplug: MCDI avail mask 0xff, isolation 0" at
+  0.054 s; core-off usage rising on all 8 CPUs from boot (after 4 min:
+  CPU0 21710, CPU1-3 2965-3454, CPU4-7 358-764).
+- steps 32/32 PASS with idle on.
+- Hotplug CPU7..1 off: online 0, mailbox avail 0x1; back on: online
+  0-7, avail 0xff (pwr_stat 0x6c); mask writes 1 -> 15 (+14), POWER_DOWN_
+  CORE calls 7, errors 0; all CPUs enter and leave core-off afterwards.
+- 10 s deep sleep (disp1.sh): wake up by PCM_TIMER, panel on, online 0-7;
+  core-off still cycling (cpu7: 26 exits in 5 s, 4.9 s of 5 s in
+  core-off, pinned job runs), temp 35.5 °C, steps PASS.
+- Open: awake idle current A/B (cpuidle on vs off, USB unplugged);
+  cluster power-down (stock MCDI_CLUSTER 0x01010001 + CLUSTER_n_CAN_
+  POWER_OFF mailbox write before entry).
