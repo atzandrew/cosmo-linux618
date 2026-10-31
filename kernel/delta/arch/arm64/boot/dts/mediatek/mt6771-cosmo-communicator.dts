@@ -1813,3 +1813,40 @@
 &cpu5 { cpu-idle-states = <&COSMO_CPU_OFF_L>; };
 &cpu6 { cpu-idle-states = <&COSMO_CPU_OFF_L>; };
 &cpu7 { cpu-idle-states = <&COSMO_CPU_OFF_L>; };
+
+/*
+ * Idle pin levels as stock (live readback of all 180 pins, stock vs this
+ * kernel, docs/session-log.md 2026-10-29). Nothing else drives these pins.
+ * 101/102: camera resets, stock low. 111: second speaker amp enable,
+ * stock output low (was a floating input). 177: stock high, set by the
+ * stock Type-C init (usb_typec.c fusb300_init).
+ */
+&pio {
+	cam-rst0-hog {
+		gpio-hog;
+		gpios = <101 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "cam-rst0-idle";
+	};
+
+	cam-rst1-hog {
+		gpio-hog;
+		gpios = <102 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "cam-rst1-idle";
+	};
+
+	extamp2-hog {
+		gpio-hog;
+		gpios = <111 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "extamp2-idle";
+	};
+
+	typec-177-hog {
+		gpio-hog;
+		gpios = <177 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "typec-177-idle";
+	};
+};

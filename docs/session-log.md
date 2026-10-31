@@ -2925,3 +2925,29 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   CPU cores. Core-off stays on (stock does it; no cost seen).
 - Next: cluster power-down research (ATF handling of mailbox 3
   CLUSTER_n_CAN_POWER_OFF / ATF_ACTION_DONE) before any code.
+
+## 2026-10-29 — GPIO177/178 and idle pin levels vs stock (entry written 2026-10-30)
+
+- GPIO177 is set by the stock Type-C init (fusb300_init, fs_initcall,
+  usb_typec.c:172-183, 622-625). GPIO178 is held high by stock
+  test_right_usb every 5 s (live stock dmesg, CCXstate 0x0; the source
+  copy has that timer commented out, configfs.c:1800).
+- Live test, GPIO177 high: awake A/B/A 95.5/95.6/95.9 mA (charger
+  reported online throughout): no effect. The pin reads back high
+  (mode field = GPIO).
+- Full 180-pin readback, stock vs this kernel: only 101/102 (camera
+  resets: ours high, stock low), 111 (extamp2: ours floating input,
+  stock output low) and 177 (ours low, stock high) are worth matching.
+  159 belongs to the panel and stays as it is.
+
+## 2026-10-30 — G1: idle pin levels as stock (pre-flash check)
+
+- Change: DTS gpio-hogs 101 low, 102 low, 111 low, 177 high. Nothing
+  else claims these pins (178 stays with the keyboard-backlight driver).
+  DTS only; modules unchanged.
+- Image g1-boot.img 61cafc3a… (= i2 + hogs). Escapes: PMIC long press
+  (observed many times); rollback i2-boot.img.
+- Test: boot reaches Debian; /sys/kernel/debug/gpio (or gpioinfo) lists
+  the four hogs with the stated levels; pins 101/102/111/177 read back
+  as stock; core-off idle usage still rising; keyboard, Wi-Fi, display
+  as i2. Fail: no boot, a hog missing or a wrong level.

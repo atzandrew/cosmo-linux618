@@ -4,7 +4,7 @@ Every hardware block the Cosmo needs under mainline 6.18, with where it sits,
 what mainline offers, and what is done. Written 2026-10-25 from the stock
 device trees (Gemian 4.4 `boot` appended DTB and the stock `dtbo` overlay,
 decompiled), the vendor 4.4 source, live stock values (`docs/stock-reference.md`)
-and the bring-up so far. Plan phases
+and the bring-up so far; status updated 2026-10-30. Plan phases
 (P1–P7) are the ones in `docs/hardware-map.md`.
 
 Status: ✅ working on our kernel · 🔶 partly / interim · ⬜ not started ·
@@ -17,20 +17,20 @@ yet confirmed.
 | | Block | Part / location | Mainline | Notes | Phase |
 |---|---|---|---|---|---|
 | ✅ | Boot via LK | `boot` (Image.gz + DTB), no-op `dtbo` | — | LK contract in `docs/p0-findings.md` | P1 |
-| ✅ | CPUs, GIC, timers | MT6771 = MT8183 die, 4×A53 + 4×A73 | yes | all 8 online and taking load (checked 2026-10-25); `cpuidle.off=1` for now | P1 |
+| ✅ | CPUs, GIC, timers | MT6771 = MT8183 die, 4×A53 + 4×A73 | yes | all 8 online and taking load; core power-down idle since I2 | P1 |
 | ✅ | eMMC | msdc0, 8-bit, HS200 | yes (`mtk-sd`) | 169 MB/s; stock runs HS400 at 192 MHz: enable it | P1/P2 |
 | ✅ | Watchdog / reboot | TOPRGU `mtk_wdt` | yes + delta | restart priority 130; stays armed across kexec | P1 |
 | ✅ | Power-key long-press reset | MT6358 `TOP_RST_MISC` | (hardware) | preloader value 0x1325 kept; Linux never writes it | P1 |
 | ✅ | USB device (gadget) | mtu3 `11201000`, t-phy | yes + delta | `u3p-dis-msk`, U2 force bits; CDC-ECM + telnet | P1 |
 | ✅ | kexec | — | yes | test loop, ~40 s per kernel | P1 |
-| 🔶 | Framebuffer console | LK buffer `0x7df70000`, simplefb | yes | fixed address; take it from LK's atag; LK orange text on OVL layer 3 cleared at boot (try21, mtk-lk-overlay-clear) | P1 |
-| ⬜ | Power key / keys as input | MT6358 `mt6358keys` | **fix** | disabled: mainline `mtk-pmic-keys` has the wrong MT6358 reset-register layout. Needs a corrected driver that never touches the reset enable | P2 |
+| ✅ | Framebuffer console | mediatek-drm fbdev (was LK buffer `0x7df70000` + simplefb) | yes | since display D2 | P1 |
+| ✅ | Power key / keys as input | MT6358 `mt6358keys` | **fix** | corrected driver that never touches the reset enable (pk2); hold 3 s = power off | P2 |
 | ⬜ | Keypad block | `kp@10010000` | check (`mt6779-keypad`?) | which keys it carries on the Cosmo | P2 |
-| ⬜ | cpufreq / DVFS | big: vproc11+vsram_proc11, little+CCI: vproc12+vsram_proc12 (no external buck) | yes (mt8183) | today fixed at 1.1/1.2 GHz (LK); stock 0.79-1.99 / 0.79-2.11 GHz, OPP table for this unit in `docs/stock-reference.md` | P2 |
-| 🟡 | SVS, thermal | — | yes (mt8183) | thermal done (power S2: `cpu-thermal` critical 115 C, battery 60 C); SVS open | P2 |
-| ⬜ | cpuidle / suspend | SPM | check | Gemini lesson: plan this early; `cpuidle.off=1` today | P2 |
-| ⬜ | CPU hotplug (CPU_ON after CPU_OFF) | vendor ATF | firmware | fails today; kexec unaffected | P2 |
-| ⬜ | RTC | MT6358 RTC | yes (`rtc-mt6397`) | LK keeps boot flags in spare regs: no alarms until mapped | P2 |
+| ✅ | cpufreq / DVFS | big: vproc11+vsram_proc11, little+CCI: vproc12+vsram_proc12 (no external buck) | yes (mt8183) + delta | full stock tables for this unit, CCI devfreq (C1-C4, `docs/cpufreq.md`) | P2 |
+| 🔶 | SVS, thermal | — | yes (mt8183) | thermal done (`cpu-thermal` critical 115 C, battery 60 C; sensor re-init after deep sleep, TH1); SVS open (cold-margin table, `docs/cpufreq.md`) | P2 |
+| 🔶 | cpuidle / suspend | SPM, SSPM MCDI | delta | deep sleep via SPM, ~85 mA = stock on this unit (DS7); core power-down idle with stock's MCDI mailbox init (I2); cluster power-down not done | P2 |
+| ✅ | CPU hotplug (CPU_ON after CPU_OFF) | vendor ATF | firmware | works since 2026-10-27; MCDI mask updated around hotplug (I2) | P2 |
+| ✅ | RTC | MT6358 RTC | yes (`rtc-mt6397`) + delta | vendor year encoding, base 1968 (rtc1) | P2 |
 | ⬜ | Regulators audit | MT6358 fixed LDOs | yes | compare voltages with stock (open safety-audit item) | P2 |
 | ⬜ | microSD | msdc1, 4-bit, card-detect GPIO | yes (`mtk-sd`) | stock `status = okay` | P2 |
 | ⬜ | Debug UART | UART0 GPIO95/96 | yes | no reachable pads found | — |
@@ -50,12 +50,12 @@ yet confirmed.
 
 | | Block | Part / location | Mainline | Notes | Phase |
 |---|---|---|---|---|---|
-| ⬜ | Panel (DSI) | NT36672 on this unit (SSD2092 on others), 1080×2160 | **port** | panel rule: ID and init path confirmed first; first DSI write with someone watching | P3 |
-| ⬜ | Backlight | MT6370 backlight (`mt6370_pmu_bled`) | yes (`mt6370-backlight`) | | P3 |
-| ⬜ | Display pipeline | OVL/RDMA/DSI (mt8183) | yes (mediatek-drm) | replaces simplefb | P3 |
+| ✅ | Panel (DSI) | NT36672 on this unit (SSD2092 on others), 1080×2160 | **port** | display D2; panel off in deep sleep, back on at wake | P3 |
+| ✅ | Backlight | MT6370 backlight (`mt6370_pmu_bled`) | yes (`mt6370-backlight`) | fb0 blank does not turn it off; use brightness | P3 |
+| ✅ | Display pipeline | OVL/RDMA/DSI (mt8183) | yes (mediatek-drm) | replaces simplefb (D2) | P3 |
 | ⬜ | Touch | `cap_touch@62` (i2c0, Novatek) or `solomon_touch@53` | yes / port | `novatek-nvt-ts` for NT36672; SSD20xx from the Gemini delta | P3 |
-| ⬜ | Keyboard | AW9523 `@5b` (i2c4) + AW9524 `@5b` (i2c3) | yes (`pinctrl-aw9523`) + matrix | AW9524 compatibility to check; keymap from the Gemini | P3 |
-| ⬜ | Keyboard backlight | `mediatek,keyboard-backlight` | check | | P3 |
+| ✅ | Keyboard | AW9523 `@5b` (i2c4) + AW9524 `@5b` (i2c3) | **new** (stock scan) | driver follows the stock scan; works after deep sleep (DS8) | P3 |
+| ✅ | Keyboard backlight | GPIO178 + PWM1 FIFO | **new** (`planet,cosmo-kbd-backlight`) | as stock (`docs/leds-stock.md`) | P3 |
 | ⬜ | Lid (hall sensor) | `hall-eint` GPIO (stock `mtk-hall`) | yes (`gpio-keys` SW_LID) | DT only | P3 |
 | ⬜ | Cover display | external screen | check | controller not identified yet | later |
 
@@ -81,7 +81,7 @@ yet confirmed.
 
 | | Block | Part / location | Mainline | Notes | Phase |
 |---|---|---|---|---|---|
-| ⬜ | Wi-Fi | CONSYS `18070000`, WLAN gen3 | **port** | from the Gemini's forward-ported connectivity stack (lists CONSYS_6771) | P5 |
+| ✅ | Wi-Fi | CONSYS `18070000`, WLAN gen3 | **port** | stock connectivity stack, Wi-Fi at boot (W1-W3, `docs/wifi-stock.md`); deep sleep with Wi-Fi on not supported | P5 |
 | ⬜ | Bluetooth | CONSYS (BTIF / `hci_stp`) | **port** | same stack | P5 |
 | ➖ | GPS, FM | CONSYS | port | | — |
 | ➖ | Modem / SIM | MD1 | — | | — |
@@ -97,7 +97,7 @@ yet confirmed.
 | ⬜ | Magnetometer | `@0c` (i2c1) | check | stock drives it from the SCP sensor hub; identify by chip-ID register | later |
 | ⬜ | Barometer | `@77` (i2c1) | check | SCP sensor hub on stock; identify by chip-ID register | later |
 | ⬜ | Vibrator | MT6358 VIBR LDO | yes (`regulator-haptic`) | | later |
-| ⬜ | Notification LED | MT6370 RGB | yes (`leds-mt6370-rgb`) | | later |
+| ✅ | Notification LED | MT6370 RGB + AW9524 rear LEDs | yes / delta | `docs/leds-stock.md` | later |
 | ➖ | Fingerprint | `cs_finger` (spi0) | **new** | | — |
 | ➖ | `aw6302` (spi2) | AEON driver, registers `cs_finger` | **new** | fingerprint-related, not the cover display | — |
 
@@ -107,5 +107,5 @@ yet confirmed.
 |---|---|---|---|
 | 🔶 | Root filesystem | headless Debian trixie on userdata (gemini-debian `DEVICE=cosmo`); desktop after display/input | P7 |
 | ✅ | Boot flow | initramfs → Debian on userdata; systemd takes the watchdog; tripwire to the rescue initramfs (both observed 2026-10-25) | P7 |
-| ⬜ | Clock | RTC not read/set yet, no NTP over USB | P2 |
+| 🔶 | Clock | RTC read at boot (rtc1); NTP not checked | P2 |
 | ⬜ | Defconfig trim | drop unused arm64 defconfig drivers | P7 |
