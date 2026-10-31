@@ -32,28 +32,31 @@ the stock kernel tree.
 
 ## Speaker
 
-- Codec side (`Speaker_Amp_Change`, mtk-soc-codec-6358.c:3755): the
-  speaker is fed from the MT6358 line-out, LOL ("Switch LOL MUX to audio
-  DAC", AUDDEC_ANA_CON7 = 0x011b). Mainline: `LOL Mux` -> `LINEOUT L`.
-- Amp side (`Ext_Speaker_Amp_Change`, mtk-soc-codec-6358.c:3887): both
-  amps are switched together. On: headphone_en low, both amp pins low,
-  1-20 ms, then `AudDrv_GPIO_EXTAMP_Select(true, 3)` and
+- Stock speaker path is the headphone buffer, not the line-out:
+  vendor `/etc/audio_param/AudioParamOptions.xml` (Android vendor
+  partition, mmcblk0p35) has `MTK_AUDIO_SPEAKER_PATH = int_hp_buf` and
+  `SPK_PATH_HP = yes`. `/etc/audio_device.xml` maps the speaker to the
+  kcontrols `Headset_Speaker_Amp_Switch` (headphoneSpeaker_output) and
+  `Ext_Speaker_Amp_Switch` (ext_speaker_output).
+- `Headset_Speaker_Amp_Change` (mtk-soc-codec-6358.c:3992): HPL mux =
+  line-out, HPR mux = DAC-R, HP and LO drivers on, HP/LO gain -10 dB.
+  Mainline equivalent: HPL/HPR Mux "LoudSPK Playback"
+  (`mtk_hp_spk_enable`).
+- `Speaker_Amp_Change` (:3755, LOL only) exists in the kernel but is not
+  the configured path on this device.
+- Amp side (`Ext_Speaker_Amp_Change`, :3887): both amps switched
+  together. On: headphone_en low, both amp pins low, 1-20 ms, then
+  `AudDrv_GPIO_EXTAMP_Select(true, 3)` and
   `AudDrv_GPIO_EXTAMP2_Select(true, 3)`, then 25 ms warm-up. Off: both
-  pins low, 500 us.
+  pins low, 500 us. Skipped while HDMI is plugged (`hdmi_det_gpio`).
 - `AudDrv_GPIO_EXTAMP_Select` (common_int/mtk-auddrv-gpio.c:510): mode 3
-  = three pulses of (low, 2 us, high, 2 us). Off = low.
-- Mainline `aw8738.c` POST_PMU: `awinic,mode` pulses of (0, 2 us, 1,
-  2 us), then 40 ms; PRE_PMD: low, 1-2 ms. Same sequence with
-  `awinic,mode = <3>`.
-- Pins (dtbo fragment@16): extamp = GPIO153 (`pins = <0x9900>`), extamp2
-  = GPIO111 (`0x6f00`), both GPIO mode, output.
-- Stock skips the speaker while HDMI is plugged
-  (`gpio_get_value(hdmi_det_gpio)`, hdmi_det-gpio from the fusb302
-  Type-C node).
-- `/proc/AEON_ENABLE_SPEAKER` (mtk-auddrv-gpio.c): manual amp on/off
-  from userspace, both amps or one at a time.
-- Our DTS holds GPIO111 low with the `extamp2-hog` (G1, stock idle level).
-  An amp node that owns GPIO111 replaces the hog.
+  = three pulses of (low, 2 us, high, 2 us). Off = low. Mainline
+  `aw8738.c` with `awinic,mode = <3>` sends the same sequence.
+- Planet additions keep the amps on whenever no headset and no HDMI is
+  present: accdet/mt6771/accdet.c:943 (`accdet_eint_work_callback`) and
+  usb_c/fusb302/usb_typec.c:342.
+- Pins (dtbo fragment@16): extamp = GPIO153, extamp2 = GPIO111, GPIO
+  mode, output. `/proc/AEON_ENABLE_SPEAKER` switches them from userspace.
 
 ## Headphone GPIOs
 
@@ -65,8 +68,10 @@ the stock kernel tree.
   turns off (:5431). Headphone playback itself (`Headset_Amp_Change`)
   does not touch either pin.
 - `/proc/headphone_cs` (mtk-soc-codec-6358.c:7376): `1` = cs high + en
-  high, `0` = cs low + en high, `2` = en low. What the switch selects is
-  not known from the source.
+  high, `0` = cs low + en high, `2` = en low. Written at runtime by the
+  Planet Android framework (string `/proc/headphone_cs` in
+  system/framework/oat/arm64/services.vdex); the logic is not read yet.
+  What the switch selects is not known.
 - Idle levels on our kernel match stock (180-pin readback, session log
   2026-10-29).
 

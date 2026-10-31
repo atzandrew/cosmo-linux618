@@ -3274,3 +3274,37 @@ Image T1:
   sleep (Wi-Fi off, USB unbound) ~85 mA.
   Fail: no boot or hang at the AFE probe, no card, no sound, an amp pin
   left high after playback, sleep clearly above 85 mA.
+
+### A1 results (2026-10-31)
+
+- Boot PASS; card "cosmo" registered; amp pins low at idle.
+- Playback first failed (aplay EIO, "mtk_afe_pcm_pointer hw_ptr err",
+  DL1_CUR = 0). /dev/mem readback: AUDIO_TOP_CON0 bit 2 (AFE clock gate)
+  stays set while the clock framework counts aud_afe as enabled. Cause:
+  mt8183-afe-pcm takes the audiosys syscon regmap that the clock driver
+  also uses and puts it in cache-only mode while runtime-suspended; on
+  resume it enables its clocks before leaving cache-only, so the gate
+  writes are dropped (same for the I2S gates). Fix (delta
+  mt8183-afe-pcm.c): leave cache-only before enabling the clocks, gate
+  the clocks before entering cache-only. Clearing bit 2 by hand first
+  confirmed it (DL1_CUR then advances, aplay completes).
+- Unloading and reloading snd-soc-mt8183-afe oopses (the shared regmap
+  keeps the unloaded module's volatile_reg callback): panic, watchdog
+  reboot, the just-installed module was lost (no sync). Module changes
+  for this driver need a reboot, never a reload.
+- Line-out only (stock Speaker_Amp_Change register values reproduced,
+  amps on): no sound. Headphones (HPL/HPR "Audio Playback", -10 dB):
+  the tone is heard, with hiss while a stream is open and a pop at
+  stream stop. So the AFE -> MTKAIF -> MT6358 DAC path works.
+- Stock vendor config: speaker = headphone buffer path (SPK_PATH_HP,
+  docs/audio-stock.md). Mainline "LoudSPK Playback" mode with amps on:
+  no sound. Driving GPIO107/108 (headphone_cs/en) away from idle gave
+  loud buzzes in some runs and nothing in others with the same settings;
+  not reproducible. A laptop USB ground loop also caused buzzing.
+- Speaker: FAIL so far. Sleep test not run.
+- Device state: modules from 337f7a4 + AFE fix + mt6358 line-out event
+  installed; alsa-utils and gpiod installed by apt (add to the
+  gemini-debian package list if kept).
+- Next: compare against stock live on Gemian (same 4.4 kernel, sound
+  works there): record kcontrols, GPIO107/108/111/153 and MT6358
+  AUDDEC registers during speaker and headphone playback.
