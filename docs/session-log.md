@@ -3158,3 +3158,70 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   "looks pretty smooth". Desktop step 5 PASS on the user's judgement.
 - Next: touch bring-up (checklist P3: cap_touch@62 Novatek or
   solomon_touch@53; i2c0 not enabled yet), stock first.
+
+## 2026-10-31 — Touch T1: NT36672 touch on i2c0 (pre-flash check)
+
+Stock inventory (no flash):
+- Stock driver drivers/input/touchscreen/mediatek/NT36xxx (stock44):
+  INT only (NVT_GPIO_AS_INT, request_irq IRQF_TRIGGER_RISING,
+  nt36xxx.h:30); reset is over I2C (0x00 0x69 to 0x62,
+  nvt_bootloader_reset, nt36xxx.c:589), never a GPIO: NVT_GPIO_OUTPUT has
+  no caller. No regulator calls. Suspend = disable_irq + 0x50 0x11 deep
+  sleep (nt36xxx.c:1722); resume = I2C boot reset after the panel init
+  (nt36xxx.c:1793).
+- Stock dtbo: fragment@36 i2c0 400 kHz, cap_touch@62; fragment@8
+  ctp pins: INT GPIO9 (mode 0, bias-disable), touch reset GPIO156;
+  fragment@75 vtouch-supply = VLDO28, used only by other touch drivers
+  (FT5X26, GT1x, GT9xx, gslX680), not NT36xxx.
+- Stock LCM aeon_nt36672_fhd_dsi_vdo_x600_xinli drives only the panel
+  RESX (our GPIO45); nothing in stock drives GPIO156.
+- Live on g3 (rd.py, read-only): GPIO82/83 mode 1 = SDA0/SCL0;
+  GPIO9 mode 0, input, level 0; GPIO156 mode 0, output, high.
+- Mainline novatek-nvt-ts: required reset GPIO, held asserted whenever
+  the input device is closed. Delta copy makes it optional
+  (devm_gpiod_get_optional; the binding already lists it as optional).
+  The driver only reads: 0x78 parameter block at probe, events at 0x00.
+
+Image T1:
+- DTS: &i2c0 400 kHz, touchscreen@1 novatek,nt36672a-ts, INT GPIO9
+  (pinctrl touch-int-pins), no reset-gpios, no supplies.
+  CONFIG_TOUCHSCREEN_NOVATEK_NVT_TS=m.
+- t1-boot.img 076ef15148b5f97107da6d95a82d6115c4402bb4c141fdd3933d85121be445ea
+  (Image.gz-dtb f2448ec3…). Rootfs: novatek-nvt-ts.ko from this build
+  installed, depmod (no other module changed).
+- Escapes: PMIC long press (observed), rollback g3-boot.img 1a5b2706….
+- Panel risk: none expected (no GPIO, no supply, no command writes to
+  the chip); user present anyway, on-glass picture announced first.
+- Pass: boot; i2c 0-0001 bound to novatek-nvt-ts and an input device
+  with X/Y ranges near the panel size; evtest shows taps and drags;
+  no display change at probe or touch; after sleep (Wi-Fi off) ~85 mA
+  and touch still works.
+  Fail: no boot, any flicker or display change, touch dead after wake.
+  "Unsupported touchscreen parameters" = not a fail of the image, the
+  dump is the result (next step adjusts the chip data).
+
+### T1 result (on glass)
+
+- Probe OK: novatek-nvt-ts 0-0001, input2 "nt36672a-ts", MT X 0-1079,
+  Y 0-2159 (firmware parameters accepted as nt36672a). No display change.
+  Tracking smooth in Plasma, but both axes reversed (left/right and
+  up/down swapped).
+- Stock does the same flip in its default orientation (RR_Rotate_0:
+  1080 - x, 2160 - y, nt36xxx.c:1071).
+- T1b: DT adds touchscreen-inverted-x/-y, nothing else.
+  t1b-boot.img dd1c8c5155b0d8f6b9580ef61c3efb66436b90139173b1b9b77d39b4f46a54d1
+  (Image.gz-dtb 1de6966a…). Pass: taps land under the finger in Plasma.
+
+### T1b result: PASS (t1b-boot.img dd1c8c51…)
+
+- On glass: taps land under the finger; scrolling and pinch zoom work in
+  Plasma (KWin maps the panel-native touch to the rotated output with no
+  extra config). No display change.
+- Sleep (tools/sleep-tests/touch1.sh 300, Wi-Fi off, fb0 blanked, USB
+  unbound): exit 0, 301 s, CAR -7165 uAh, avg 85.7 mA (= the 85 mA
+  baseline). Panel bias off in sleep as before; woken by PCM timer.
+- After wake: touch works without any re-init (IRQ 36 count 2819 -> 3192
+  on taps). Stock sends an I2C boot reset (0x69) on resume after the
+  panel init; not needed here so far.
+- Not done: touch as a wake source, palm/edge handling, deep-sleep
+  command (0x50 0x11) before suspend (the panel power-off covers it).

@@ -678,6 +678,15 @@
 		};
 	};
 
+	/* Touch INT: stock ctp_pins_eint_as_int (dtbo fragment@8) */
+	touch_int_pins: touch-int-pins {
+		pins-int {
+			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
+			input-enable;
+			bias-disable;
+		};
+	};
+
 	/* MSDC0 pins are fixed on the die; identical to mt8183-kukui.dtsi */
 	mmc0_pins_default: mmc0-default-pins {
 		pins-cmd-dat {
@@ -892,6 +901,40 @@
 			MATRIX_KEY(5, 6, KEY_L)
 			MATRIX_KEY(6, 6, KEY_0)
 		>;
+	};
+};
+
+/*
+ * Touchscreen: the NT36672 is a TDDI chip (panel and touch in one), on
+ * i2c0 (0x11007000, single-channel like i2c11). Stock: dtbo fragment@36
+ * (cap_touch@62, 400 kHz) and vendor NT36xxx driver (I2C_HW_Address 0x62
+ * for the boot/ID commands, I2C_FW_Address 0x01 for events and the 0x78
+ * parameter block, which is what the mainline driver uses).
+ * Pin mux left as the preloader sets it (GPIO82/83 = SDA0/SCL0, read live
+ * 2026-10-31). INT = GPIO9 / EINT9; stock requests a rising edge, the
+ * mainline driver takes the trigger from the firmware parameters.
+ * No reset-gpios: stock never drives the touch reset line (GPIO156, held
+ * high by the bootloader); the panel reset (GPIO45) brings the touch MCU
+ * up. No supplies: stock's vtouch-supply (VLDO28) is not used by the
+ * NT36xxx driver; the chip runs from the panel rails.
+ */
+&i2c0 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	touchscreen@1 {
+		compatible = "novatek,nt36672a-ts";
+		reg = <0x01>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&touch_int_pins>;
+		interrupts-extended = <&pio 9 IRQ_TYPE_EDGE_RISING>;
+		/*
+		 * The firmware reports both axes reversed against the panel
+		 * scan: stock NT36xxx RR_Rotate_0 reports (1080 - x, 2160 - y)
+		 * (nt36xxx.c:1071). Seen on glass 2026-10-31 (T1).
+		 */
+		touchscreen-inverted-x;
+		touchscreen-inverted-y;
 	};
 };
 
