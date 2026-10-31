@@ -3048,3 +3048,18 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   vgpu 0.625 V at 300, 0.6625 V at 420; vsram_gpu 0.850 V throughout
   (= max(vgpu + 100 mV, 0.850 V) for every G2 OPP). Thermal zones 39 C
   right after the run. G2b PASS for DVFS and rails at these OPPs.
+
+## 2026-10-30 — GPU G3: full stock segment-4 OPP table (pre-flash check)
+
+- Change: cosmo_gpu_opp = all 16 stock segment-4 OPPs, 300 MHz /
+  0.625 V to 900 MHz / 0.900 V (values from mtk_gpufreq_core.h SEG4,
+  checked one by one). Rails, domains and cmdline as g2b.
+- Image g3-boot.img 1a5b2706…; escapes: PMIC long press, rollback g2b.
+- No GPU cooling device yet: the test is a short glmark2 run with the
+  temperatures sampled; abort above 70 C on any zone.
+- Pass: boot; devfreq lists 16 OPPs; under glmark2 the GPU reaches the
+  upper OPPs, mfg_bg3d rate = OPP, and at each sampled OPP vgpu = the
+  stock value and vsram_gpu = max(vgpu + 100 mV, 0.850 V) (900 MHz:
+  0.900 / 1.000 V); no panfrost fault in dmesg; no flicker on glass.
+  Fail: no boot, GPU fault or reset, a rail off the stock value, over
+  70 C, any display fault.

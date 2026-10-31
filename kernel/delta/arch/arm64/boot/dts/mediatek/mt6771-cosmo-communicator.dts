@@ -1167,9 +1167,10 @@
 };
 
 /*
- * GPU G2: Mali-G72 MP3 with panfrost. Only the five lowest stock
- * segment-4 OPPs for the first test (300-420 MHz, VGPU at most
- * 0.6625 V, VSRAM_GPU 0.850 V); the full table comes after.
+ * GPU: Mali-G72 MP3 with panfrost. Full stock segment-4 table (G3):
+ * 300 MHz / 0.625 V to 900 MHz / 0.900 V, VGPU as stock at every OPP;
+ * the coupler sets VSRAM_GPU 0.850-1.000 V. Mainline mt8183 (stock
+ * segment 2) has the same voltage at every shared frequency.
  */
 &gpu {
 	mali-supply = <&mt6358_vgpu_reg>;
@@ -1201,6 +1202,50 @@
 		opp-420000000 {
 			opp-hz = /bits/ 64 <420000000>;
 			opp-microvolt = <662500>;
+		};
+		opp-460000000 {
+			opp-hz = /bits/ 64 <460000000>;
+			opp-microvolt = <675000>;
+		};
+		opp-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-microvolt = <687500>;
+		};
+		opp-540000000 {
+			opp-hz = /bits/ 64 <540000000>;
+			opp-microvolt = <700000>;
+		};
+		opp-580000000 {
+			opp-hz = /bits/ 64 <580000000>;
+			opp-microvolt = <712500>;
+		};
+		opp-620000000 {
+			opp-hz = /bits/ 64 <620000000>;
+			opp-microvolt = <725000>;
+		};
+		opp-653000000 {
+			opp-hz = /bits/ 64 <653000000>;
+			opp-microvolt = <743750>;
+		};
+		opp-698000000 {
+			opp-hz = /bits/ 64 <698000000>;
+			opp-microvolt = <768750>;
+		};
+		opp-743000000 {
+			opp-hz = /bits/ 64 <743000000>;
+			opp-microvolt = <793750>;
+		};
+		opp-800000000 {
+			opp-hz = /bits/ 64 <800000000>;
+			opp-microvolt = <825000>;
+		};
+		opp-850000000 {
+			opp-hz = /bits/ 64 <850000000>;
+			opp-microvolt = <862500>;
+		};
+		opp-900000000 {
+			opp-hz = /bits/ 64 <900000000>;
+			opp-microvolt = <900000>;
 		};
 	};
 };
