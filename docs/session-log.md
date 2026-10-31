@@ -3021,3 +3021,18 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
   20 s with no GPU fault in dmesg; GPU devfreq moves between OPPs with
   vsram = max(vgpu + 100 mV, 0.850 V). Fail: no boot, kmscube error, GPU
   fault, rail outside its limits.
+
+### G2b result so far (g2b-boot.img 475cb181…, eeebd37)
+
+- Boot OK; CmaTotal 262144 kB. kmscube -D /dev/dri/card2 ran 20 s with
+  no error and a clean dmesg, but on glass the user saw only a brief
+  flash, not a steady cube: open.
+- Flip check, modetest -M mediatek -s 34@66:1080x2160 -v (libdrm-tests).
+  Over SSH modetest exits at once on stdin EOF (pselect on fd 0); with
+  stdin held open (`sleep 13 |`) it ran. On glass: flashing colour test
+  pattern (modetest -v flips between the SMPTE pattern and a plain fill
+  every frame, by design), so page flips complete. The user cut power
+  as a precaution (looked like the Gemini burn flicker); no burn, clean
+  shutdown and reboot. OVL0 IRQ ~60/s during the test.
+- Rule for later display tests: say what the screen will show before
+  the run; no flashing patterns.
