@@ -3147,3 +3147,14 @@ lcm_suspend table, then display_bias_disable). Vendor ATF v1.3(debug)
 - Plasma + weston-presentation-shm at HFP 110 (59.983 Hz): 78 of 714
   frames "0 then 33 ms", c2p ramps down 36 -> 10 ms as before. Same as
   at 60.051 Hz: the refresh mismatch is not the stutter cause.
+- Compositor flips while weston-presentation-shm animates under Plasma
+  (HFP 108): 601 GCE completions and 601 OVL0 vblanks in 10 s = one
+  flip per refresh, no dropped frames; client 836 frames in 14 s. The
+  "0 then 33 ms" pairs are flip events stamped with the previous
+  vblank's time (GCE done before that frame's vblank IRQ is handled),
+  not repeated frames. Cosmetic for smoothness; may still skew KWin's
+  scheduling (OVL_2L0 patch remains a candidate, later).
+- User on glass (keyboard only, touch not brought up yet): Plasma
+  "looks pretty smooth". Desktop step 5 PASS on the user's judgement.
+- Next: touch bring-up (checklist P3: cap_touch@62 Novatek or
+  solomon_touch@53; i2c0 not enabled yet), stock first.
