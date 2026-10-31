@@ -3308,3 +3308,33 @@ Image T1:
 - Next: compare against stock live on Gemian (same 4.4 kernel, sound
   works there): record kcontrols, GPIO107/108/111/153 and MT6358
   AUDDEC registers during speaker and headphone playback.
+
+## 2026-10-31 — Audio A2: stock speaker reference on Gemian, speaker PASS
+
+- Stock reference (Gemian 4.4 on this unit, PulseAudio + droid HAL from a
+  desktop login). Gemian first boot after flash: Xorg crash loop, a second
+  reboot clears it. Gemian never writes /proc/AEON_ENABLE_SPEAKER (the
+  userspace amp switch: 1/3 = extamp/extamp2 on, 0 = off), so its speaker
+  stays silent until Ext_Speaker_Amp_Switch is set.
+- Working stock speaker state (tone heard): Audio_Amp_L/R_Switch on,
+  AUDDEC_ANA_CON0 0x3aff (both DACs, HPL/HPR on, HP mux 2 = mainline
+  "Audio Playback"), CON1 0x3f03, CON2 0xc033, CON6 0x10 (receiver off),
+  CON9 0xf201, ZCD_CON2 0x050a. GPIO153 (extamp) + GPIO111 (extamp2) high,
+  GPIO107 (headphone_cs) high, GPIO108 (headphone_en) low. Headphones use
+  the same codec state; only the amps differ. The first Gemian stream went
+  to the receiver route (Voice_Amp, CON6 0x9b, GPIO108 high): silent.
+- Cause of the mainline FAIL: the DT fed the amps from LINEOUT L, and the
+  earlier "LoudSPK Playback" try is HP mux 1, not stock's 2.
+- Change: DT routing "Amp1 IN" <- "Headphone L Ext Spk Amp", "Amp2 IN" <-
+  "Headphone R Ext Spk Amp" (mt6358 outputs fed by the HP muxes).
+  DT only; kernel and modules as a1 (13cc228 still installed, unused).
+- Image a2-boot.img
+  85b06c453a76b9739611599a53b5bcbbbfe36f4ff5b2d06ab66cb9c708a10be8.
+  Escapes: PMIC long press (observed); rollback a1-boot.img.
+- Pass: DAPM chain DACL -> HPL/HPR Mux -> Ext Spk Amp outputs -> Amp1/2 on,
+  GPIO153/111 high, tone heard from the speaker (pw-play over PipeWire).
+- Remaining register differences against stock while playing: ZCD_CON2
+  0x0912 (-10 dB) vs 0x050a, ZCD_CON1/3/5, AUDDEC_ANA_CON2 bit 15,
+  AUDDEC_ANA_CON8 0 vs 0x3b, AUDNCP_CLKDIV_CON4 3 vs 2.
+- Open: the amps stay on while the desktop holds a monitor stream on the
+  sink; revert 13cc228; hiss/pop; gain; UCM; mic; ACCDET; sleep check.

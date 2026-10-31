@@ -1990,11 +1990,13 @@
 };
 
 /*
- * Audio A1 (docs/audio-stock.md). MT6358 line-out (LOL) -> two pulse-mode
+ * Audio A1/A2 (docs/audio-stock.md). MT6358 HP buffers -> two pulse-mode
  * speaker amps: stock Ext_Speaker_Amp_Change switches both together with
  * mode 3 (three low/high pulses of 2 us) on GPIO153 (extamp) and GPIO111
  * (extamp2); aw8738 sends the same sequence and drives the pin low when
- * the speaker path powers down. Headphone jack on the MT6358 HP outputs.
+ * the speaker path powers down. Stock feeds the amps from the HP outputs
+ * (SPK_PATH_HP, HP mux "Audio Playback", Gemian capture 2026-10-31);
+ * the headphone jack shares the same outputs.
  * GPIO136-143: PMIC audio interface (MTKAIF), audio function at boot.
  * No reserved DMA pool: the AFE preallocates its buffers.
  */
@@ -2017,8 +2019,8 @@
 		compatible = "planet,cosmo-communicator-sound";
 		mediatek,platform = <&afe>;
 		audio-routing =
-			"Amp1 IN", "LINEOUT L",
-			"Amp2 IN", "LINEOUT L",
+			"Amp1 IN", "Headphone L Ext Spk Amp",
+			"Amp2 IN", "Headphone R Ext Spk Amp",
 			"Speaker", "Amp1 OUT",
 			"Speaker", "Amp2 OUT",
 			"Headphone", "Headphone L",
