@@ -1109,9 +1109,12 @@
  * physical buffers from CMA, as LK does.
  *
  * Sleep D1: the scpsys power controller manages the DISP domain.
- * Its probe powers on every listed domain, so AUDIO and CONN (the Wi-Fi
- * driver controls it itself) are disabled and the DISP sub-domains are
- * deleted (sub-domains are added even when disabled). Since GPU G2 it
+ * Its probe powers on every listed domain, so CONN (the Wi-Fi driver
+ * controls it itself) is disabled and the DISP sub-domains are deleted
+ * (sub-domains are added even when disabled). Since audio A1 it also
+ * manages AUDIO for the AFE (registers as stock spm_mtcmos_ctrl_audio,
+ * docs/audio-stock.md); genpd switches it off when the AFE is idle and
+ * in suspend. Since GPU G2 it
  * also manages the MFG domains for panfrost; genpd switches them off
  * when the GPU is idle and in suspend (stock sleep checks MFG is off).
  * Powering on the already-on DISP domain only sets bits LK already set.
@@ -1121,10 +1124,6 @@
  * DITHER and MUTEX have no runtime PM, so DISP never goes off at runtime.
  */
 &spm {
-	power-domain@MT8183_POWER_DOMAIN_AUDIO {
-		status = "disabled";
-	};
-
 	power-domain@MT8183_POWER_DOMAIN_CONN {
 		status = "disabled";
 	};
@@ -1963,9 +1962,9 @@
 /*
  * Idle pin levels as stock (live readback of all 180 pins, stock vs this
  * kernel, docs/session-log.md 2026-10-29). Nothing else drives these pins.
- * 101/102: camera resets, stock low. 111: second speaker amp enable,
- * stock output low (was a floating input). 177: stock high, set by the
- * stock Type-C init (usb_typec.c fusb300_init).
+ * 101/102: camera resets, stock low. 177: stock high, set by the stock
+ * Type-C init (usb_typec.c fusb300_init). 111 (second speaker amp, stock
+ * output low) is now held low by its aw8738 node (audio A1).
  */
 &pio {
 	cam-rst0-hog {
@@ -1982,17 +1981,69 @@
 		line-name = "cam-rst1-idle";
 	};
 
-	extamp2-hog {
-		gpio-hog;
-		gpios = <111 GPIO_ACTIVE_HIGH>;
-		output-low;
-		line-name = "extamp2-idle";
-	};
-
 	typec-177-hog {
 		gpio-hog;
 		gpios = <177 GPIO_ACTIVE_HIGH>;
 		output-high;
 		line-name = "typec-177-idle";
+	};
+};
+
+/*
+ * Audio A1 (docs/audio-stock.md). MT6358 line-out (LOL) -> two pulse-mode
+ * speaker amps: stock Ext_Speaker_Amp_Change switches both together with
+ * mode 3 (three low/high pulses of 2 us) on GPIO153 (extamp) and GPIO111
+ * (extamp2); aw8738 sends the same sequence and drives the pin low when
+ * the speaker path powers down. Headphone jack on the MT6358 HP outputs.
+ * GPIO136-143: PMIC audio interface (MTKAIF), audio function at boot.
+ * No reserved DMA pool: the AFE preallocates its buffers.
+ */
+/ {
+	speaker_amp1: audio-amplifier-1 {
+		compatible = "awinic,aw8738";
+		mode-gpios = <&pio 153 GPIO_ACTIVE_HIGH>;
+		awinic,mode = <3>;
+		sound-name-prefix = "Amp1";
+	};
+
+	speaker_amp2: audio-amplifier-2 {
+		compatible = "awinic,aw8738";
+		mode-gpios = <&pio 111 GPIO_ACTIVE_HIGH>;
+		awinic,mode = <3>;
+		sound-name-prefix = "Amp2";
+	};
+
+	sound: sound {
+		compatible = "planet,cosmo-communicator-sound";
+		mediatek,platform = <&afe>;
+		audio-routing =
+			"Amp1 IN", "LINEOUT L",
+			"Amp2 IN", "LINEOUT L",
+			"Speaker", "Amp1 OUT",
+			"Speaker", "Amp2 OUT",
+			"Headphone", "Headphone L",
+			"Headphone", "Headphone R";
+		audio-aux-devs = <&speaker_amp1>, <&speaker_amp2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&aud_pins_default>;
+	};
+};
+
+&mt6358codec {
+	Avdd-supply = <&mt6358_vaud28_reg>;
+};
+
+&pio {
+	aud_pins_default: audio-pins {
+		pins-bus {
+			pinmux = <PINMUX_GPIO136__FUNC_AUD_CLK_MOSI>,
+				 <PINMUX_GPIO137__FUNC_AUD_SYNC_MOSI>,
+				 <PINMUX_GPIO138__FUNC_AUD_DAT_MOSI0>,
+				 <PINMUX_GPIO139__FUNC_AUD_DAT_MOSI1>,
+				 <PINMUX_GPIO140__FUNC_AUD_CLK_MISO>,
+				 <PINMUX_GPIO141__FUNC_AUD_SYNC_MISO>,
+				 <PINMUX_GPIO142__FUNC_AUD_DAT_MISO0>,
+				 <PINMUX_GPIO143__FUNC_AUD_DAT_MISO1>;
+		};
 	};
 };

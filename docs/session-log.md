@@ -3247,3 +3247,30 @@ Image T1:
 - Rebooted with the new module (b023c0f2… loaded): LK picture, then
   black instead of the white flash, then the greeter at normal
   brightness. No flicker or colour fault.
+
+## 2026-10-31 — Audio A1: AFE + MT6358 + speaker amps (pre-flash)
+
+- Stock inventory: docs/audio-stock.md. Speaker = MT6358 line-out (LOL)
+  into two pulse-mode GPIO amps (GPIO153, GPIO111, mode 3); AFE, clocks
+  and AUDIO power domain as mt8183 (registers as stock
+  spm_mtcmos_ctrl_audio).
+- Before A1 the AFE probe failed (-110, deferred-probe timeout) because
+  the AUDIO domain was disabled in our DTS.
+- Change: AUDIO domain enabled; new machine driver mt6771-cosmo.c
+  (Primary Codec ADDA <-> mt6358, FEs DL1-3/UL1-3/UL_MONO_1, routing and
+  amps from DT); two aw8738 nodes (mode 3) replace the GPIO111 hog;
+  MT6358 Avdd = vaud28 (already on, regulator_ignore_unused); MTKAIF pins
+  136-143 in audio function (as at boot). Config: SND_SOC_MT6771_COSMO,
+  SND_SOC_AW8738 (modules only; built-in kernel unchanged).
+- Image a1-boot.img
+  139550b9d7421cc09baa6cb683c4988d6ed1f8d38fed403eb3cd5953fbafdd0f
+  (Image.gz-dtb 6e4a1a14…). Rootfs: this build's modules installed
+  (+ snd-soc-aw8738, mt6771-cosmo), depmod.
+- Escapes: PMIC long press (observed); rollback t1b-boot.img (dd1c8c51…;
+  works with the new modules: same vermagic, no MODVERSIONS, no
+  built-in change).
+- Pass: boot as t1b; `aplay -l` lists card "cosmo"; a short tone at low
+  volume plays from the speaker; GPIO111/153 read low after playback;
+  sleep (Wi-Fi off, USB unbound) ~85 mA.
+  Fail: no boot or hang at the AFE probe, no card, no sound, an amp pin
+  left high after playback, sleep clearly above 85 mA.
