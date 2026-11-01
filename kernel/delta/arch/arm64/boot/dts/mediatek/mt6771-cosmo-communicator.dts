@@ -647,6 +647,11 @@
 	dr_mode = "otg";
 	usb-role-switch;
 	role-switch-default-mode = "peripheral";
+	/*
+	 * VBUS for the host role (U2): on only while host is selected
+	 * (delta mtu3_host.c skips the probe-time enable).
+	 */
+	vbus-supply = <&mt6370_otg_vbus>;
 	maximum-speed = "high-speed";
 	/*
 	 * USB 2 only: without this mtu3 also waits for the U3 MAC clock
@@ -1097,6 +1102,17 @@
 			 * mt6771 Charger_Detect_Init / Release.
 			 */
 			cosmo,u2phy-bc11-reg = <0x11f40318>;
+
+			/*
+			 * OTG boost (VBUS out), used by the SSUSB host role.
+			 * Stock mt6370_enable_otg sets OTG_OC to 500 mA; the
+			 * boost voltage stays at the chip default (5.05 V).
+			 */
+			mt6370_otg_vbus: usb-otg-vbus-regulator {
+				regulator-name = "mt6370-usb-otg-vbus";
+				regulator-min-microamp = <500000>;
+				regulator-max-microamp = <500000>;
+			};
 		};
 	};
 };
