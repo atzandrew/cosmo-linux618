@@ -3352,3 +3352,36 @@ Image T1:
 - Seen once: suspend with Wi-Fi on never resumed (journal ends at
   "PM: suspend entry (deep)"); the device looked powered off. Wi-Fi-on
   sleep is a known open item.
+
+## 2026-10-31 — USB host role (U1, U2): left port works, right port has no VBUS
+
+- Stock (usb_c/fusb302/usb_typec.c): one SSUSB controller for both USB-C
+  ports. GPIO79 routes USB 2 D+/D- to the left (low) or right (high) port;
+  force_to_otg() sets GPIO79 high and loads xhci but never enables VBUS
+  (tcpc_otg_enable -> mtk_xhci_driver_load(false)). Right-port attach is
+  reported to userspace as KEY_F14/F15. Stock sets FUSB301A mode 0x10
+  (DRP) at boot; ours is at the reset default 0x04. FUSB301A reads
+  status 0x09 / type 0x08 whether or not anything is plugged in.
+  USB 3: no U3 mux in stock, U3 MAC never starts here; USB 2 only.
+- U1 (e2de403, u1-boot.img 26daf88a…, DT only): SSUSB dr_mode otg,
+  usb-role-switch, default peripheral; xhci child enabled with U3 port
+  disabled. Boot unchanged (g_ether up). Host by hand: no device seen.
+  The MT6771 IPPC ignores FORCE_IDDIG (U2_CTRL_0P reads back 0x2cc), so
+  the U2 PHY stayed in device mode; forcing U2PHYDTM1 IDDIG (0x3426 ->
+  0x3624) plus an xhci rebind gave a normal RxDetect port, still no
+  device. Line state SE0 throughout; keyboards never lit on the right.
+- U2 (ef81440, u2-boot.img 8fc4e19e…): role switch also sets the t-phy
+  mode; MT6370 OTG boost is the SSUSB vbus-supply (500 mA as stock
+  mt6370_enable_otg, chip default voltage); no VBUS during the OTG probe.
+  Boot: device role, boost off, g_ether up.
+- U2 test (left cable unplugged, charger offline first): host role ->
+  boost on, VBUSDIV5 5.07 V, PHY 0x3624 automatically.
+  Left port (GPIO79 low): USB keyboard lit and enumerated (hid-generic),
+  PASS. Right port (GPIO79 high): no light, SE0, FAIL. The boost does not
+  reach the right port; GPIO160 (HDMI power) already high; the stock
+  aeon_usb_otg_en pins are commented out. Likely the right port VBUS is
+  input only (stock lists a right-port charging state).
+- Back to device role at the end (boost off).
+- Open: right-port VBUS source. Control test on stock (Gemian): keyboard
+  on the right port. Also open: automatic role on the left port (MT6370
+  TCPC), FUSB301A detection for the right port.
