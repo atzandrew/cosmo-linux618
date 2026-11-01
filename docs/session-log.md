@@ -3338,3 +3338,17 @@ Image T1:
   AUDDEC_ANA_CON8 0 vs 0x3b, AUDNCP_CLKDIV_CON4 3 vs 2.
 - Open: the amps stay on while the desktop holds a monitor stream on the
   sink; revert 13cc228; hiss/pop; gain; UCM; mic; ACCDET; sleep check.
+
+## 2026-10-31 — Audio A3: line-out experiment reverted
+
+- 3f99a7f reverts 13cc228 (delta mt6358.c removed; upstream codec
+  driver again). Module only: Image.gz unchanged (783d24aa…), boot
+  image stays a2-boot.img. snd-soc-mt6358.ko 28e29886… installed,
+  depmod, sync, reboot.
+- Check: card "cosmo" up; speaker tone via pw-play; GPIO153/111 high
+  while playing, low within ~8 s of the end (PipeWire suspend-on-idle
+  plus DAPM power-down). The amps held on earlier only while a desktop
+  client recorded the sink monitor.
+- Seen once: suspend with Wi-Fi on never resumed (journal ends at
+  "PM: suspend entry (deep)"); the device looked powered off. Wi-Fi-on
+  sleep is a known open item.
