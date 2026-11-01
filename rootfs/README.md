@@ -12,4 +12,4 @@ then `systemctl daemon-reload` for units.
   power off without a password.
 - `usr/local/sbin/cosmo-power-key`, `etc/systemd/system/cosmo-power-key.service`
   (enabled), `etc/systemd/logind.conf.d/cosmo-power-key.conf`: hold the power
-  key 3 s = clean power off; logind ignores the key. Needs mt6358-keys on.
+  (Esc) key 4 s = clean power off; a tap is Esc; logind ignores power keys. Needs mt6358-keys on.

@@ -575,8 +575,12 @@
  * CONFIG_ONEKEY_REBOOT_NORMAL_MODE) sets PWRKEY_RST_EN 1, HOMEKEY_RST_EN 0;
  * live value under mainline 0x1225 (the preloader's 0x1325 is overwritten).
  * long-press-mode 1 + power-off-time-sec 1 write bits 13:12 = 1, 9 = 1,
- * 8 = 0: the same value, so the ~8 s power-key hold reset stays. Not a wake source yet (sleep wake sources are
- * separate work). bin/build-boot-img.sh checks these values.
+ * 8 = 0: the same value, so the ~8 s power-key hold reset stays.
+ * The key is the keyboard's Esc key, so it reports KEY_ESC (the stock kernel
+ * reports KEY_POWER). rootfs cosmo-power-key turns a 4 s hold into a clean
+ * power off. It wakes deep sleep without wakeup-source:
+ * mt6358-irq keeps its parent EINT 182 wake-armed and leaves sub-IRQs on.
+ * bin/build-boot-img.sh checks these values.
  */
 &mt6358keys {
 	mediatek,long-press-mode = <1>;
@@ -584,6 +588,7 @@
 
 	power {
 		/delete-property/ wakeup-source;
+		linux,keycodes = <KEY_ESC>;
 	};
 
 	home {

@@ -1,5 +1,5 @@
 [Unit]
-Description=Cosmo power key: hold 3 s to power off
+Description=Cosmo Esc/power key: hold 4 s to power off
 
 [Service]
 ExecStart=/usr/local/sbin/cosmo-power-key
