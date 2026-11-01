@@ -635,16 +635,29 @@
 };
 
 /*
- * USB device mode for bring-up networking (g_ether, CDC ECM). The SoC port
- * is the one the preloader enumerates on. High speed only for now.
+ * One SSUSB controller serves both USB-C ports. GPIO79 routes its USB 2
+ * D+/D- to the left port (low, default) or the right port (high); stock
+ * force_to_otg() in usb_c/fusb302/usb_typec.c sets GPIO79 high and loads
+ * xhci for the right port, which is host only. The left port stays in
+ * device mode for bring-up networking (g_ether, CDC ECM); host mode is
+ * selected by hand through the usb_role class for now (role switch U1).
+ * High speed only.
  */
 &ssusb {
-	dr_mode = "peripheral";
+	dr_mode = "otg";
+	usb-role-switch;
+	role-switch-default-mode = "peripheral";
 	maximum-speed = "high-speed";
 	/*
 	 * USB 2 only: without this mtu3 also waits for the U3 MAC clock
 	 * (IPPC STS1 bit 16), which never starts here (try15: STS1 0x1000d0f).
 	 */
+	mediatek,u3p-dis-msk = <0x1>;
+	vusb33-supply = <&mt6358_vusb_reg>;
+	status = "okay";
+};
+
+&usb_host {
 	mediatek,u3p-dis-msk = <0x1>;
 	vusb33-supply = <&mt6358_vusb_reg>;
 	status = "okay";
