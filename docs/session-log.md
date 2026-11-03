@@ -3482,3 +3482,37 @@ Image T1:
 - Battery temperature reads +7..10 C on every unplug for a few seconds
   (29 -> 37-39 C at a current swing of ~2.5 A), back on replug: the known
   missing IR term in the BAT_TEMP conversion (power-plan.md stretch goals).
+
+## 2026-11-03 — left USB-C PD, step P1: TCPC under TCPM, sink only, 5 V
+
+- Stock PD path (stock 4.4): PE4.0 = PD PPS (`mtk_pe40_intf.c`).
+  Start at 5 W, measure cable resistance (r_cable_1 sets the input
+  limit 1-5 A), then step the APDO voltage 50 mV every 3-10 s to keep
+  IBUS just below the limit; ceiling 11 V (9 V if the source sets the
+  power-limited bit). While in PE4.0: input 3.0 A / charge 3.0 A
+  (`mt6771.dts` pe40_single_*), MIVR = VBUS - 1.2 V, TE off, SW VBUS
+  check widened to 15 V. Entry 16-39 C, leave above 50 C / below 10 C.
+  The 80 % `pe40_stop_battery_soc` is only applied with a second
+  charger (`mtk_pe40_is_ready`); on this single-charger unit PE4.0 ends
+  when the power falls to 5 W or less (`mtk_pe40_cc_state`), which
+  matches the return to 5 V seen at 97 %. Fixed-PDO (PDC) and Rp-only
+  paths exist but PPS wins when the source offers an APDO.
+- Mainline: MFD mt6370 already reaches 0x4e on the same bus (stock dmesg
+  `usb_type_c 5-004e` next to `mt6370_pmu 5-0034`). TCPM does PPS
+  through its power_supply (online = 2, voltage_now, current_now) but
+  sends no keep-alive: the source drops to 5 V about 15 s after the last
+  request. Mainline TCPC init matches stock's vendor writes except
+  PHY_CTRL3 (0x82 vs 0x70).
+- Change: DT `tcpc` child of the MT6370 (alert GPIO41 level-low),
+  connector sink only, stock's single 5 V / 2 A sink PDO, no
+  vbus-supply, no role-switch link. Config TYPEC_TCPCI_MT6370=m (module
+  only). Rootfs: typec, tcpm, tcpci, tcpci_mt6370 from this build, depmod.
+- Image p1-boot.img 5e801914… (Image.gz-dtb 6fcd9fd3…).
+- Escapes: PMIC long press (observed); rollback u4d-boot.img (803c40c7…;
+  built-in kernel unchanged).
+- Pass: boot; tcpci_mt6370 bound, /sys/class/typec/port0; Anker 736 on
+  the left: TCPM log lists its source caps (PPS APDOs expected),
+  contract 5 V, VBUS ADC stays near 5 V, battery still charging, no
+  hard-reset loop; left host by hand (U2) and right host (U4) still work.
+  Fail: no boot, probe error, VBUS above 5.5 V, charging stops, repeated
+  hard resets, either host role broken.

@@ -31,6 +31,7 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/power/mt8183-power.h>
+#include <dt-bindings/usb/pd.h>
 #include "mt8183.dtsi"
 #include "mt6358.dtsi"
 
@@ -993,8 +994,8 @@
  * docs/power-stock.md, docs/power-plan.md S1.
  *
  * Children: ADC (S1), charger (S3), general indicator sinks, and (D1) the
- * display bias (DSV) regulators and the backlight. TCPC and flashlight are
- * left out on purpose and their drivers are not built.
+ * display bias (DSV) regulators and the backlight, and (P1) the left-port
+ * TCPC. Flashlight is left out on purpose and its driver is not built.
  */
 &i2c11 {
 	clock-frequency = <400000>;
@@ -1134,6 +1135,31 @@
 				regulator-name = "mt6370-usb-otg-vbus";
 				regulator-min-microamp = <500000>;
 				regulator-max-microamp = <500000>;
+			};
+		};
+
+		/*
+		 * Left USB-C port Type-C / PD controller (P1). Stock: the same
+		 * chip at 0x4e on this bus ("usb_type_c 5-004e"), alert on
+		 * GPIO41 (k71v1_64_bsp.dts mt6370pd,intr_gpio); stock requests
+		 * it falling-edge, the TCPCI alert is an active-low level.
+		 * Sink only, with stock's fixed 5 V / 2 A sink PDO alone, so
+		 * the contract stays at 5 V while the PD exchange is checked
+		 * (debugfs usb/tcpm-*). No vbus-supply and no role-switch
+		 * link: VBUS out and the data role stay with ssusb and
+		 * cosmo-fusb301a as before.
+		 */
+		tcpc {
+			compatible = "mediatek,mt6370-tcpc";
+			interrupts-extended = <&pio 41 IRQ_TYPE_LEVEL_LOW>;
+
+			connector {
+				compatible = "usb-c-connector";
+				label = "USB-C left";
+				power-role = "sink";
+				data-role = "device";
+				sink-pdos = <PDO_FIXED(5000, 2000, 0)>;
+				op-sink-microwatt = <10000000>;
 			};
 		};
 	};
