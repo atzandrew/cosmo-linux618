@@ -1127,6 +1127,13 @@
 			cosmo,u2phy-bc11-reg = <0x11f40318>;
 
 			/*
+			 * PD step P2: USB PD PPS charging on the left port
+			 * through TCPM's power supply (vendor PE4.0; delta
+			 * mt6370-charger.c mt6370_pe40_dwork_func).
+			 */
+			cosmo,pd-supply = <&mt6370_tcpc>;
+
+			/*
 			 * OTG boost (VBUS out), used by the SSUSB host role.
 			 * Stock mt6370_enable_otg sets OTG_OC to 500 mA; the
 			 * boost voltage stays at the chip default (5.05 V).
@@ -1149,7 +1156,7 @@
 		 * link: VBUS out and the data role stay with ssusb and
 		 * cosmo-fusb301a as before.
 		 */
-		tcpc {
+		mt6370_tcpc: tcpc {
 			compatible = "mediatek,mt6370-tcpc";
 			interrupts-extended = <&pio 41 IRQ_TYPE_LEVEL_LOW>;
 

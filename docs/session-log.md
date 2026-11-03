@@ -3549,3 +3549,33 @@ Image T1:
   attach -> Source_Capabilities 0.1 s -> request PDO 0 5 V 2 A ->
   Accept, PS_RDY -> SNK_READY in 0.45 s, PD rev3. The HARD_RESET_SEND
   lines are pending timeouts that were cancelled; no hard reset sent.
+
+## 2026-11-03 — left USB-C PD, step P2: PPS charging (vendor PE4.0)
+
+- Delta mt6370-charger.c (built in), linked to the TCPC by DT
+  `cosmo,pd-supply`; it drives TCPM's power_supply (ONLINE 2 = PPS,
+  VOLTAGE_NOW, CURRENT_NOW). Start: PPS-capable source, BC1.2 done,
+  battery 16-39 C -> TE off, MIVR 4.6 V, PPS at 5 V, operating current
+  = AICR = min(APDO, 3.0 A), ICHG 3.0 A (stock pe40_single_*, live stock
+  CHGCTRL7 0x74). Loop every 10 s (3 s while rising): IBUS within
+  100 mA of AICR - 14 % raises, 200 mA below lowers (vendor power
+  rule), 5 V..min(APDO max, 11 V), MIVR = V - 1.2 V; each tick sends a
+  request (PPS keep-alive). End: VBUS 2 V over request or failed request
+  (until detach), power <= 5 W (until detach), temperature > 50 / < 10 C
+  or charging blocked, PPS lost, detach, system suspend (PM notifier,
+  PPS off before freezing). Not ported: cable resistance and source
+  status queries (TCPM has none); input stays 3.0 A.
+- Fixed PD contract: AICR capped at the contract current (stock PDC
+  path), e.g. 2.0 A instead of the DCP 3.2 A on the 5 V / 2 A contract.
+- MIVR workaround threshold 100 mA in the IIO unit (mA); upstream's
+  100000 matched every reading.
+- Image p2-boot.img 77171677… (Image.gz-dtb 1826077b…). Modules
+  unchanged.
+- Escapes: PMIC long press (observed), unplugging the charger, rollback
+  p1b-boot.img (d4bf11af…).
+- Pass (Anker 736 left, battery < 80 %): dmesg "PPS start"; VBUS ADC
+  settles above 5.3 V; battery current above 1.6 A; no "PPS end" error,
+  no hard reset, no charger fault in 5 min; unplug -> "PPS end:
+  detached", replug -> PPS starts again.
+  Fail: no start, VBUS above 11.5 V, battery not above 1.6 A, a
+  charger fault or OVP, repeated hard resets, PPS ends with an error.

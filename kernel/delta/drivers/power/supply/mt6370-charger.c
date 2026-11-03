@@ -26,6 +26,12 @@
  *    -10 C and resumes below 50 C / at >= 0 C (vendor mtk_charger.c
  *    charger_check_status, DT max/min_charge_temperature*). A failed
  *    reading also stops charging.
+ *  - USB PD PPS on the left port (vendor PE4.0, mtk_pe40_intf.c, single
+ *    charger), when "cosmo,pd-supply" points at the TCPC: see
+ *    mt6370_pe40_dwork_func(). On a fixed PD contract the input current
+ *    is capped at the contract current (vendor PDC path).
+ *  - The MIVR workaround compares IBUS in mA: the IIO current channel
+ *    is processed in mA, so the upstream 100000 threshold always matched.
  */
 
 #include <linux/bitfield.h>
@@ -43,6 +49,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
+#include <linux/suspend.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/regulator/driver.h>
@@ -72,7 +79,8 @@
 #define MT6370_OPA_MODE_MASK		BIT(0)
 #define MT6370_OTG_OC_MASK		GENMASK(2, 0)
 
-#define MT6370_MIVR_IBUS_TH_100_mA	100000
+#define MT6370_MIVR_IBUS_TH_100_mA	100	/* IIO current is in mA */
+#define MT6370_ADC_CHAN_VBUSDIV5	0
 #define MT6370_ADC_CHAN_IBUS		5
 #define MT6370_ADC_CHAN_MAX		9
 
@@ -143,6 +151,19 @@ struct mt6370_priv {
 	struct delayed_work bc11_dwork;
 	bool bc11_on;
 	bool nonstd;
+	/* Cosmo: USB PD PPS (vendor PE4.0), under policy_lock */
+	struct delayed_work pe40_dwork;
+	struct notifier_block pm_nb;
+	bool pe40_suspended;
+	int pe40_state;
+	int pe40_mv;		/* requested APDO voltage */
+	int pe40_vmin_mv;
+	int pe40_vmax_mv;
+	int pe40_ma;		/* APDO operating current = AICR */
+	int pe40_max_ibus_ma;	/* pe40_ma less the vendor IBUS_ERR */
+	int pe40_busy;		/* consecutive -EAGAIN from TCPM */
+	u32 pe40_mivr_save;
+	u32 pd_aicr_cap;	/* fixed PD contract current, 0 = none */
 };
 
 /* Vendor values, docs/power-stock.md */
@@ -162,6 +183,37 @@ struct mt6370_priv {
 #define MT6370_COSMO_COLD_STOP		(-10000)
 #define MT6370_COSMO_COLD_RESUME	0
 #define MT6370_COSMO_TEMP_POLL_MS	10000
+
+/* Vendor PE4.0 values (mtk_pe40_intf.c, mt6771.dts charger node) */
+#define MT6370_PE40_MAX_MV		11000	/* PE40_MAX_VBUS */
+#define MT6370_PE40_MAX_MA		3000	/* PE40_MAX_IBUS, single input */
+#define MT6370_PE40_ICHG_UA		3000000	/* pe40_single_charger_current */
+#define MT6370_PE40_IBUS_ERR		14	/* percent */
+#define MT6370_PE40_MIN_MV		5000
+#define MT6370_PE40_MIVR_MIN_UV		4600000	/* min_charger_voltage */
+#define MT6370_PE40_IR_DROP_MV		1200	/* PE40_VBUS_IR_DROP_THRESHOLD */
+#define MT6370_PE40_MIN_POWER		5000000	/* PE40_MIN_WATT, mV x mA */
+#define MT6370_PE40_VBUS_OV_MV		2000
+#define MT6370_PE40_STEP_MV		50
+#define MT6370_PE40_PPS_STEP_MV		20
+#define MT6370_PE40_ENTER_HOT		39000	/* temp_t3_thres_minus_x_degree */
+#define MT6370_PE40_ENTER_COLD		16000	/* temp_t2_thres_plus_x_degree */
+#define MT6370_PE40_LEAVE_HOT		50000	/* HIGH_TEMP_TO_LEAVE_PE40 */
+#define MT6370_PE40_LEAVE_COLD		10000	/* temp_t2_threshold */
+#define MT6370_PE40_POLL_MS		10000
+#define MT6370_PE40_FAST_POLL_MS	3000
+#define MT6370_PE40_BUSY_POLL_MS	1000
+
+/* TCPM power_supply ONLINE values (tcpm.c TCPM_PSY_*) */
+#define MT6370_TCPM_OFFLINE		0
+#define MT6370_TCPM_FIXED		1
+#define MT6370_TCPM_PROG		2
+
+enum {
+	MT6370_PE40_IDLE = 0,
+	MT6370_PE40_RUN,
+	MT6370_PE40_DONE,	/* ended; no retry until the charger detaches */
+};
 
 enum mt6370_usb_status {
 	MT6370_USB_STAT_NO_VBUS = 0,
@@ -322,6 +374,17 @@ static void mt6370_chg_apply_port_limits(struct mt6370_priv *priv)
 	u32 ichg = MT6370_COSMO_ICHG_DEFAULT;
 	int ret;
 
+	/*
+	 * Vendor PE4.0: input = the APDO operating current, charge 3.0 A
+	 * (pe40_single_charger_*; live stock on PD: CHGCTRL7 0x74). Above
+	 * the 2.0 A wall-charger ceiling on purpose, as stock.
+	 */
+	if (priv->pe40_state == MT6370_PE40_RUN) {
+		aicr = priv->pe40_ma * 1000;
+		ichg = MT6370_PE40_ICHG_UA;
+		goto set_limits;
+	}
+
 	if (priv->attach) {
 		switch (priv->psy_usb_type) {
 		case POWER_SUPPLY_USB_TYPE_CDP:
@@ -342,8 +405,13 @@ static void mt6370_chg_apply_port_limits(struct mt6370_priv *priv)
 		}
 	}
 
+	/* Vendor PDC path: a fixed PD contract sets the input current */
+	if (priv->attach && priv->pd_aicr_cap && aicr > priv->pd_aicr_cap)
+		aicr = priv->pd_aicr_cap;
+
 	ichg = max_t(u32, ichg, MT6370_COSMO_ICHG_DEFAULT);
 
+set_limits:
 	ret = mt6370_chg_field_set(priv, F_IAICR, aicr);
 	if (!ret)
 		ret = mt6370_chg_field_set(priv, F_ICHG, ichg);
@@ -611,6 +679,373 @@ static void mt6370_chg_mivr_dwork_func(struct work_struct *work)
 mivr_handler_out:
 	enable_irq(priv->irq_nums[MT6370_IRQ_MIVR]);
 	pm_relax(priv->dev);
+}
+
+/*
+ * Cosmo: USB PD PPS charging, after the vendor PE4.0 algorithm for a
+ * single charger (mtk_pe40_intf.c, mtk_switch_charging.c):
+ *  - Start when TCPM reports a PPS-capable source, BC1.2 is done,
+ *    charging is not blocked and the battery is 16-39 C: termination
+ *    off, MIVR 4.6 V, PPS on at 5 V, operating current and AICR =
+ *    min(APDO current, 3.0 A), ICHG 3.0 A.
+ *  - Every 10 s (3 s while rising): IBUS within 100 mA of the limit
+ *    (AICR less 14 %) raises the voltage, 200 mA or more below lowers
+ *    it, by the vendor power rule (5 V if it carries the power,
+ *    otherwise power / (limit - 200 mA)), 5 V to min(APDO max, 11 V).
+ *    MIVR follows at VBUS - 1.2 V (at least 4.6 V); MIVR goes to 4.6 V
+ *    before each change. Every tick sends a request, which keeps the
+ *    PPS contract alive (the source falls back to 5 V after ~15 s
+ *    without one).
+ *  - End (back to the fixed 5 V contract, MIVR, termination and the
+ *    port currents restored): VBUS 2 V above the request or a failed
+ *    request (no retry until detach); power at or below 5 W (no retry,
+ *    vendor PE40_MIN_WATT; this ends PPS near full); battery above
+ *    50 C or below 10 C or charging blocked (retry when back in
+ *    16-39 C); PPS lost, detach, or system suspend (retry).
+ * Not ported: cable-resistance measurement and source status queries
+ * (TCPM has no PPS status request); the input limit stays at 3.0 A,
+ * the vendor's band for 240-350 mOhm.
+ */
+static int mt6370_pe40_psy_get(struct power_supply *psy,
+			       enum power_supply_property psp, int *val)
+{
+	union power_supply_propval pv;
+	int ret;
+
+	ret = power_supply_get_property(psy, psp, &pv);
+	if (!ret)
+		*val = pv.intval;
+	return ret;
+}
+
+static int mt6370_pe40_psy_set(struct power_supply *psy,
+			       enum power_supply_property psp, int val)
+{
+	union power_supply_propval pv = { .intval = val };
+
+	return power_supply_set_property(psy, psp, &pv);
+}
+
+static void mt6370_pe40_end(struct mt6370_priv *priv,
+			    struct power_supply *psy, int next_state,
+			    const char *why)
+{
+	int ret;
+
+	if (psy) {
+		ret = mt6370_pe40_psy_set(psy, POWER_SUPPLY_PROP_ONLINE,
+					  MT6370_TCPM_FIXED);
+		if (ret)
+			dev_warn(priv->dev, "PPS off failed: %d\n", ret);
+	}
+
+	ret = mt6370_chg_field_set(priv, F_VMIVR, priv->pe40_mivr_save);
+	if (!ret)
+		ret = mt6370_chg_field_set(priv, F_TE_EN, 1);
+	if (ret)
+		dev_err(priv->dev, "PPS end: restore failed: %d\n", ret);
+
+	priv->pe40_state = next_state;
+	priv->pe40_mv = 0;
+	mt6370_chg_apply_port_limits(priv);
+	dev_info(priv->dev, "PPS end: %s%s\n", why,
+		 next_state == MT6370_PE40_DONE ? " (until detach)" : "");
+}
+
+/* Vendor mtk_pe40_pd_request(): MIVR low, new voltage, MIVR follows */
+static int mt6370_pe40_request(struct mt6370_priv *priv,
+			       struct power_supply *psy, int mv)
+{
+	u32 mivr;
+	int ret;
+
+	ret = mt6370_chg_field_set(priv, F_VMIVR, MT6370_PE40_MIVR_MIN_UV);
+	if (ret)
+		return ret;
+
+	ret = mt6370_pe40_psy_set(psy, POWER_SUPPLY_PROP_VOLTAGE_NOW,
+				  mv * 1000);
+	if (ret)
+		return ret;
+
+	priv->pe40_mv = mv;
+	mivr = max_t(u32, MT6370_PE40_MIVR_MIN_UV,
+		     (mv - MT6370_PE40_IR_DROP_MV) * 1000);
+	return mt6370_chg_field_set(priv, F_VMIVR, mivr);
+}
+
+/* Vendor mtk_pe40_get_setting_by_watt(), power in mV x mA */
+static int mt6370_pe40_mv_for_power(struct mt6370_priv *priv, int power)
+{
+	int limit = priv->pe40_max_ibus_ma;
+	int mv;
+
+	if (power <= 0)
+		return priv->pe40_vmin_mv;
+
+	if (priv->pe40_vmin_mv <= MT6370_PE40_MIN_MV &&
+	    MT6370_PE40_MIN_MV * limit >= power)
+		mv = MT6370_PE40_MIN_MV;
+	else
+		mv = power / (limit - 200);
+
+	mv = clamp(mv, priv->pe40_vmin_mv, priv->pe40_vmax_mv);
+	return mv - mv % MT6370_PE40_PPS_STEP_MV;
+}
+
+static bool mt6370_pe40_temp_ok(struct mt6370_priv *priv, bool enter)
+{
+	int t = priv->batt_temp;
+
+	if (priv->temp_block)
+		return false;
+	if (enter)
+		return t >= MT6370_PE40_ENTER_COLD && t <= MT6370_PE40_ENTER_HOT;
+	return t >= MT6370_PE40_LEAVE_COLD && t <= MT6370_PE40_LEAVE_HOT;
+}
+
+static void mt6370_pe40_start(struct mt6370_priv *priv,
+			      struct power_supply *psy)
+{
+	int vmin, vmax, imax, ret;
+
+	ret = mt6370_chg_field_get(priv, F_VMIVR, &priv->pe40_mivr_save);
+	if (ret)
+		return;
+
+	ret = mt6370_chg_field_set(priv, F_TE_EN, 0);
+	if (!ret)
+		ret = mt6370_chg_field_set(priv, F_VMIVR,
+					   MT6370_PE40_MIVR_MIN_UV);
+	if (!ret)
+		ret = mt6370_pe40_psy_set(psy, POWER_SUPPLY_PROP_ONLINE,
+					  MT6370_TCPM_PROG);
+	if (!ret)
+		ret = mt6370_pe40_psy_get(psy, POWER_SUPPLY_PROP_VOLTAGE_MIN,
+					  &vmin);
+	if (!ret)
+		ret = mt6370_pe40_psy_get(psy, POWER_SUPPLY_PROP_VOLTAGE_MAX,
+					  &vmax);
+	if (!ret)
+		ret = mt6370_pe40_psy_get(psy, POWER_SUPPLY_PROP_CURRENT_MAX,
+					  &imax);
+	if (ret) {
+		mt6370_pe40_end(priv, psy, MT6370_PE40_DONE, "start failed");
+		return;
+	}
+
+	priv->pe40_vmin_mv = max(vmin / 1000, MT6370_PE40_MIN_MV);
+	priv->pe40_vmax_mv = min(vmax / 1000, MT6370_PE40_MAX_MV);
+	priv->pe40_ma = min(imax / 1000, MT6370_PE40_MAX_MA);
+	priv->pe40_ma -= priv->pe40_ma % 50;	/* PPS 50 mA steps */
+	priv->pe40_max_ibus_ma = priv->pe40_ma *
+				 (100 - MT6370_PE40_IBUS_ERR) / 100;
+	priv->pe40_mv = MT6370_PE40_MIN_MV;	/* TCPM starts PPS at 5 V */
+	priv->pe40_busy = 0;
+
+	if (priv->pe40_vmin_mv > MT6370_PE40_MIN_MV ||
+	    priv->pe40_vmax_mv < MT6370_PE40_MIN_MV || priv->pe40_ma < 1000) {
+		mt6370_pe40_end(priv, psy, MT6370_PE40_DONE,
+				"APDO not usable");
+		return;
+	}
+
+	ret = mt6370_pe40_psy_set(psy, POWER_SUPPLY_PROP_CURRENT_NOW,
+				  priv->pe40_ma * 1000);
+	if (ret) {
+		mt6370_pe40_end(priv, psy, MT6370_PE40_DONE,
+				"operating current refused");
+		return;
+	}
+
+	priv->pe40_state = MT6370_PE40_RUN;
+	mt6370_chg_apply_port_limits(priv);
+	dev_info(priv->dev, "PPS start: APDO %d-%d mV, %d mA (IBUS limit %d mA)\n",
+		 vmin / 1000, vmax / 1000, imax / 1000,
+		 priv->pe40_max_ibus_ma);
+}
+
+/* Vendor mtk_pe40_cc_state() + mtk_pe40_safety_check(); returns poll ms */
+static unsigned int mt6370_pe40_cc(struct mt6370_priv *priv,
+				   struct power_supply *psy, int online)
+{
+	int limit = priv->pe40_max_ibus_ma;
+	int ibus, vbus, power, mv, ret;
+	bool rising = false;
+
+	if (online != MT6370_TCPM_PROG) {
+		mt6370_pe40_end(priv, psy, MT6370_PE40_IDLE, "PPS contract lost");
+		return MT6370_PE40_POLL_MS;
+	}
+
+	if (!mt6370_pe40_temp_ok(priv, false)) {
+		mt6370_pe40_end(priv, psy, MT6370_PE40_IDLE, "battery temperature");
+		return MT6370_PE40_POLL_MS;
+	}
+
+	ret = mt6370_chg_read_adc_chan(priv, MT6370_ADC_CHAN_IBUS, &ibus);
+	if (!ret)
+		ret = mt6370_chg_read_adc_chan(priv, MT6370_ADC_CHAN_VBUSDIV5,
+					       &vbus);
+	if (ret) {
+		mt6370_pe40_end(priv, psy, MT6370_PE40_DONE, "ADC read failed");
+		return MT6370_PE40_POLL_MS;
+	}
+
+	if (vbus - priv->pe40_mv >= MT6370_PE40_VBUS_OV_MV) {
+		dev_err(priv->dev, "PPS: VBUS %d mV, requested %d mV\n",
+			vbus, priv->pe40_mv);
+		mt6370_pe40_end(priv, psy, MT6370_PE40_DONE, "VBUS over request");
+		return MT6370_PE40_POLL_MS;
+	}
+
+	power = priv->pe40_mv * ibus;
+	if (power <= MT6370_PE40_MIN_POWER) {
+		mt6370_pe40_end(priv, psy, MT6370_PE40_DONE, "power at or below 5 W");
+		return MT6370_PE40_POLL_MS;
+	}
+
+	mv = priv->pe40_mv;
+	if (ibus >= limit - 100) {
+		mv = mt6370_pe40_mv_for_power(priv,
+				(priv->pe40_mv + MT6370_PE40_STEP_MV) * ibus);
+		rising = mv < priv->pe40_vmax_mv;
+	} else if (ibus <= limit - 200) {
+		mv = mt6370_pe40_mv_for_power(priv, power - 500000);
+	}
+
+	if (abs(mv - priv->pe40_mv) >= MT6370_PE40_STEP_MV) {
+		dev_dbg(priv->dev, "PPS: VBUS %d mV IBUS %d mA, %d -> %d mV\n",
+			vbus, ibus, priv->pe40_mv, mv);
+		ret = mt6370_pe40_request(priv, psy, mv);
+	} else {
+		/* Same voltage again: keeps the PPS contract alive */
+		ret = mt6370_pe40_psy_set(psy, POWER_SUPPLY_PROP_VOLTAGE_NOW,
+					  priv->pe40_mv * 1000);
+	}
+	/* TCPM busy with another message exchange: try again shortly */
+	if (ret == -EAGAIN && ++priv->pe40_busy < 3)
+		return MT6370_PE40_BUSY_POLL_MS;
+	if (ret) {
+		dev_err(priv->dev, "PPS: request %d mV failed: %d\n", mv, ret);
+		mt6370_pe40_end(priv, psy, MT6370_PE40_DONE, "request failed");
+		return MT6370_PE40_POLL_MS;
+	}
+	priv->pe40_busy = 0;
+
+	return rising ? MT6370_PE40_FAST_POLL_MS : MT6370_PE40_POLL_MS;
+}
+
+static void mt6370_pe40_dwork_func(struct work_struct *work)
+{
+	struct mt6370_priv *priv = container_of(work, struct mt6370_priv,
+						pe40_dwork.work);
+	unsigned int next = MT6370_PE40_POLL_MS;
+	struct power_supply *psy;
+	int attach, online = MT6370_TCPM_OFFLINE, type, cur;
+	u32 cap = 0;
+
+	mutex_lock(&priv->attach_lock);
+	attach = priv->attach;
+	mutex_unlock(&priv->attach_lock);
+
+	mutex_lock(&priv->policy_lock);
+
+	psy = power_supply_get_by_reference(dev_fwnode(priv->dev),
+					    "cosmo,pd-supply");
+	if (IS_ERR(psy))
+		psy = NULL;
+	if (!psy || mt6370_pe40_psy_get(psy, POWER_SUPPLY_PROP_ONLINE, &online))
+		online = MT6370_TCPM_OFFLINE;
+
+	if (attach != MT6370_ATTACH_STAT_ATTACH_BC12_DONE ||
+	    online == MT6370_TCPM_OFFLINE) {
+		if (priv->pe40_state == MT6370_PE40_RUN)
+			mt6370_pe40_end(priv,
+					online == MT6370_TCPM_OFFLINE ? NULL : psy,
+					MT6370_PE40_IDLE, "detached");
+		priv->pe40_state = MT6370_PE40_IDLE;
+		goto update_cap;
+	}
+
+	if (mt6370_pe40_psy_get(psy, POWER_SUPPLY_PROP_USB_TYPE, &type))
+		type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+
+	switch (priv->pe40_state) {
+	case MT6370_PE40_IDLE:
+		if (type == POWER_SUPPLY_USB_TYPE_PD_PPS &&
+		    mt6370_pe40_temp_ok(priv, true)) {
+			mt6370_pe40_start(priv, psy);
+			if (priv->pe40_state == MT6370_PE40_RUN)
+				next = MT6370_PE40_FAST_POLL_MS;
+		}
+		break;
+	case MT6370_PE40_RUN:
+		next = mt6370_pe40_cc(priv, psy, online);
+		break;
+	default:
+		break;
+	}
+
+	if (priv->pe40_state != MT6370_PE40_RUN && online == MT6370_TCPM_FIXED &&
+	    (type == POWER_SUPPLY_USB_TYPE_PD ||
+	     type == POWER_SUPPLY_USB_TYPE_PD_PPS) &&
+	    !mt6370_pe40_psy_get(psy, POWER_SUPPLY_PROP_CURRENT_MAX, &cur) &&
+	    cur > 0)
+		cap = cur;
+
+update_cap:
+	if (cap != priv->pd_aicr_cap) {
+		priv->pd_aicr_cap = cap;
+		mt6370_chg_apply_port_limits(priv);
+	}
+	if (psy)
+		power_supply_put(psy);
+	mutex_unlock(&priv->policy_lock);
+
+	if (!READ_ONCE(priv->pe40_suspended))
+		queue_delayed_work(priv->wq, &priv->pe40_dwork,
+				   msecs_to_jiffies(next));
+}
+
+/* Leave PPS before system sleep: no requests while frozen */
+static int mt6370_pe40_pm_notify(struct notifier_block *nb,
+				 unsigned long action, void *data)
+{
+	struct mt6370_priv *priv = container_of(nb, struct mt6370_priv, pm_nb);
+	struct power_supply *psy;
+
+	switch (action) {
+	case PM_SUSPEND_PREPARE:
+		WRITE_ONCE(priv->pe40_suspended, true);
+		cancel_delayed_work_sync(&priv->pe40_dwork);
+		mutex_lock(&priv->policy_lock);
+		if (priv->pe40_state == MT6370_PE40_RUN) {
+			psy = power_supply_get_by_reference(dev_fwnode(priv->dev),
+							    "cosmo,pd-supply");
+			if (IS_ERR(psy))
+				psy = NULL;
+			mt6370_pe40_end(priv, psy, MT6370_PE40_IDLE, "suspend");
+			if (psy)
+				power_supply_put(psy);
+		}
+		mutex_unlock(&priv->policy_lock);
+		break;
+	case PM_POST_SUSPEND:
+		WRITE_ONCE(priv->pe40_suspended, false);
+		queue_delayed_work(priv->wq, &priv->pe40_dwork,
+				   msecs_to_jiffies(MT6370_PE40_FAST_POLL_MS));
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static void mt6370_pe40_unregister_pm(void *data)
+{
+	struct mt6370_priv *priv = data;
+
+	unregister_pm_notifier(&priv->pm_nb);
 }
 
 static void mt6370_chg_pwr_rdy_check(struct mt6370_priv *priv)
@@ -1220,6 +1655,10 @@ static int mt6370_chg_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to init temperature work\n");
 
+	ret = devm_delayed_work_autocancel(dev, &priv->pe40_dwork, mt6370_pe40_dwork_func);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to init PPS work\n");
+
 	ret = mt6370_chg_init_setting(priv);
 	if (ret)
 		return dev_err_probe(dev, ret,
@@ -1253,6 +1692,20 @@ static int mt6370_chg_probe(struct platform_device *pdev)
 	mutex_unlock(&priv->attach_lock);
 
 	mt6370_chg_pwr_rdy_check(priv);
+
+	/* Cosmo: PD PPS charging when the TCPC is linked in DT */
+	if (device_property_present(dev, "cosmo,pd-supply")) {
+		priv->pm_nb.notifier_call = mt6370_pe40_pm_notify;
+		ret = register_pm_notifier(&priv->pm_nb);
+		if (ret)
+			return dev_err_probe(dev, ret, "Failed to register PM notifier\n");
+		ret = devm_add_action_or_reset(dev, mt6370_pe40_unregister_pm, priv);
+		if (ret)
+			return ret;
+		queue_delayed_work(priv->wq, &priv->pe40_dwork,
+				   msecs_to_jiffies(MT6370_PE40_POLL_MS));
+		dev_info(dev, "PD PPS charging enabled\n");
+	}
 
 	return 0;
 }
