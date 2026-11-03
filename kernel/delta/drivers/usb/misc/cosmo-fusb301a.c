@@ -58,6 +58,8 @@
 #define FUSB_DEBOUNCE_MS	64
 /* Host role up before the right port is powered (see right_attach). */
 #define FUSB_HOST_SETTLE_MS	200
+/* Right-port power-off time for a replug (sysfs "replug"). */
+#define FUSB_REPLUG_OFF_MS	500
 
 /* Debug: freeze the attach logic so the chip can be probed by hand. */
 static bool hold;
@@ -81,6 +83,7 @@ struct cosmo_fusb {
 	bool left_on;		/* MT6370 OTG boost actually enabled */
 	bool right_host;	/* sink on the right, host role ours */
 	bool source_seen;	/* source on the right: GPIO178 must stay off */
+	bool replugging;	/* right port briefly unpowered (sysfs replug) */
 	enum usb_role prev_role;
 };
 
@@ -92,7 +95,8 @@ static int cosmo_fusb_read(struct cosmo_fusb *fusb, u8 reg)
 /* Lock held. */
 static void cosmo_fusb_apply_vbus(struct cosmo_fusb *fusb)
 {
-	bool on = (fusb->kbd_want || fusb->right_host) && !fusb->source_seen;
+	bool on = (fusb->kbd_want || fusb->right_host) &&
+		  !fusb->source_seen && !fusb->replugging;
 
 	gpiod_set_value_cansleep(fusb->vbus, on);
 }
@@ -363,6 +367,47 @@ static const struct regulator_desc cosmo_fusb_regs[] = {
 	},
 };
 
+/*
+ * A device that was powered while the STM32 data switch was not set up
+ * (plugged in through boot, before cosmo-codi's SYNC_RIGHT_USB_OTG_STATUS)
+ * can stay unseen. cosmo-codi writes 1 here after setting the switch: the
+ * right port loses power for FUSB_REPLUG_OFF_MS, so the device restarts.
+ * Only while the right port is the host; the keyboard backlight (same
+ * rail) goes dark for that time.
+ */
+static ssize_t replug_store(struct device *dev, struct device_attribute *attr,
+			    const char *buf, size_t count)
+{
+	struct cosmo_fusb *fusb = dev_get_drvdata(dev);
+	bool val;
+	int ret;
+
+	ret = kstrtobool(buf, &val);
+	if (ret)
+		return ret;
+	if (!val)
+		return count;
+
+	mutex_lock(&fusb->lock);
+	if (fusb->right_host) {
+		fusb->replugging = true;
+		cosmo_fusb_apply_vbus(fusb);
+		msleep(FUSB_REPLUG_OFF_MS);
+		fusb->replugging = false;
+		cosmo_fusb_apply_vbus(fusb);
+		dev_info(fusb->dev, "right port: power cycled\n");
+	}
+	mutex_unlock(&fusb->lock);
+	return count;
+}
+static DEVICE_ATTR_WO(replug);
+
+static struct attribute *cosmo_fusb_attrs[] = {
+	&dev_attr_replug.attr,
+	NULL
+};
+ATTRIBUTE_GROUPS(cosmo_fusb);
+
 static void cosmo_fusb_cleanup(void *data)
 {
 	struct cosmo_fusb *fusb = data;
@@ -477,6 +522,7 @@ static struct i2c_driver cosmo_fusb_driver = {
 		.name = "cosmo-fusb301a",
 		.of_match_table = cosmo_fusb_of_match,
 		.pm = pm_sleep_ptr(&cosmo_fusb_pm),
+		.dev_groups = cosmo_fusb_groups,
 	},
 };
 module_i2c_driver(cosmo_fusb_driver);
