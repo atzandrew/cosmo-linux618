@@ -197,6 +197,7 @@ struct mt6370_priv {
 #define MT6370_PE40_VBUS_OV_MV		2000
 #define MT6370_PE40_STEP_MV		50
 #define MT6370_PE40_MIVR_STEP_MV	200
+#define MT6370_PE40_MIVR_MARGIN_MV	300
 #define MT6370_PE40_PPS_STEP_MV		20
 #define MT6370_PE40_ENTER_HOT		39000	/* temp_t3_thres_minus_x_degree */
 #define MT6370_PE40_ENTER_COLD		16000	/* temp_t2_thres_plus_x_degree */
@@ -694,9 +695,10 @@ mivr_handler_out:
  *    (AICR less 14 %) raises the voltage, 200 mA or more below lowers
  *    it, by the vendor power rule (5 V if it carries the power,
  *    otherwise power / (limit - 200 mA)), 5 V to min(APDO max, 11 V).
- *    VBUS held at MIVR (charger status) also raises, by 200 mV, and
- *    sets a floor the loop does not lower below (P2c: the Anker 736
- *    sagged to 4.6 V at 1.1 A at 5 V, so IBUS never reached the limit).
+ *    Input held at MIVR (status bit, or VBUS within 300 mV of it) also
+ *    raises, by 200 mV, and sets a floor the loop does not lower below
+ *    (P2c/P2d: the Anker 736 cable drop is ~0.33 Ohm; at 5.4 V VBUS sat
+ *    75 mV above MIVR and the charger held back without the bit).
  *    MIVR follows at VBUS - 1.2 V (at least 4.6 V); MIVR goes to 4.6 V
  *    before each change. Every tick sends a request, which keeps the
  *    PPS contract alive (the source falls back to 5 V after ~15 s
@@ -876,7 +878,7 @@ static unsigned int mt6370_pe40_cc(struct mt6370_priv *priv,
 				   struct power_supply *psy, int online)
 {
 	int limit = priv->pe40_max_ibus_ma;
-	int ibus, vbus, power, mv, ret;
+	int ibus, vbus, power, mv, mivr_mv, ret;
 	unsigned int mivr_stat;
 	bool rising = false;
 
@@ -912,6 +914,16 @@ static unsigned int mt6370_pe40_cc(struct mt6370_priv *priv,
 		return MT6370_PE40_POLL_MS;
 	}
 
+	/*
+	 * Input held down by MIVR: the status bit, or VBUS within 300 mV of
+	 * the MIVR set by mt6370_pe40_request() (the charger already backs
+	 * off there without the bit: 4.675 V at a 4.6 V MIVR, P2c).
+	 */
+	mivr_mv = max(MT6370_PE40_MIVR_MIN_UV / 1000,
+		      priv->pe40_mv - MT6370_PE40_IR_DROP_MV);
+	if (vbus < mivr_mv + MT6370_PE40_MIVR_MARGIN_MV)
+		mivr_stat = 1;
+
 	/* Low power ends PPS, unless the input is held down by MIVR */
 	power = priv->pe40_mv * ibus;
 	if (!mivr_stat && power <= MT6370_PE40_MIN_POWER) {
@@ -922,10 +934,11 @@ static unsigned int mt6370_pe40_cc(struct mt6370_priv *priv,
 	mv = priv->pe40_mv;
 	if (mivr_stat) {
 		/*
-		 * VBUS sags to MIVR (source / cable drop; 4.6 V at 1.1 A at
-		 * 5 V on the Anker 736): input limited, step up and do not
-		 * come back down below this. The vendor gets there with its
-		 * high-voltage probe at start (mtk_pe40_get_init_watt).
+		 * VBUS sags to MIVR (source / cable drop: 4.6 V at 1.1 A at
+		 * 5 V, 4.675 V at 2.1 A at 5.4 V on the Anker 736): input
+		 * limited, step up and do not come back down below this. The
+		 * vendor gets there with its high-voltage probe at start
+		 * (mtk_pe40_get_init_watt).
 		 */
 		mv = min(priv->pe40_mv + MT6370_PE40_MIVR_STEP_MV,
 			 priv->pe40_vmax_mv);

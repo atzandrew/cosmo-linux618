@@ -3616,3 +3616,19 @@ Image T1:
   p2c-boot.img (hash in the commit's build).
 - Pass as P2 (VBUS above 5.3 V, battery above 1.6 A, 5 min clean,
   unplug/replug restarts PPS).
+
+### P2c results and P2d (2026-11-03)
+
+- P2c, battery 66 %: loop stepped to 5.4 V on MIVR, then held: VBUS
+  4.675 V, IBUS 2.1 A, battery +1.4 A, CHG_STAT1 0x80 (MIVR bit clear).
+  TCPM contract APDO 4 at 5.4 V / 3.0 A, so the source is not current
+  limiting. VBAT 4.36-4.42 V: near CV (4.40 V) already at 66 %, so the
+  cell sets the current here. Hand test, 6.0 V for 3 s: VBUS 5.25 V,
+  IBUS 2.1 A, battery +1.6 A; at 5.4 V the charger was holding back
+  75 mV above MIVR without setting the bit.
+- P2d: VBUS within 300 mV of the MIVR set for the request counts as
+  MIVR (raise 200 mV, floor).
+- Note on the P2 pass line: "battery above 1.6 A" was set from the 27 %
+  check; at 66 % the cell is near CV. Here: compare with fixed 5 V at
+  the same charge (+1.17-1.25 A at 56-58 % on p1b). The low-charge check
+  (< 40 %) stays open.
