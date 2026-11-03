@@ -1158,6 +1158,14 @@
 				label = "USB-C left";
 				power-role = "sink";
 				data-role = "device";
+				/*
+				 * Battery powered. TCPM then opens CC in its
+				 * start-up port reset, so a charger plugged in
+				 * through boot detaches and attaches again; with
+				 * Rd kept, CC never changes, no alert comes and the
+				 * port stays unattached (P1, 2026-11-03).
+				 */
+				self-powered;
 				sink-pdos = <PDO_FIXED(5000, 2000, 0)>;
 				op-sink-microwatt = <10000000>;
 			};

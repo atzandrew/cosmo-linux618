@@ -3516,3 +3516,22 @@ Image T1:
   hard-reset loop; left host by hand (U2) and right host (U4) still work.
   Fail: no boot, probe error, VBUS above 5.5 V, charging stops, repeated
   hard resets, either host role broken.
+
+### P1 results (2026-11-03)
+
+- Boot PASS; tcpci_mt6370 bound, port0 registered.
+- Anker 736 plugged in through boot: port stayed SNK_UNATTACHED, GPIO41
+  alert count 0. TCPC registers (regmap 11-0034, bank 0x0xx = TCPC):
+  CC_STATUS 0x03 (CC1 Rp 3.0 A), POWER_STATUS 0x0c (VBUS present),
+  ALERT 0. Cause: sink-only TCPM's start-up PORT_RESET re-applies Rd,
+  CC never changes, no alert. Replug -> attach and PD.
+- After replug: contract 5 V / 2 A (tcpm psy usb_type PD_PPS). Source
+  caps: fixed 5 V 3 A, 9 V 3 A, 15 V 3 A, 20 V 5 A; PPS 3.3-16 V 5 A,
+  not power-limited. 30 s stable: no new alerts, no hard reset, VBUS
+  ADC ~4.5 V, battery +1.25 A. MT6370 BC1.2 reads DCP (AICR 3.2 A,
+  above the 2 A contract; stock's PD path sets AICR from the contract).
+- Note: the tcpm debugfs log is emptied by each read.
+- P1b: connector `self-powered` (TCPM opens CC in the start-up port
+  reset). Image p1b-boot.img d4bf11af… (Image.gz-dtb 690a2bf7…); DT only,
+  modules unchanged. Pass: charger in through boot -> PD contract
+  without replug; left host (U2) and right host (U4) still work.
