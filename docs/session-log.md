@@ -3632,3 +3632,18 @@ Image T1:
   check; at 66 % the cell is near CV. Here: compare with fixed 5 V at
   the same charge (+1.17-1.25 A at 56-58 % on p1b). The low-charge check
   (< 40 %) stays open.
+
+### P2d results (2026-11-03): PASS at 70-73 % (low-charge check open)
+
+- Boot with the Anker 736 in: PPS start at 21 s, loop settled at
+  5.8 V: VBUS 5.05-5.15 V (500 mV above MIVR 4.6 V), IBUS 1.9-2.25 A,
+  battery +1.49 A at 70 % tapering to +1.34 A at 73 %, VBAT 4.414 V
+  (at CV: the cell sets the current), battery 30.0 -> 31.9 C. Fixed 5 V
+  on p1b gave +1.17-1.25 A at 56-58 %.
+- 6 min clean: PPS stayed on (online 2), no "PPS end", no charger fault.
+- Unplug / replug within one 10 s tick: "PPS end: PPS contract lost"
+  (the new attach came up on the fixed contract; AICR briefly 2.0 A =
+  contract cap), "PPS start" 10 s later, 5.2 -> 5.6 V in 8 s.
+- Open: battery current at low charge (< 40 %, cell below CV) against
+  the 1.6 A line; PPS end at <= 5 W near full; sleep with PPS (PM
+  notifier path); right-port host with PPS on the left.
