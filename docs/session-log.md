@@ -3596,3 +3596,23 @@ Image T1:
   with no charger, charger probes at boot (no wait for the TCPC), USB
   gadget up; then the P2 pass/fail above. If it panics again: photo of
   the screen, back to p1b.
+
+### P2b results and P2c (2026-11-03)
+
+- p2 did not panic: its root boot never reported in (cosmo-boot-ok), so
+  the next boot stayed in the rescue initramfs, whose USB/phy
+  diagnostics on glass looked like a USB panic. p2 itself left no
+  journal (the hang came before journald wrote to disk). p2b (only the
+  rename) boots normally: charger probed at 0.46 s, "PD PPS charging
+  enabled", USB gadget up. So the *-supply devlink hang is the cause.
+- P2b on the Anker 736, battery 58 %: "PPS start: APDO 3300-16000 mV,
+  5000 mA (IBUS limit 2580 mA)", AICR / ICHG 3.0 A, MIVR 4.6 V, but
+  VBUS 4.6 V at IBUS 1.1 A, battery +0.43 A (worse than fixed 5 V), and
+  the voltage stayed at 5 V: CHG_STAT1 0x1d0 = 0xc0 (MIVR active), so
+  IBUS never neared the limit and the loop never raised. Stock avoids
+  it by probing high voltage first (mtk_pe40_get_init_watt).
+- P2c: MIVR active -> +200 mV per tick (3 s) and a floor at that
+  voltage; the 5 W end check is skipped while MIVR is active. Image
+  p2c-boot.img (hash in the commit's build).
+- Pass as P2 (VBUS above 5.3 V, battery above 1.6 A, 5 min clean,
+  unplug/replug restarts PPS).
