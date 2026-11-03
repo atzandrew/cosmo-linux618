@@ -3385,3 +3385,31 @@ Image T1:
 - Open: right-port VBUS source. Control test on stock (Gemian): keyboard
   on the right port. Also open: automatic role on the left port (MT6370
   TCPC), FUSB301A detection for the right port.
+
+## 2026-11-02 / 2026-11-03 — right USB-C port U3: host PASS by hand
+
+- U3 (c4989e3, u3-boot.img 35dbaf00…): UART1 enabled (11003000, pins
+  110/112 mode 7, 115200 8N1) for the cover-display STM32. The STM32 is
+  silent until a reset pulse on GPIO77 (high 100 ms, then low); then it
+  prints its bootloader banner and exchanges "X!X!" frames. Driven from
+  userspace by gemini-debian `cosmo-codi`.
+- Right-port VBUS is gated by GPIO178 (stock `sil9022_hdmi_hplg`, shared
+  with the keyboard backlight enable) AND GPIO79 (stock `aeon_usb_lr_sw`).
+  With 178 high and 79 low the port stays dark; 79 high powers it. The
+  MT6370 boost (host role) alone does not.
+- Host on the right, stock order: device plugged first, then GPIO79 high
+  + SSUSB host role -> a low-speed USB mouse enumerates and works, both
+  plug orientations. The STM32 0x90 frames (Android's
+  CMD_SYNC_RIGHT_USB_OTG_STATUS) are not needed; GPIO176 (FUSB301A switch
+  select) makes no difference. A device left plugged in through boot is
+  not detected until it is re-plugged.
+- Tool: `tools/cosmo-pwr/cosmo_u2ls.c` samples the U2 PHY monitor
+  (t-phy 0x11f40000 + 0x374, line state bits 23:22). Readings: right
+  empty = SE0 + host-disconnect; mouse working on either port = K.
+- Found on the way: after a system sleep in host role the left-port
+  MT6370 boost reports on (CHG_CTRL1 OPA_MODE, CHG_STAT BOOST_STAT, no
+  faults) but no VBUS reaches the port; a reboot clears it. Host role no
+  longer blocks idle suspend (gadget mode did, -EBUSY).
+- Open: automatic right-port switching (FUSB301A attach / GPIO166 ->
+  GPIO79 + host role); keyboard-backlight idle dimming cuts right VBUS;
+  boost after sleep.
