@@ -3413,3 +3413,37 @@ Image T1:
 - Open: automatic right-port switching (FUSB301A attach / GPIO166 ->
   GPIO79 + host role); keyboard-backlight idle dimming cuts right VBUS;
   boost after sleep.
+
+## 2026-11-03 — right USB-C port U4: automatic host switching PASS
+
+- Correction to U3: the U3 "host by hand" passes only worked because
+  STM32 SYNC_RIGHT_USB_OTG_STATUS (144) frames had been sent earlier in
+  the same boot (journal of those boots). The STM32 switches the right
+  port's data lines and needs type 2, then type 1 after every STM32
+  reset; without them the U2 PHY sees SE0 (SE1 for a device powered
+  before the frames). Also corrected: right-port VBUS follows GPIO178
+  alone (device lit with GPIO79 low); GPIO79 routes data only.
+- Driver `cosmo-fusb301a` (built in, drivers/usb/misc, i2c3 0x25),
+  modelled on stock usb_typec.c: soft reset + mode 0x10 (DRP); GPIO166
+  both-edge IRQ + 5 s poll; sink attached -> GPIO178 held, host role,
+  200 ms, GPIO79 high; detach -> previous role, GPIO79 low; a source on
+  the right forces GPIO178 off (stock test_right_usb). GPIO178 is the
+  `right-vbus` regulator (keyboard backlight power-supply), SSUSB
+  vbus-supply passes through `left-vbus` (MT6370 boost off while the
+  right port is the host). sysfs `replug`: rail off 500 ms while host.
+- gemini-debian cosmo-codi sends the 144 frames after every STM32 reset,
+  then writes `replug` (a device powered before the frames restarts).
+- Images: u4 5662a306…, u4b d0f0612c…, u4c 1b2816a2… (adds debug `hold`),
+  u4d 803c40c7… (replug); all 6.18.58-cosmo. Rollback u3 35dbaf00….
+- Ruled out on the way: power order, left boost, FUSB301A DRP vs 0x04,
+  keyboard PWM. Left-port host still PASS with the pass-through.
+- PASS (u4c/u4d + cosmo-codi): fresh plug on the right -> mouse works,
+  no commands; keyboard backlight 0 -> still works; unplug -> GPIO79
+  low, role device, boost off; wall charger on the left with the mouse
+  on the right -> charging (+0.62 A, 1.5 A input) and the mouse keeps
+  working (MT6370 BC1.2 on charger plug drops it ~0.3 s, it re-enumerates
+  alone); mouse plugged in through boot -> works without replug (STM32
+  reset at 4.2 s cut it, replug at 11.2 s, enumerated 11.6 s).
+- Open: right-port device across system sleep (STM32 state after
+  resume); left boost dead after sleep (U3); STM32 reset blinks the
+  keyboard backlight 0.5 s at boot when a right device is present.
