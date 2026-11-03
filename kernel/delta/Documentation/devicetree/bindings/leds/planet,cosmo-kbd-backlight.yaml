@@ -10,12 +10,12 @@ maintainers:
   - atzero <atzandrew@gmail.com>
 
 description: |
-  The Cosmo uses MT6771 PWM1 in FIFO mode and a shared keyboard/HDMI
-  enable. This device owns the entire general PWM register resource;
+  The Cosmo uses MT6771 PWM1 in FIFO mode and a 5 V rail (GPIO178)
+  shared with HDMI and the right USB-C port, provided as a regulator by
+  planet,cosmo-fusb301a. This device owns the entire general PWM register resource;
   it must replace the generic PWM provider, never coexist with it.
-  Only channel 1 is programmed. GPIO178 is asserted for keyboard on;
-  keyboard off only deasserts it if HDMI detect GPIO54 is low.
-  A future HDMI driver must coordinate ownership of the shared enable.
+  Only channel 1 is programmed. The rail is enabled for keyboard on;
+  keyboard off only releases it if HDMI detect GPIO54 is low.
 
 properties:
   compatible:
@@ -37,9 +37,8 @@ properties:
       - const: pwm3
       - const: pwm4
 
-  enable-gpios:
-    maxItems: 1
-    description: Active high shared keyboard and HDMI enable.
+  power-supply:
+    description: Shared 5 V rail (keyboard, HDMI, right USB-C VBUS).
 
   hdmi-detect-gpios:
     maxItems: 1
@@ -55,7 +54,7 @@ required:
   - reg
   - clocks
   - clock-names
-  - enable-gpios
+  - power-supply
   - hdmi-detect-gpios
   - pinctrl-names
   - pinctrl-0

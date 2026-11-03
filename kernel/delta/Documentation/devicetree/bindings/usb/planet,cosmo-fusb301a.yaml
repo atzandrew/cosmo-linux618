@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/usb/planet,cosmo-fusb301a.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Planet Cosmo Communicator right USB-C port (FUSB301A)
+
+maintainers:
+  - atzero <atzandrew@gmail.com>
+
+description: |
+  FUSB301A CC logic for the right USB-C port. One SSUSB controller serves
+  both ports; a mux GPIO routes USB 2 data (and the right VBUS switch) to
+  the right port. On a sink attach the driver enables the shared 5 V rail,
+  sets the mux and selects the host role; a source attach forces the rail
+  off. The device provides two regulators: right-vbus (the shared 5 V
+  rail, used by the keyboard backlight) and left-vbus (the SSUSB VBUS
+  supply, passed through to left-vbus-supply unless the right port is
+  the host).
+
+properties:
+  compatible:
+    const: planet,cosmo-fusb301a
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+    description: FUSB301A ID output (low while attached as source).
+
+  pinctrl-names:
+    const: default
+
+  pinctrl-0: true
+
+  mux-gpios:
+    maxItems: 1
+    description: High routes USB 2 data and VBUS to the right port.
+
+  vbus-gpios:
+    maxItems: 1
+    description: Shared 5 V rail enable (keyboard backlight, right VBUS).
+
+  left-vbus-supply:
+    description: Left port OTG VBUS source.
+
+  usb-role-switch:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: The SSUSB controller's role switch.
+
+  regulators:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^(right|left)-vbus$":
+        type: object
+        $ref: /schemas/regulator/regulator.yaml#
+        unevaluatedProperties: false
+
+required:
+  - compatible
+  - reg
+  - mux-gpios
+  - vbus-gpios
+  - left-vbus-supply
+  - usb-role-switch
+  - regulators
+
+additionalProperties: false

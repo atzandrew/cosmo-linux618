@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Cosmo keyboard backlight: stock MT6771 PWM1 FIFO and shared GPIO178.
+ * Cosmo keyboard backlight: stock MT6771 PWM1 FIFO and the shared GPIO178
+ * 5 V rail (owned by the cosmo-fusb301a driver, used here as a regulator).
  * Vendor receipts and the HDMI ownership restriction: docs/leds-stock.md.
  */
 #include <linux/bitfield.h>
@@ -12,6 +13,7 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 
 #define COSMO_PWM_ENABLE	0x00
 #define COSMO_PWM_CON		0x10
@@ -32,13 +34,27 @@ struct cosmo_kbd {
 	struct device *dev;
 	void __iomem *base;
 	struct clk_bulk_data clocks[3];
-	struct gpio_desc *enable;
+	struct regulator *power;	/* GPIO178 rail, shared with the right USB-C port */
+	bool powered;
 	struct gpio_desc *hdmi_detect;
 	struct led_classdev led;
 	/* Serializes brightness, clock lifetime and shared-enable decisions. */
 	struct mutex lock;
 	bool running;
 };
+
+/* Lock held. Balanced: enable/disable only on a change. */
+static int cosmo_kbd_power(struct cosmo_kbd *kbd, bool on)
+{
+	int ret;
+
+	if (on == kbd->powered)
+		return 0;
+	ret = on ? regulator_enable(kbd->power) : regulator_disable(kbd->power);
+	if (!ret)
+		kbd->powered = on;
+	return ret;
+}
 
 static const u32 cosmo_kbd_data[][2] = {
 	{ 0, 0 },
@@ -78,7 +94,7 @@ static int cosmo_kbd_set(struct led_classdev *led,
 		}
 		/* Stock only lowers GPIO178 if GPIO54 is low. */
 		if (!detect)
-			ret = gpiod_direction_output(kbd->enable, 0);
+			ret = cosmo_kbd_power(kbd, false);
 		goto out;
 	}
 
@@ -90,7 +106,7 @@ static int cosmo_kbd_set(struct led_classdev *led,
 	}
 
 	/* Assert shared enable before starting PWM, as stock does. */
-	ret = gpiod_direction_output(kbd->enable, 1);
+	ret = cosmo_kbd_power(kbd, true);
 	if (ret) {
 		if (new_clocks)
 			clk_bulk_disable_unprepare(ARRAY_SIZE(kbd->clocks),
@@ -161,11 +177,10 @@ static int cosmo_kbd_probe(struct platform_device *pdev)
 	if (IS_ERR(kbd->hdmi_detect))
 		return dev_err_probe(dev, PTR_ERR(kbd->hdmi_detect),
 				     "Cannot get HDMI detect\n");
-	/* Do not change GPIO178's level on probe. */
-	kbd->enable = devm_gpiod_get(dev, "enable", GPIOD_ASIS);
-	if (IS_ERR(kbd->enable))
-		return dev_err_probe(dev, PTR_ERR(kbd->enable),
-				     "Cannot get shared enable\n");
+	kbd->power = devm_regulator_get(dev, "power");
+	if (IS_ERR(kbd->power))
+		return dev_err_probe(dev, PTR_ERR(kbd->power),
+				     "Cannot get shared 5 V rail\n");
 
 	kbd->led.name = "cosmo::kbd_backlight";
 	kbd->led.max_brightness = ARRAY_SIZE(cosmo_kbd_data) - 1;

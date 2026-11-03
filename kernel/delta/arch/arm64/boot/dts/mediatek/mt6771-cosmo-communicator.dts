@@ -640,8 +640,9 @@
  * D+/D- to the left port (low, default) or the right port (high); stock
  * force_to_otg() in usb_c/fusb302/usb_typec.c sets GPIO79 high and loads
  * xhci for the right port, which is host only. The left port stays in
- * device mode for bring-up networking (g_ether, CDC ECM); host mode is
- * selected by hand through the usb_role class for now (role switch U1).
+ * device mode for bring-up networking (g_ether, CDC ECM); left host mode
+ * is selected by hand through the usb_role class (role switch U1). The
+ * right port switches itself (cosmo-fusb301a on i2c3, U4).
  * High speed only.
  */
 &ssusb {
@@ -650,9 +651,11 @@
 	role-switch-default-mode = "peripheral";
 	/*
 	 * VBUS for the host role (U2): on only while host is selected
-	 * (delta mtu3_host.c skips the probe-time enable).
+	 * (delta mtu3_host.c skips the probe-time enable). Passes through
+	 * cosmo-fusb301a, which keeps the left boost off while the right
+	 * port is the host.
 	 */
-	vbus-supply = <&mt6370_otg_vbus>;
+	vbus-supply = <&cosmo_left_vbus>;
 	maximum-speed = "high-speed";
 	/*
 	 * USB 2 only: without this mtu3 also waits for the U3 MAC clock
@@ -1632,6 +1635,50 @@
 			max-brightness = <64>;
 		};
 	};
+
+	/*
+	 * Right USB-C port CC logic (stock mt6771.dts fusb301a-pin: ID on
+	 * GPIO166, debounce 64; usb_typec.c: mode 0x10 DRP). GPIO79 routes
+	 * USB 2 data and the right VBUS switch to the right port; GPIO178 is
+	 * the 5 V rail shared with the keyboard backlight.
+	 */
+	typec@25 {
+		compatible = "planet,cosmo-fusb301a";
+		reg = <0x25>;
+		interrupts-extended = <&pio 166 IRQ_TYPE_EDGE_BOTH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&fusb301a_pins>;
+		mux-gpios = <&pio 79 GPIO_ACTIVE_HIGH>;
+		vbus-gpios = <&pio 178 GPIO_ACTIVE_HIGH>;
+		left-vbus-supply = <&mt6370_otg_vbus>;
+		usb-role-switch = <&ssusb>;
+
+		regulators {
+			cosmo_right_5v: right-vbus {
+				regulator-name = "cosmo-right-5v";
+			};
+
+			cosmo_left_vbus: left-vbus {
+				regulator-name = "cosmo-left-vbus";
+			};
+		};
+	};
+};
+
+&pio {
+	fusb301a_pins: fusb301a-pins {
+		/* Stock gpio_init_default: 166 GPIO input, pull-up. */
+		pins-id {
+			pinmux = <PINMUX_GPIO166__FUNC_GPIO166>;
+			input-enable;
+			bias-pull-up;
+		};
+
+		pins-mux {
+			pinmux = <PINMUX_GPIO79__FUNC_GPIO79>;
+			output-low;
+		};
+	};
 };
 
 /*
@@ -1644,7 +1691,7 @@
 	/delete-property/ #pwm-cells;
 	pinctrl-names = "default";
 	pinctrl-0 = <&kbd_pwm_pins>;
-	enable-gpios = <&pio 178 GPIO_ACTIVE_HIGH>;
+	power-supply = <&cosmo_right_5v>;
 	hdmi-detect-gpios = <&pio 54 GPIO_ACTIVE_HIGH>;
 };
 
