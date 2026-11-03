@@ -1129,9 +1129,12 @@
 			/*
 			 * PD step P2: USB PD PPS charging on the left port
 			 * through TCPM's power supply (vendor PE4.0; delta
-			 * mt6370-charger.c mt6370_pe40_dwork_func).
+			 * mt6370-charger.c mt6370_pe40_dwork_func). Not named
+			 * *-supply: fw_devlink reads those as regulator
+			 * suppliers and held this built-in charger (and the
+			 * USB VBUS behind it) until the TCPC module bound (P2).
 			 */
-			cosmo,pd-supply = <&mt6370_tcpc>;
+			cosmo,pd-port = <&mt6370_tcpc>;
 
 			/*
 			 * OTG boost (VBUS out), used by the SSUSB host role.

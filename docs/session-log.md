@@ -3579,3 +3579,20 @@ Image T1:
   detached", replug -> PPS starts again.
   Fail: no start, VBUS above 11.5 V, battery not above 1.6 A, a
   charger fault or OVP, repeated hard resets, PPS ends with an error.
+
+### P2 result (2026-11-03): FAIL, panics at boot
+
+- p2 panicked during boot, with and without the charger (reported on
+  glass as a USB panic; no trace kept: RAM does not survive the reset,
+  pstore empty). Back on p1b.
+- Suspected cause (not proven): the DT link was named
+  `cosmo,pd-supply`. fw_devlink reads every `*-supply` property as a
+  regulator supplier (drivers/of/property.c parse_regulators), so the
+  built-in charger waited for the TCPC module, and with it the MT6370
+  OTG boost -> cosmo-fusb301a left-vbus -> SSUSB vbus-supply chain.
+  It is the only p2 change that acts at boot with no charger present.
+- P2b: renamed to `cosmo,pd-port`; driver otherwise as p2. Image
+  p2b-boot.img 3c2b45c5… (Image.gz-dtb cc0bb381…). First check: boot
+  with no charger, charger probes at boot (no wait for the TCPC), USB
+  gadget up; then the P2 pass/fail above. If it panics again: photo of
+  the screen, back to p1b.

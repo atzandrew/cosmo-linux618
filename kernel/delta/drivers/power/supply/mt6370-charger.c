@@ -27,7 +27,7 @@
  *    charger_check_status, DT max/min_charge_temperature*). A failed
  *    reading also stops charging.
  *  - USB PD PPS on the left port (vendor PE4.0, mtk_pe40_intf.c, single
- *    charger), when "cosmo,pd-supply" points at the TCPC: see
+ *    charger), when "cosmo,pd-port" points at the TCPC: see
  *    mt6370_pe40_dwork_func(). On a fixed PD contract the input current
  *    is capped at the contract current (vendor PDC path).
  *  - The MIVR workaround compares IBUS in mA: the IIO current channel
@@ -952,7 +952,7 @@ static void mt6370_pe40_dwork_func(struct work_struct *work)
 	mutex_lock(&priv->policy_lock);
 
 	psy = power_supply_get_by_reference(dev_fwnode(priv->dev),
-					    "cosmo,pd-supply");
+					    "cosmo,pd-port");
 	if (IS_ERR(psy))
 		psy = NULL;
 	if (!psy || mt6370_pe40_psy_get(psy, POWER_SUPPLY_PROP_ONLINE, &online))
@@ -1022,7 +1022,7 @@ static int mt6370_pe40_pm_notify(struct notifier_block *nb,
 		mutex_lock(&priv->policy_lock);
 		if (priv->pe40_state == MT6370_PE40_RUN) {
 			psy = power_supply_get_by_reference(dev_fwnode(priv->dev),
-							    "cosmo,pd-supply");
+							    "cosmo,pd-port");
 			if (IS_ERR(psy))
 				psy = NULL;
 			mt6370_pe40_end(priv, psy, MT6370_PE40_IDLE, "suspend");
@@ -1694,7 +1694,7 @@ static int mt6370_chg_probe(struct platform_device *pdev)
 	mt6370_chg_pwr_rdy_check(priv);
 
 	/* Cosmo: PD PPS charging when the TCPC is linked in DT */
-	if (device_property_present(dev, "cosmo,pd-supply")) {
+	if (device_property_present(dev, "cosmo,pd-port")) {
 		priv->pm_nb.notifier_call = mt6370_pe40_pm_notify;
 		ret = register_pm_notifier(&priv->pm_nb);
 		if (ret)
