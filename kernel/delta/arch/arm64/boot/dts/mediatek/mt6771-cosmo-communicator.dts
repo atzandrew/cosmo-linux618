@@ -42,6 +42,7 @@
 
 	aliases {
 		serial0 = &uart0;
+		serial1 = &uart1;
 		mmc0 = &mmc0;
 	};
 
@@ -789,6 +790,24 @@
 	};
 
 	/*
+	 * STM32 cover-display / system MCU link (Planet framework and
+	 * ST32Test open /dev/ttyS1 at 115200). Stock pin state (mt_gpio
+	 * dump 2026-10-28): GPIO110 mode 7 URXD1 pull-up, GPIO112 mode 7
+	 * UTXD1 output.
+	 */
+	uart1_pins_default: uart1-pins {
+		pins-rx {
+			pinmux = <PINMUX_GPIO110__FUNC_URXD1>;
+			input-enable;
+			bias-pull-up;
+		};
+
+		pins-tx {
+			pinmux = <PINMUX_GPIO112__FUNC_UTXD1>;
+		};
+	};
+
+	/*
 	 * CONSYS A-die interface, stock consys_set_if_pinmux(): GPIO_MODE
 	 * 0x3e0/0x3f0 set GPIO113-121 to mode 1 at power-on and back to 0
 	 * at power-off. Mux only, no pin config (stock writes mode only).
@@ -1120,6 +1139,13 @@
 &uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart0_pins_default>;
+	status = "okay";
+};
+
+/* STM32 MCU UART (ttyS1, 115200); no in-kernel user yet. */
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins_default>;
 	status = "okay";
 };
 
