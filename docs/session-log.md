@@ -3535,3 +3535,17 @@ Image T1:
   reset). Image p1b-boot.img d4bf11af… (Image.gz-dtb 690a2bf7…); DT only,
   modules unchanged. Pass: charger in through boot -> PD contract
   without replug; left host (U2) and right host (U4) still work.
+
+### P1b results (2026-11-03): PASS
+
+- Charger in through boot: CC opened in the start-up reset, charger
+  detach 3.4 s / attach 3.8 s, PD contract 5 V / 2 A without replug.
+- Left host by hand (usb_role host): mouse works. Right host
+  (cosmo-fusb301a): mouse works. Charger on the left with the mouse on
+  the right: PD contract 5 V / 2 A, mouse re-enumerates after the
+  BC1.2 drop as in U4; BC1.2 reads CDP there (input 1.5 A, battery
+  +0.56 A, as U4).
+- Replug log (captured every 1 s, the debugfs log empties on read):
+  attach -> Source_Capabilities 0.1 s -> request PDO 0 5 V 2 A ->
+  Accept, PS_RDY -> SNK_READY in 0.45 s, PD rev3. The HARD_RESET_SEND
+  lines are pending timeouts that were cancelled; no hard reset sent.
