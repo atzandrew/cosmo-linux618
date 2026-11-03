@@ -3,9 +3,11 @@
  * Planet Cosmo Communicator: right USB-C port (FUSB301A CC logic).
  *
  * One SSUSB controller serves both USB-C ports. GPIO79 routes USB 2 data
- * and the right port's VBUS switch to the right port (high) or leaves data
- * on the left port (low). GPIO178 enables the 5 V rail shared by the
- * keyboard backlight and the right port's VBUS.
+ * to the right port (high) or the left port (low). GPIO178 enables the 5 V
+ * rail shared by the keyboard backlight and the right port's VBUS. The
+ * cover-display STM32 also switches the right port's data lines; it must
+ * have been sent SYNC_RIGHT_USB_OTG_STATUS after its last reset (userspace
+ * cosmo-codi does this), or a right-port device never reaches the PHY.
  *
  * Stock (vendor 4.4, drivers/misc/mediatek/usb_c/fusb302/usb_typec.c):
  * - InitializeFUSB300(): FUSB301A mode 0x10 (DRP).
@@ -153,11 +155,8 @@ static void cosmo_fusb_right_attach(struct cosmo_fusb *fusb)
 	fusb->prev_role = usb_role_switch_get_role(sw);
 	fusb->right_host = true;
 	/*
-	 * The device must get power only once the host port is up: a device
-	 * powered before the host role (plugged in through boot, or GPIO79
-	 * raised first) stays unseen (line state SE0). GPIO79 also switches
-	 * the right VBUS, so it goes last. mtu3 changes role from a work item;
-	 * the wait covers it.
+	 * Rail, host role, then data. mtu3 changes role from a work item; the
+	 * wait lets the host port come up before the lines are connected.
 	 */
 	cosmo_fusb_apply_left(fusb);
 	cosmo_fusb_apply_vbus(fusb);
