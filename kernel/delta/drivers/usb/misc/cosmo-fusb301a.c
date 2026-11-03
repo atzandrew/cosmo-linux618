@@ -54,6 +54,8 @@
 #define FUSB_POLL_MS		5000
 /* Stock fusb301a-pin debounce. */
 #define FUSB_DEBOUNCE_MS	64
+/* Host role up before the right port is powered (see right_attach). */
+#define FUSB_HOST_SETTLE_MS	200
 
 struct cosmo_fusb {
 	struct device *dev;
@@ -145,11 +147,18 @@ static void cosmo_fusb_right_attach(struct cosmo_fusb *fusb)
 		return;
 	fusb->prev_role = usb_role_switch_get_role(sw);
 	fusb->right_host = true;
-	/* Stock order: 5 V rail, then GPIO79, then host. */
+	/*
+	 * The device must get power only once the host port is up: a device
+	 * powered before the host role (plugged in through boot, or GPIO79
+	 * raised first) stays unseen (line state SE0). GPIO79 also switches
+	 * the right VBUS, so it goes last. mtu3 changes role from a work item;
+	 * the wait covers it.
+	 */
 	cosmo_fusb_apply_left(fusb);
 	cosmo_fusb_apply_vbus(fusb);
-	gpiod_set_value_cansleep(fusb->mux, 1);
 	usb_role_switch_set_role(sw, USB_ROLE_HOST);
+	msleep(FUSB_HOST_SETTLE_MS);
+	gpiod_set_value_cansleep(fusb->mux, 1);
 	dev_info(fusb->dev, "right port: device attached, host\n");
 }
 
