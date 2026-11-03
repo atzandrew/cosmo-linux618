@@ -57,6 +57,11 @@
 /* Host role up before the right port is powered (see right_attach). */
 #define FUSB_HOST_SETTLE_MS	200
 
+/* Debug: freeze the attach logic so the chip can be probed by hand. */
+static bool hold;
+module_param(hold, bool, 0644);
+MODULE_PARM_DESC(hold, "Do not react to FUSB301A state changes (debug)");
+
 struct cosmo_fusb {
 	struct device *dev;
 	struct i2c_client *client;
@@ -179,6 +184,8 @@ static void cosmo_fusb_update(struct cosmo_fusb *fusb)
 	int status, type;
 	bool attached, sink, source;
 
+	if (READ_ONCE(hold))
+		return;
 	mutex_lock(&fusb->lock);
 	/* Reading clears the interrupt flags; the result is not needed. */
 	cosmo_fusb_read(fusb, FUSB_INTERRUPT);
