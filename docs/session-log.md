@@ -3447,3 +3447,38 @@ Image T1:
 - Open: right-port device across system sleep (STM32 state after
   resume); left boost dead after sleep (U3); STM32 reset blinks the
   keyboard backlight 0.5 s at boot when a right device is present.
+
+## 2026-11-03 — charging check at low charge: 5 V at the stock ceiling (PASS)
+
+- Kernel 6.18.58-cosmo #51 (u4d), left USB-C port, right port empty,
+  battery 27-28 %, backlight 768. Readings: power_supply sysfs (charger,
+  battery), mt6370-adc (VBUS ch0, IBUS ch5, IBAT ch6), CHG_STAT1 0x1d0
+  through regmap debugfs `11-0034`.
+- Pass/fail fixed first: DCP detected, AICR 3.2 A, ICHG 2.0 A, CV 4.40 V,
+  battery +1.7..2.0 A; fail = 500 mA or another port type.
+- Every plug-in: BC1.2 = DCP, `port type 2: input 3200000 uA, charge
+  2000000 uA` in the kernel log; unplug -> 500 mA / 900 mA defaults.
+
+  | Charger | Battery (gauge) | VBUS / IBUS | Limit |
+  |---|---|---|---|
+  | Anker PowerPort mini, port 1 | +1.85 A | not read | near ICHG 2.0 A |
+  | Anker PowerPort mini, port 2 | +1.71 A | not read | |
+  | Anker 736, USB-A | +1.32..1.34 A | 4.43 V / 2.1 A, IBAT 1.40 A | charger sags |
+  | Anker 736, USB-C | +1.60 A | 4.48 V / 2.0 A, IBAT 1.70 A | charger sags |
+
+  (Mini port 1/2 assigned by order: a 2 s swap between its two ports.)
+- CHG_STAT1 = 0x80 on the 736 (power good only): no AICR, MIVR or thermal
+  loop. The 736 outputs sag to ~4.45 V at ~2 A (~9 W in); the rest of the
+  system takes ~0.7 A, the battery the remainder.
+- Result: PASS. On 5 V the charger reaches the stock ceiling; differences
+  between chargers come from the charger/cable.
+- Difference from stock noted, not changed: MIVR on DCP = 4.4 V
+  (CHGCTRL6 0x116 = 0x0b); stock 4.6 V (0x0f, docs/power-stock.md). The
+  lower floor lets more current through a sagging charger.
+- Gap: no USB PD. The 736 USB-C port (PD charger) ran as plain 5 V because
+  TCPM/TCPCI is not built (no CONFIG_TYPEC*). Stock negotiates PD
+  (9-11 V, AICR 2.5 A, ICHG 3.0 A `pd_charger_current`, below
+  `pe40_stop_battery_soc` 80 %) and Pump Express on DCP below 85 %.
+- Battery temperature reads +7..10 C on every unplug for a few seconds
+  (29 -> 37-39 C at a current swing of ~2.5 A), back on replug: the known
+  missing IR term in the BAT_TEMP conversion (power-plan.md stretch goals).
