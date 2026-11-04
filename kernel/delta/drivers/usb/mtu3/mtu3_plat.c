@@ -584,8 +584,20 @@ static int mtu3_resume_common(struct device *dev, pm_message_t msg)
 			ssusb_gadget_reinit(ssusb);
 		if (ssusb->dr_mode != USB_DR_MODE_PERIPHERAL)
 			ssusb_host_reinit(ssusb);
-		if (ssusb->dr_mode == USB_DR_MODE_OTG)
-			ssusb_otg_reapply_role(ssusb);
+		/*
+		 * Host role: put it back now. Device role: the host setup
+		 * leaves port 0 host-owned; keep it so until xHCI (a child,
+		 * resumed after us) has re-initialised, as at probe, and
+		 * switch to device in .complete. If xHCI re-inits with the
+		 * port already device-owned, the IP never reports sleep again
+		 * (xHCI DMA request stays latched in OTG_STS).
+		 */
+		if (ssusb->dr_mode == USB_DR_MODE_OTG) {
+			if (ssusb->is_host)
+				ssusb_otg_reapply_role(ssusb);
+			else
+				ssusb->role_reapply = true;
+		}
 	}
 
 	return resume_ip_and_ports(ssusb, msg);
@@ -606,6 +618,17 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 	return mtu3_resume_common(dev, PMSG_SUSPEND);
 }
 
+static void __maybe_unused mtu3_complete(struct device *dev)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+
+	if (!ssusb->role_reapply)
+		return;
+
+	ssusb->role_reapply = false;
+	ssusb_otg_reapply_role(ssusb);
+}
+
 static int __maybe_unused mtu3_runtime_suspend(struct device *dev)
 {
 	if (!device_may_wakeup(dev))
@@ -624,6 +647,7 @@ static int __maybe_unused mtu3_runtime_resume(struct device *dev)
 
 static const struct dev_pm_ops mtu3_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(mtu3_suspend, mtu3_resume)
+	.complete = pm_sleep_ptr(mtu3_complete),
 	SET_RUNTIME_PM_OPS(mtu3_runtime_suspend,
 			   mtu3_runtime_resume, NULL)
 };
