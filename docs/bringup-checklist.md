@@ -24,7 +24,7 @@ yet confirmed.
 | ✅ | USB device (gadget) | mtu3 `11201000`, t-phy | yes + delta | `u3p-dis-msk`, U2 force bits; CDC-ECM + telnet | P1 |
 | ✅ | kexec | — | yes | test loop, ~40 s per kernel | P1 |
 | ✅ | Framebuffer console | mediatek-drm fbdev (was LK buffer `0x7df70000` + simplefb) | yes | since display D2 | P1 |
-| ✅ | Power key / keys as input | MT6358 `mt6358keys` | **fix** | corrected driver that never touches the reset enable (pk2); hold 3 s = power off | P2 |
+| ✅ | Power key / keys as input | MT6358 `mt6358keys` | **fix** | corrected driver that never touches the reset enable (pk2); hold 3 s = power off; power key = keyboard Esc and the silver key (KEY_ESC); home key = fingerprint side key (KEY_PROG1, stock KEY_VOLUMEUP) | P2 |
 | ⬜ | Keypad block | `kp@10010000` | check (`mt6779-keypad`?) | which keys it carries on the Cosmo | P2 |
 | ✅ | cpufreq / DVFS | big: vproc11+vsram_proc11, little+CCI: vproc12+vsram_proc12 (no external buck) | yes (mt8183) + delta | full stock tables for this unit, CCI devfreq (C1-C4, `docs/cpufreq.md`) | P2 |
 | 🔶 | SVS, thermal | — | yes (mt8183) | thermal done (`cpu-thermal` critical 115 C, battery 60 C; sensor re-init after deep sleep, TH1); SVS open (cold-margin table, `docs/cpufreq.md`) | P2 |
@@ -56,8 +56,8 @@ yet confirmed.
 | 🔶 | Touch | `cap_touch@62` (i2c0, Novatek) or `solomon_touch@53` | yes / port | NT36672 units: mainline `novatek-nvt-ts` (T1b); SSD2092/Solomon units not supported | P3 |
 | ✅ | Keyboard | AW9523 `@5b` (i2c4) + AW9524 `@5b` (i2c3) | **new** (stock scan) | driver follows the stock scan; works after deep sleep (DS8) | P3 |
 | ✅ | Keyboard backlight | GPIO178 + PWM1 FIFO | **new** (`planet,cosmo-kbd-backlight`) | as stock (`docs/leds-stock.md`) | P3 |
-| ⬜ | Lid (hall sensor) | `hall-eint` GPIO (stock `mtk-hall`) | yes (`gpio-keys` SW_LID) | DT only | P3 |
-| 🔶 | Cover display | STM32 on UART1 (`ttyS1`), GPIO77 reset | — (userspace) | rootfs `cosmo-codi` service shows time and battery; protocol decoded from stock Android | later |
+| ✅ | Lid (hall sensor) | GPIO8 / EINT 8, low = closed | yes (`gpio-keys` SW_LID) | DT only; wakes deep sleep on lid open only; logind/Plasma act on it; rootfs `cosmo-codi` turns the keyboard off while the lid is shut | P3 |
+| 🔶 | Cover display | STM32 on UART1 (`ttyS1`), GPIO77 reset | — (userspace) | rootfs `cosmo-codi` service shows time and battery, lights on lid close and on the fingerprint side key; silver key arrives as an STM32 request and is passed on as KEY_PROG2 (uinput); protocol decoded from stock Android | later |
 
 ## Graphics, media
 
