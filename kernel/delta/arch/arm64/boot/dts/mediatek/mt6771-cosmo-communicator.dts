@@ -28,6 +28,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/iio/adc/mediatek,mt6358-auxadc.h>
 #include <dt-bindings/iio/adc/mediatek,mt6370_adc.h>
+#include <dt-bindings/input/gpio-keys.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/power/mt8183-power.h>
@@ -524,6 +525,29 @@
 				  <0x000a5800>,	/* FW load addr */
 				  <0x000a5800>;	/* FW start addr */
 	};
+
+	/*
+	 * Lid hall sensor: GPIO8 / EINT 8, low = lid closed. Stock: DWS eint8
+	 * "HALL" (level, active low, 64 ms debounce), GPIO8 pull-up, read by
+	 * drivers/input/hall/hall.c (gpio 0 = HALL_FCOVER_CLOSE, reports
+	 * SW_LID). Stock keeps the hall IRQ armed in suspend. Here it wakes
+	 * only when the lid opens (deasserted); closing never wakes.
+	 */
+	gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hall_pins>;
+
+		switch-lid {
+			label = "Lid";
+			gpios = <&pio 8 GPIO_ACTIVE_LOW>;
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LID>;
+			debounce-interval = <64>;
+			wakeup-source;
+			wakeup-event-action = <EV_ACT_DEASSERTED>;
+		};
+	};
 };
 
 /*
@@ -698,6 +722,15 @@
 };
 
 &pio {
+	/* Lid hall INT: stock hall_intpin_cfg + DWS gpio8 (input, pull-up) */
+	hall_pins: hall-pins {
+		pins-hall {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			input-enable;
+			bias-pull-up;
+		};
+	};
+
 	aw9523_int_pins: aw9523-int-pins {
 		pins-int {
 			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
