@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0
+# BlueZ HCI driver over the WMT/STP BT channel (hci_stp). Same flags as the
+# Wi-Fi char device (adaptor/Kbuild).
+ccflags-y += -include $(src)/../include/wcn_compat.h -I$(src)/../include
+ccflags-y += -I$(src)/../common/common_main/include -I$(src)/../common/common_main/linux/include
+ccflags-y += -D WMT_IDC_SUPPORT=0 -D MTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT
+obj-$(CONFIG_MTK_WCN_BT_HCI) += hci_stp.o

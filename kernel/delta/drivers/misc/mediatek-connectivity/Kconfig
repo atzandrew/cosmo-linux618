@@ -23,3 +23,11 @@ config MTK_WCN_GEN3
 	  Stock MediaTek wlan gen3 802.11 driver (wlan_drv_gen3) for the
 	  MT6771 CONSYS Wi-Fi. Firmware: WIFI_RAM_CODE_6759 from the stock
 	  vendor partition; per-unit NVRAM from nvdata.
+
+config MTK_WCN_BT_HCI
+	tristate "MediaTek MT6771 CONSYS Bluetooth (BlueZ HCI over STP)"
+	depends on MTK_WCN_CONSYS && BT
+	help
+	  BlueZ HCI driver (hci0) for the Bluetooth half of the MT6771
+	  CONSYS, over the WMT/STP BT channel (hci_stp, from the MediaTek
+	  vendor BlueZ driver). Needs the WMT core running (wmt_drv).

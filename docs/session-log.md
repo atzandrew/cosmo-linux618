@@ -3683,3 +3683,25 @@ Image T1:
   PASS. The earlier "right port dead after sleep" was this bug. Wake
   to panel on ~1.0 s with the device attached (USB reset in resume).
 - Not re-tested yet: left port host (MT6370 OTG boost) across sleep.
+
+## 2026-11-04 — Bluetooth, B0 research and B1 (hci_stp, modules only)
+
+- B0: `docs/bluetooth-stock.md` (stock `stp_chrdev_bt`, nvdata `BT_Addr`,
+  Gemini port lessons, BTIF_WAKEUP_IRQ 289 live).
+- Change: new `bt/hci_stp.c` (MTK_WCN_BT_HCI=m) from the Gemini 6.6 port,
+  without the MT6630 init script, the WAK pulse and the core quirk; adds
+  `set_bdaddr` (0xfc1a). Config: BT_LE, BT_RFCOMM(+TTY), BT_BNEP
+  (+filters), BT_HCIVHCI, UHID.
+- Built-in kernel unchanged: vmlinux `nm` symbol list identical and same
+  text/data/bss sizes as the 2504cb7 build; all config changes are in
+  modules (no `=y` outside BT sub-options). Image.gz-dtb 279d5898... (not
+  flashed; differs only by build stamp). Device keeps usbs4-boot.img;
+  this build's modules installed, depmod.
+- Test (B1), hci_stp loaded by hand, nothing at boot, no sleep while BT is
+  up:
+  Pass: `modprobe hci_stp` -> hci0; `btmgmt info` powered with br/edr and
+  le, no HCI command timeout in dmesg; `bluetoothctl scan on` lists a
+  discoverable phone (< 2 m) within 30 s; wlan0 ping keeps working during
+  the scan; `rmmod hci_stp` clean, Wi-Fi still up after.
+  Fail: hci0 open times out (next: PSM off as the one change), a refused
+  init command (note the opcode), Wi-Fi drops.
