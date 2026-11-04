@@ -145,6 +145,28 @@ static void ssusb_phys_set_mode(struct ssusb_mtk *ssusb, enum phy_mode mode)
 		phy_set_mode(ssusb->phys[i], mode);
 }
 
+/*
+ * Cosmo: put the current role back after deep sleep reset the IP (the
+ * same steps as a role switch, without changing the role or VBUS).
+ */
+void ssusb_otg_reapply_role(struct ssusb_mtk *ssusb)
+{
+	struct mtu3 *mtu = ssusb->u3d;
+
+	if (ssusb->is_host) {
+		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
+		mtu3_stop(mtu);
+		ssusb_phys_set_mode(ssusb, PHY_MODE_USB_HOST);
+		switch_port_to_host(ssusb);
+	} else {
+		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_DEVICE);
+		ssusb_phys_set_mode(ssusb, PHY_MODE_USB_DEVICE);
+		switch_port_to_device(ssusb);
+		if (mtu->is_active)
+			mtu3_start(mtu);
+	}
+}
+
 static void ssusb_mode_sw_work(struct work_struct *work)
 {
 	struct otg_switch_mtk *otg_sx =

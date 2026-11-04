@@ -201,6 +201,15 @@ static int ssusb_host_enable(struct ssusb_mtk *ssusb)
 	return ssusb_check_clocks(ssusb, check_clk);
 }
 
+/*
+ * Cosmo (MT6771): deep sleep cuts power to the SSUSB IP, so on resume the
+ * probe-time host setup has to be done again.
+ */
+int ssusb_host_reinit(struct ssusb_mtk *ssusb)
+{
+	return ssusb_host_enable(ssusb);
+}
+
 static int ssusb_host_disable(struct ssusb_mtk *ssusb)
 {
 	void __iomem *ibase = ssusb->ippc_base;
