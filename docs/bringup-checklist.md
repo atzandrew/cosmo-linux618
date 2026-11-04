@@ -5,7 +5,9 @@ what mainline offers, and what is done. Written 2026-10-25 from the stock
 device trees (Gemian 4.4 `boot` appended DTB and the stock `dtbo` overlay,
 decompiled), the vendor 4.4 source, live stock values (`docs/stock-reference.md`)
 and the bring-up so far; status updated 2026-11-03. Plan phases
-(P1–P7) are the ones in `docs/hardware-map.md`.
+(P1–P7) are the ones in `docs/hardware-map.md`; the Phase column also
+carries priorities set 2026-11-04 (**critical**, medium, nice to have, low,
+dropped).
 
 Status: ✅ working on our kernel · 🔶 partly / interim · ⬜ not started ·
 ➖ out of scope for now. Mainline: **yes** = driver upstream, **port** = vendor
@@ -31,9 +33,9 @@ yet confirmed.
 | 🔶 | cpuidle / suspend | SPM, SSPM MCDI | delta | deep sleep via SPM, ~85 mA = stock on this unit (DS7), enabled at boot by the rootfs; wakes on Esc and the power key; Wi-Fi is switched off around sleep (Wi-Fi-on sleep wakes the AP via CONN2AP); core power-down idle with stock's MCDI mailbox init (I2); cluster power-down not done | P2 |
 | ✅ | CPU hotplug (CPU_ON after CPU_OFF) | vendor ATF | firmware | works since 2026-10-27; MCDI mask updated around hotplug (I2) | P2 |
 | ✅ | RTC | MT6358 RTC | yes (`rtc-mt6397`) + delta | vendor year encoding, base 1968 (rtc1) | P2 |
-| ⬜ | Regulators audit | MT6358 fixed LDOs | yes | compare voltages with stock (open safety-audit item) | P2 |
-| ⬜ | microSD | msdc1, 4-bit, card-detect GPIO | yes (`mtk-sd`) | stock `status = okay` | P2 |
-| ⬜ | Debug UART | UART0 GPIO95/96 | yes | no reachable pads found | — |
+| ⬜ | Regulators audit | MT6358 fixed LDOs | yes | compare voltages with stock (open safety-audit item) | **critical** |
+| 🔶 | microSD | msdc1, 4-bit, card-detect GPIO3 (high = card in) | yes (`mtk-sd`) | SDR104 at 192 MHz, VMCH 3.0 V, VMC 1.8 V as stock; mount works; hot-plug and sleep with a card not tested yet (system sleep currently fails in mtu3) | P2 |
+| ➖ | Debug UART | UART0 GPIO95/96 | yes | no reachable pads found | dropped |
 
 ## Power
 
@@ -64,7 +66,7 @@ yet confirmed.
 | | Block | Part / location | Mainline | Notes | Phase |
 |---|---|---|---|---|---|
 | ✅ | GPU | Mali-G72 MP3 | yes (panfrost) | Mesa from trixie, GLES 3.1; stock segment-4 OPP table 300-900 MHz from efuse (G2, G3); Plasma Wayland runs on it | P4 |
-| ⬜ | HDMI out | SiI9022 `@39` + EDID `@50` (i2c3) | yes (`sii902x` bridge) | needs a display output path to feed it | later |
+| ⬜ | HDMI out | SiI9022 `@39` + EDID `@50` (i2c3) | yes (`sii902x` bridge) | needs a display output path to feed it | low |
 | ⬜ | Video decode/encode | vdec/venc | yes (mt8183) | | later |
 | ➖ | Cameras | main `@40` (i2c2), main2 `@10` + sub `@35` (i2c4), AF/EEPROMs | **new** | sensor models unknown | — |
 | ➖ | Flash LED | MT6370 `fled1/2` | yes (`leds-mt6370-flash`) | only useful with cameras | — |
@@ -82,7 +84,7 @@ yet confirmed.
 | | Block | Part / location | Mainline | Notes | Phase |
 |---|---|---|---|---|---|
 | ✅ | Wi-Fi | CONSYS `18070000`, WLAN gen3 | **port** | stock connectivity stack, Wi-Fi at boot (W1-W3, `docs/wifi-stock.md`); deep sleep with Wi-Fi on not supported | P5 |
-| ⬜ | Bluetooth | CONSYS (BTIF / `hci_stp`) | **port** | same stack | P5 |
+| ⬜ | Bluetooth | CONSYS (BTIF / `hci_stp`) | **port** | same stack | **critical** |
 | ➖ | GPS, FM | CONSYS | port | | — |
 | ➖ | Modem / SIM | MD1 | — | | — |
 | ➖ | NFC | NXP PN544 `@28` (i2c3) | yes (`pn544_i2c`) | | — |
@@ -92,11 +94,11 @@ yet confirmed.
 
 | | Block | Part / location | Mainline | Notes | Phase |
 |---|---|---|---|---|---|
-| ⬜ | Accelerometer/gyro | `accelgyro@0` (spi1), BMI160 | yes (`bmi160_spi`) | screen rotation | later |
-| ⬜ | Light/proximity | STK3x1x `@48` (i2c1) | check (`stk3310`) | | later |
-| ⬜ | Magnetometer | `@0c` (i2c1) | check | stock drives it from the SCP sensor hub; identify by chip-ID register | later |
-| ⬜ | Barometer | `@77` (i2c1) | check | SCP sensor hub on stock; identify by chip-ID register | later |
-| ⬜ | Vibrator | MT6358 VIBR LDO | yes (`regulator-haptic`) | | later |
+| ⬜ | Accelerometer/gyro | `accelgyro@0` (spi1), BMI160 | yes (`bmi160_spi`) | screen rotation | low |
+| ⬜ | Light/proximity | STK3x1x `@48` (i2c1) | check (`stk3310`) | | low |
+| ⬜ | Magnetometer | `@0c` (i2c1) | check | stock drives it from the SCP sensor hub; identify by chip-ID register | low |
+| ⬜ | Barometer | `@77` (i2c1) | check | SCP sensor hub on stock; identify by chip-ID register | low |
+| ⬜ | Vibrator | MT6358 VIBR LDO | yes (`regulator-haptic`) | | nice to have |
 | ✅ | Notification LED | MT6370 RGB + AW9524 rear LEDs | yes / delta | `docs/leds-stock.md` | later |
 | ➖ | Fingerprint | `cs_finger` (spi0) | **new** | | — |
 | ➖ | `aw6302` (spi2) | AEON driver, registers `cs_finger` | **new** | fingerprint-related, not the cover display | — |
@@ -108,4 +110,4 @@ yet confirmed.
 | ✅ | Root filesystem | Debian trixie on userdata (gemini-debian `DEVICE=cosmo`): Plasma Wayland, greetd + tuigreet login, Cosmo services (sleep, Wi-Fi sleep hook, `cosmo-codi`) | P7 |
 | ✅ | Boot flow | initramfs → Debian on userdata; systemd takes the watchdog; tripwire to the rescue initramfs (both observed 2026-10-25) | P7 |
 | 🔶 | Clock | RTC read at boot (rtc1); NTP not checked | P2 |
-| ⬜ | Defconfig trim | drop unused arm64 defconfig drivers | P7 |
+| ⬜ | Defconfig trim | drop unused arm64 defconfig drivers | medium |
