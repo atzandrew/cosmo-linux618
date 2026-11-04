@@ -26,7 +26,8 @@ beta images are planned.
 - Speaker and headphones
 - Charging, including USB-C PD fast charging; battery level
 - Deep sleep at stock power draw (~85 mA), wake on Esc or the power key
-- Both USB-C ports (device and host mode)
+- USB device mode on the left port; host mode on both ports (automatic on
+  the right, selected by hand on the left)
 - Cover display shows time and battery
 - CPU frequency scaling, CPU idle power-down, thermal limits, RTC
 

@@ -9,14 +9,13 @@ Sister projects (same owner, same methods — reuse their code and lessons):
   reset/off drivers. Its `docs/` are the best reference for LK behaviour.
 - `atzandrew/gemini-debian` — Debian 13 + Plasma 6 rootfs builder for the Gemini.
 
-## Status (2026-10-24)
+## Status (2026-11-03)
 
-Phase **P1 skeleton**: full kernel builds on hydra (6.18.58-cosmo, 2026-10-24); nothing flashed to the device yet.
+Running daily on one unit (NT36672 panel): 6.18.58-cosmo with a Debian
+trixie + Plasma Wayland rootfs from gemini-debian (`DEVICE=cosmo`).
 - `kernel/BASE` pins v6.18.58 (`2926d88bb7fc`).
-- `kernel/delta/` = DTS Makefile line + `mt6771-cosmo-communicator.dts`
-  (CPUs/GIC/timer via mt8183.dtsi, UART0, eMMC at HS200, MT6358).
-- DTB compiles clean with `W=1` against v6.18.58 (checked in a sandbox
-  with host dtc). Full Image.gz-dtb build: see docs/session-log.md.
+- Per-block state: `docs/bringup-checklist.md`; user-facing summary and
+  known issues: `README.md`; history and test receipts: `docs/session-log.md`.
 
 ## Why this works: MT6771 == MT8183
 
