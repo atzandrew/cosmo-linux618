@@ -3677,4 +3677,9 @@ Image T1:
   64 MB sha256 unchanged (5795a99c...); hot-plug out ("card removed",
   /dev/mmcblk1 gone) and back in (SDR104, 192 MHz, 1.8 V, p1-p4,
   same sha256). PASS.
-- Not re-tested yet: host role (either port) across sleep.
+- Right port host across sleep (usbs4): mouse attached (role host), one
+  20 s deep sleep: CPU_SUSPEND, re-init lines, "reset low-speed USB
+  device number 2", same device and input node after; mouse moves.
+  PASS. The earlier "right port dead after sleep" was this bug. Wake
+  to panel on ~1.0 s with the device attached (USB reset in resume).
+- Not re-tested yet: left port host (MT6370 OTG boost) across sleep.

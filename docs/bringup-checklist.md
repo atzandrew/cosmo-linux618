@@ -44,7 +44,7 @@ yet confirmed.
 | ✅ | Charger | MT6370 `subpmic_pmu@34` (i2c5) | yes + delta | as stock: BC1.2 with the PHY handover, 3.2 A / 2.0 A on a wall charger, battery temperature stop (power S3/S3b); PD PPS fast charge on the left port (P2d, ~5.8 V); Pump Express not done | P2 |
 | ✅ | Battery level | MT6358 gauge | **new** (`mt6358-gauge`) | coulomb counter read as stock; percent from an OCV start + counted charge (power S4a/S4b) | P2 |
 | 🔶 | Main USB-C port role / PD | MT6370 TCPC `usb_type_c@4e` (i2c5) | yes (`tcpci_mt6370`) | TCPM as sink: PD contracts and PPS (P1b, P2d); not linked to the USB role switch yet, so left host mode is selected by hand | P2 |
-| 🔶 | Second USB-C port | **FUSB301A** `@25` (i2c3) + STM32 data switch | **new** (`cosmo-fusb301a`) | automatic host on attach (U4); needs the rootfs `cosmo-codi` service to set the STM32 switch; dead after system sleep until reboot | P2 |
+| 🔶 | Second USB-C port | **FUSB301A** `@25` (i2c3) + STM32 data switch | **new** (`cosmo-fusb301a`) | automatic host on attach (U4); needs the rootfs `cosmo-codi` service to set the STM32 switch; a mouse keeps working across deep sleep (reset on resume, ~0.5 s) | P2 |
 | 🔶 | USB host mode | xhci in the same SSUSB block, USB 2 only | yes + delta | both ports (U2, U4); left port: role by hand, MT6370 OTG boost for VBUS, boost dead after system sleep; right port: VBUS from GPIO178 | P2 |
 | ✅ | Power off | MT6358 | **new** (`mt6358-poweroff`) | vendor RTC sequence + RG_PWRHOLD (docs/poweroff.md) | P2 |
 
