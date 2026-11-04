@@ -65,7 +65,7 @@ yet confirmed.
 
 | | Block | Part / location | Mainline | Notes | Phase |
 |---|---|---|---|---|---|
-| ✅ | GPU | Mali-G72 MP3 | yes (panfrost) | Mesa from trixie, GLES 3.1; stock segment-4 OPP table 300-900 MHz from efuse (G2, G3); Plasma Wayland runs on it | P4 |
+| ✅ | GPU | Mali-G72 MP3 | yes (panfrost) | Mesa from trixie, GLES 3.1; stock segment-4 OPP table 300-900 MHz from efuse (G2, G3); Plasma Wayland runs on it; performance pass (benchmarks, Mesa, devfreq, thermal) open | P4, **high** |
 | ⬜ | HDMI out | SiI9022 `@39` + EDID `@50` (i2c3) | yes (`sii902x` bridge) | needs a display output path to feed it | low |
 | ⬜ | Video decode/encode | vdec/venc | yes (mt8183) | | later |
 | ➖ | Cameras | main `@40` (i2c2), main2 `@10` + sub `@35` (i2c4), AF/EEPROMs | **new** | sensor models unknown | — |
