@@ -617,8 +617,13 @@
 		linux,keycodes = <KEY_ESC>;
 	};
 
+	/*
+	 * Home-key input = the fingerprint side key. Stock reports
+	 * KEY_VOLUMEUP; here KEY_PROG1, which desktops leave unbound, and
+	 * rootfs cosmo-codi uses it to light the cover display.
+	 */
 	home {
-		linux,keycodes = <KEY_VOLUMEUP>;
+		linux,keycodes = <KEY_PROG1>;
 	};
 };
 
