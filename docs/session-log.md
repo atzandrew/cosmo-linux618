@@ -3647,3 +3647,34 @@ Image T1:
 - Open: battery current at low charge (< 40 %, cell below CV) against
   the 1.6 A line; PPS end at <= 5 W near full; sleep with PPS (PM
   notifier path); right-port host with PPS on the left.
+
+### USB block reset in deep sleep: suspend works again (2026-11-04)
+
+- Fault: since dual-role SSUSB (10-31) every suspend failed with
+  `mtu3 11201000.usb: ip sleep failed!!!` (-EBUSY), deep and s2idle.
+- Cause 1: deep sleep powers off the SSUSB IP. After wake IPPC
+  PW_CTRL0 reads 0x10411021 (SW_RST set), PW_STS1 0, xHCI registers 0.
+  Mainline expects the IP to keep its state, so USB stayed dead and
+  the next suspend timed out in wait_for_ip_sleep(). Stock does not
+  poll the sleep status; it runs the full init again on connect.
+  Fix c1a161b: mtu3 resume re-inits the IP, gadget and host when
+  SW_RST is set; xhci-mtk resume re-inits xHCI (power-lost path) when
+  USBCMD.RUN is clear.
+- Cause 2: with c1a161b alone, every deep suspend right after a
+  re-init failed and every one after a normal resume passed. In the
+  failing state xHCI stayed clocked (PORTSC 0x3c0), OTG_STS 0x5640
+  (XHCI_MAS_DMA_REQ set). Hand test after a real deep sleep: rebinding
+  xhci-mtk with port 0 host-owned, then switching to device: pm_test
+  pass x2; the same with port 0 device-owned: fail. This is the boot
+  order (xHCI starts while the port is host-owned).
+  Fix 4f0717e: in device role the switch back to device mode is done
+  in .complete, after xHCI has resumed.
+- Result (usbs4-boot.img, 4f0717e): 6 real deep suspends in a row
+  (20 s RTC wake), all CPU_SUSPEND, no "ip sleep failed", no s2idle
+  fallback, re-init lines every wake; after the run USBCMD 0x5, role
+  device. PASS.
+- microSD with this image: one deep sleep with the card in, first
+  64 MB sha256 unchanged (5795a99c...); hot-plug out ("card removed",
+  /dev/mmcblk1 gone) and back in (SDR104, 192 MHz, 1.8 V, p1-p4,
+  same sha256). PASS.
+- Not re-tested yet: host role (either port) across sleep.
