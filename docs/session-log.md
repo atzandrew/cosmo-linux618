@@ -3705,3 +3705,28 @@ Image T1:
   the scan; `rmmod hci_stp` clean, Wi-Fi still up after.
   Fail: hci0 open times out (next: PSM off as the one change), a refused
   init command (note the opcode), Wi-Fi drops.
+
+### B1 results (2026-11-04): PASS, plus a BLE mouse
+
+- `modprobe hci_stp` -> hci0, powered br/edr le, HCI 4.2 rev 0x1731,
+  LMP subver 0x0611, MediaTek (70); no timeouts, no refused commands.
+  Address 00:00:46:07:88:01 = chip default (nvdata address is B2).
+- First BR/EDR scan: 6 devices (TVs, a headset), but no LE device at all.
+  btmon: LE Set Scan Enable succeeds, 0 advertising reports; LE Set Event
+  Mask was 0x10 only. Raw Read Local Supported Commands: octets 25-28 = 00
+  (no LE commands listed) while LMP features say LE supported and LE
+  features = LE Encryption. Mainline derives the LE mask from those octets
+  (hci_sync.c hci_le_set_event_mask_sync).
+- Fix (hci_stp `le_cmds`, default on): fill in octets 25-28 with the 4.0
+  core LE set (f7 ff ff 7f) in that reply. After: LE scan 14 s, 29+ LE
+  devices. Test changed from a phone to a BLE mouse (user's choice).
+- Mouse (Logitech MX Master 2S, LE random): paired from the desktop;
+  bluetoothd "input-hog profile accept failed" until `modprobe uhid`
+  (/dev/uhid missing because uhid.ko was installed after boot; it is in
+  modules.devname, so a reboot creates it). After reconnect: input
+  devices "MX Master 2S Mouse/Keyboard"; user: pointer works.
+- Wi-Fi with the mouse connected: 20/20 pings ~2 ms, 14 MB/s download.
+  "Connection Quality is poor" / BCN_TO lines are periodic before BT too.
+- `rmmod hci_stp` clean (WMT BT function off), Wi-Fi stayed up.
+- Device: hci_stp.ko from this build and the B1 modules installed; not
+  loaded at boot. Sleep with BT on not tested (B3).

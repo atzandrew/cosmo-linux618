@@ -23,7 +23,15 @@
  *     as mainline btmtk_set_bdaddr), so userspace can set the address from
  *     nvdata with "btmgmt public-addr";
  *   - no HCI_QUIRK_EXT_INIT_BEST_EFFORT (a Gemini-only net/bluetooth change);
- *   - per-packet logging at debug level.
+ *   - per-packet logging at debug level;
+ *   - le_cmds: the MT6631 firmware (HCI 4.2, rev 0x1731) lists no LE
+ *     commands in Read Local Supported Commands (octets 25-28 = 0) although
+ *     its LMP features say "LE supported" and the LE commands work. Mainline
+ *     builds the LE event mask from those octets, so it enabled only the LTK
+ *     request event and no LE advertising report ever arrived. The driver
+ *     fills in the Bluetooth 4.0 core LE command set (mandatory for an LE
+ *     controller) in that reply. Stock Android is not affected: its stack
+ *     sends a fixed LE event mask.
  */
 
 #include <linux/module.h>
@@ -34,6 +42,7 @@
 #include <linux/delay.h>
 #include <linux/kthread.h>
 #include <linux/wait.h>
+#include <linux/unaligned.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
@@ -46,6 +55,10 @@
 static int dbg;
 module_param(dbg, int, 0644);
 MODULE_PARM_DESC(dbg, "log every HCI frame (1 = on)");
+
+static bool le_cmds = true;
+module_param(le_cmds, bool, 0644);
+MODULE_PARM_DESC(le_cmds, "fill in the LE 4.0 core commands the firmware omits from Read Local Supported Commands");
 
 #define H4_W4_PACKET_TYPE	0
 #define H4_W4_EVENT_HDR		1
@@ -128,8 +141,33 @@ static void hci_stp_tx_event_cb(void)
 
 /* ---- RX: H4 parser over the STP BT channel ---- */
 
+/* Command Complete for Read Local Supported Commands: event header (2),
+ * ncmd (1), opcode (2), status (1), then the 64 command octets.
+ */
+static void hci_stp_fix_le_cmds(struct sk_buff *skb)
+{
+	/* octets 25-28: LE Set Event Mask .. LE Test End (4.0 core set) */
+	static const u8 le40[4] = { 0xf7, 0xff, 0xff, 0x7f };
+	u8 *c;
+	int i;
+
+	if (!le_cmds || hci_skb_pkt_type(skb) != HCI_EVENT_PKT ||
+	    skb->len < 6 + 29 || skb->data[0] != HCI_EV_CMD_COMPLETE ||
+	    get_unaligned_le16(skb->data + 3) != HCI_OP_READ_LOCAL_COMMANDS ||
+	    skb->data[5])
+		return;
+
+	c = skb->data + 6;
+	if (c[25] | c[26] | c[27] | c[28])
+		return;
+	for (i = 0; i < 4; i++)
+		c[25 + i] = le40[i];
+	pr_info_once(PFX "firmware lists no LE commands; LE 4.0 core set filled in\n");
+}
+
 static void hci_stp_rx_deliver(struct hci_stp *hu)
 {
+	hci_stp_fix_le_cmds(hu->rx_skb);
 	hu->hdev->stat.byte_rx += hu->rx_skb->len;
 	hci_recv_frame(hu->hdev, hu->rx_skb);
 	hu->rx_skb = NULL;

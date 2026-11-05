@@ -35,6 +35,12 @@ Gemini PDA port (gemini-nixos `docs/bluetooth-bringup.md`,
   the BTIF WAK keep-awake pulse (the Gemini had no chip-to-host wake IRQ),
   and the `HCI_QUIRK_EXT_INIT_BEST_EFFORT` net/bluetooth change (MT6630
   refused some LE init commands; to be tested on the MT6631 first).
+- LE commands: the MT6631 firmware lists no LE commands in Read Local
+  Supported Commands (octets 25-28 = 0) although LE works, so mainline
+  enabled no LE advertising reports. `hci_stp` fills in the 4.0 core LE set
+  in that reply (`le_cmds=1`, default). Stock Android sends a fixed LE event
+  mask and does not need it.
+- BLE HID (HOGP) needs `uhid` (/dev/uhid); BR/EDR HID needs `hidp`.
 - Added: `hdev->set_bdaddr` with vendor command 0xfc1a (as mainline
   `btmtk_set_bdaddr`), so the nvdata address can be set from userspace.
 - PSM: the Cosmo WMT runs stock STP PSM (`bPsmSupport`). On the Gemini, PSM
@@ -47,7 +53,7 @@ Gemini PDA port (gemini-nixos `docs/bluetooth-bringup.md`,
 
 ## Steps
 
-- B1: modules only. `modprobe hci_stp` by hand after cosmo-wifi; nothing at
-  boot. hci0 up, scan finds a phone.
+- B1 (PASS 2026-11-04): modules only, `modprobe hci_stp` by hand. hci0 up,
+  BR/EDR and LE scan, BLE mouse paired and working.
 - B2: BD address and radio settings from nvdata; pair HID, then A2DP.
 - B3: sleep with BT on and off; BT off across sleep in the hook if needed.
