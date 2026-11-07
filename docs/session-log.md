@@ -3730,3 +3730,26 @@ Image T1:
 - `rmmod hci_stp` clean (WMT BT function off), Wi-Fi stayed up.
 - Device: hci_stp.ko from this build and the B1 modules installed; not
   loaded at boot. Sleep with BT on not tested (B3).
+
+## 2026-11-07 — BF1: binfmt_misc (box64 handler for x86 programs)
+
+- Change: `CONFIG_BINFMT_MISC=y` in `kernel/config/cosmo.config`. Nothing
+  else changed (no DT, delta or cmdline change). Reason: Linux Steam under
+  box64 needs a binfmt handler; its `/bin/sh` scripts exec x86 programs
+  directly (Exec format error without it). A module is not possible: the
+  option adds a field to `struct user_namespace`.
+- Image `out/binfmt1-boot.img` SHA256
+  8b694f0090a80aaf727b5507e2487faa16ef76c6f9f5c5ce0312023c69ea04c3
+  (Image.gz-dtb 4a6a3bee…). Rootfs: all 1417 modules from this build
+  installed (struct layout changed), depmod, right before the flash.
+- Pre-flash check. Risk flags: new kernel config (built-in). No panel,
+  bias, PMIC-key, watchdog, reset or input code changed; no keyboard input
+  change, so no watchdog-test boot is required.
+- Escapes: power-key reset and init-owned watchdog unchanged from the
+  observed kernel family (both observed, try11+); systemd handover and
+  cosmo-boot-ok tripwire to the rescue initramfs unchanged (observed try20).
+- Rollback: `logo1-boot.img` (current image, staged on Dragon) plus the
+  logo1 build's modules (reinstall from a logo1 rebuild if needed).
+- Pass: boots to the desktop; `/proc/sys/fs/binfmt_misc` mounted; Wi-Fi,
+  panfrost, audio, Bluetooth modules load as before (no new dmesg
+  warnings vs logo1). Fail: any boot hang (escapes), new module errors.
