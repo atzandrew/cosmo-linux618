@@ -3753,3 +3753,15 @@ Image T1:
 - Pass: boots to the desktop; `/proc/sys/fs/binfmt_misc` mounted; Wi-Fi,
   panfrost, audio, Bluetooth modules load as before (no new dmesg
   warnings vs logo1). Fail: any boot hang (escapes), new module errors.
+
+### BF1 result (2026-11-07): PASS
+
+- Flashed binfmt1-boot.img; first boot ran the new kernel with the old
+  modules (no errors), then the 1417 modules from this build were
+  installed (root:root), depmod, reboot.
+- Second boot: panfrost and the cosmo sound card up, Wi-Fi up, no oops or
+  module errors; /proc/sys/fs/binfmt_misc mounted. Rootfs
+  /etc/binfmt.d/box64.conf points x86-64 at box64 0.4.4 (box32 build,
+  ~/bench/box64-0.4.4-box32) instead of Debian box64 0.3.4; the existing
+  x86 entry (/usr/local/bin/box86) is unchanged. Only failed unit:
+  smartmontools (no SMART on eMMC).
