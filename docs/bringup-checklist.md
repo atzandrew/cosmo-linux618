@@ -20,7 +20,7 @@ yet confirmed.
 |---|---|---|---|---|---|
 | ✅ | Boot via LK | `boot` (Image.gz + DTB), no-op `dtbo` | — | LK contract in `docs/p0-findings.md` | P1 |
 | ✅ | CPUs, GIC, timers | MT6771 = MT8183 die, 4×A53 + 4×A73 | yes | all 8 online and taking load; core power-down idle since I2 | P1 |
-| ✅ | eMMC | msdc0, 8-bit, HS200 | yes (`mtk-sd`) | 169 MB/s; stock runs HS400 at 192 MHz: enable it | P1/P2 |
+| ✅ | eMMC | msdc0, 8-bit, HS400 | yes (`mtk-sd`) | HS400 at 192 MHz as stock (H1): 290 MB/s direct read (HS200 was 171); DS DLY3 20, DLY1 tuned to 11; kept across deep sleep | P1/P2 |
 | ✅ | Watchdog / reboot | TOPRGU `mtk_wdt` | yes + delta | restart priority 130; stays armed across kexec | P1 |
 | ✅ | Power-key long-press reset | MT6358 `TOP_RST_MISC` | (hardware) | preloader value 0x1325 kept; Linux never writes it | P1 |
 | ✅ | USB device (gadget) | mtu3 `11201000`, t-phy | yes + delta | `u3p-dis-msk`, U2 force bits; CDC-ECM + telnet | P1 |

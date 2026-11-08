@@ -3765,3 +3765,25 @@ Image T1:
   ~/bench/box64-0.4.4-box32) instead of Debian box64 0.3.4; the existing
   x86 entry (/usr/local/bin/box86) is unchanged. Only failed unit:
   smartmontools (no SMART on eMMC).
+
+### H1 eMMC HS400 (2026-11-08): PASS
+
+- Change (35a95e7): `&mmc0` gains `mmc-hs400-1_8v` and
+  `mediatek,hs400-ds-dly3 = <20>`. Stock runs msdc0 in HS400 at 192 MHz
+  from the 384 MHz source, with DS DLY3 fixed at 20
+  (ComboA/mt6771/autok_cust.h `ds_dly3_hs400`) and DLY1 tuned at run
+  time; mtk-sd `msdc_execute_hs400_tuning()` scans DLY1 the same way. No
+  driver change. Card: EXT_CSD DEVICE_TYPE 0x57 (HS400 1.8 V).
+- Pass/fail fixed before the flash: HS400 in `ios`, no mmc errors, faster
+  1 GiB direct read than HS200, file checksum unchanged, 3 deep sleeps
+  with HS400 kept.
+- Boot: `mmc0: new HS400 MMC card`, `Final PAD_DS_TUNE: 0x12c14`
+  (DLY_SEL 1, DLY1 11, DLY3 20; stock's DLY1 pass window on this unit is
+  1..18). `ios`: timing 10 (HS400), actual clock 191.99 MHz.
+- Read: `dd if=/dev/mmcblk0 of=/dev/null bs=4M count=256 iflag=direct`
+  289 / 291 MB/s (HS200 on r1: 171 / 171). sha256 of a 178 MB file
+  (libQt6WebEngineCore.so.6.8.2) same as on HS200.
+- Sleep: 3 deep suspends (PCM timer wake), no mmc errors; the card
+  resumes on first access (`ios` reads legacy until then), re-tunes to the
+  same PAD_DS_TUNE 0x12c14, reads 263-265 MB/s after each wake, 291 MB/s
+  afterwards; checksum unchanged.
