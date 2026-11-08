@@ -710,13 +710,16 @@
 	pinctrl-0 = <&mmc0_pins_default>;
 	pinctrl-1 = <&mmc0_pins_uhs>;
 	bus-width = <8>;
-	/*
-	 * Start at HS200 only; HS400 (and its ds-delay tuning) comes in P2
-	 * once the basic path is proven on glass.
-	 */
 	max-frequency = <200000000>;
 	cap-mmc-highspeed;
 	mmc-hs200-1_8v;
+	/*
+	 * HS400 as stock. Stock autok keeps the data strobe DLY3 at 20
+	 * (ComboA/mt6771/autok_cust.h ds_dly3_hs400) and scans DLY1 at run
+	 * time; mtk-sd does the same in msdc_execute_hs400_tuning().
+	 */
+	mmc-hs400-1_8v;
+	mediatek,hs400-ds-dly3 = <20>;
 	cap-mmc-hw-reset;
 	no-sdio;
 	no-sd;
