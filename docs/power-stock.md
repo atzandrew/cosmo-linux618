@@ -292,6 +292,31 @@ vproc11 1.025, vproc12 0.925, vgpu 0.625, vmodem 0.65, vs1 2.0, vs2 1.35,
 vdram1 1.125, vsram_proc11 1.11875, vsram_proc12 1.025, vsram_gpu 0.85,
 vsram_others 0.9 V. Full list below.
 
+### Full audit under mainline (R1, 2026-11-08)
+
+Live `regulator_summary`, `/sys/class/regulator/*/state` and MT6358 registers
+(regmap debugfs, single-register reads) against the stock list below:
+
+- **VEMC (eMMC VCC):** mainline ran it at 3.3 V (VEMC_ANA_CON0 0x0500): mmc
+  picks the highest voltage the regulator range allows. Stock powers the eMMC
+  at 3.0 V with zero trim (`msdc_cust.c` `msdc_ldo_power(..., VOL_3000)`,
+  `EMMC_VOL_ACTUAL`). Fixed in the DT (9eb45c6): VEMC min = max = 3.0 V.
+  Checked on r1: register 0x0300, mmc vdd 3.0-3.1 V, 1 GiB direct read
+  166 MB/s, no mmc errors.
+- **VUSB** reads 3.07 V under mainline (VUSB_ANA_CON0 0x0307: 3.0 V plus
+  calibration 7 = +70 mV); the vendor driver reports the 3.0 V selector
+  only. Nothing in stock writes VUSB_VOCAL: the bootloader trim, same on both.
+- **VMODEM** 0.775 V (ELR0 0x2c, boot default) vs 0.65 V under Gemian: stock
+  sets VMODEM only while the modem runs (`pmic.c` vmd1 setting). The modem
+  is off under mainline; sleep current already equals stock. No change.
+- **VSRAM_PROC11/12** read 0.9 V: the VOSEL register; the rails follow Vproc
+  in hardware (tracking, `docs/cpufreq.md`).
+- **MT6370 display bias:** VBST/VPOS/VNEG registers 0xe2/0x5c/0x5c = stock;
+  DB_CTRL2 differs only in the enable bits (panel on).
+- On/off state of every rail matches stock; VMC/VMCH are on with a card in.
+- Caution: reading the whole MT6370 regmap `registers` file also reads the
+  0x1c0-0x1cf IRQ event registers, which clear on read. Read single offsets.
+
 ## How the values were read (no writes)
 
 - MT6370 PMU: per-register read-only debugfs files

@@ -33,7 +33,7 @@ yet confirmed.
 | 🔶 | cpuidle / suspend | SPM, SSPM MCDI | delta | deep sleep via SPM, ~85 mA = stock on this unit (DS7), enabled at boot by the rootfs; wakes on Esc and the power key; Wi-Fi is switched off around sleep (Wi-Fi-on sleep wakes the AP via CONN2AP); the SSUSB IP loses power in deep sleep and is re-initialised on wake (c1a161b, 4f0717e); core power-down idle with stock's MCDI mailbox init (I2); cluster power-down not done | P2 |
 | ✅ | CPU hotplug (CPU_ON after CPU_OFF) | vendor ATF | firmware | works since 2026-10-27; MCDI mask updated around hotplug (I2) | P2 |
 | ✅ | RTC | MT6358 RTC | yes (`rtc-mt6397`) + delta | vendor year encoding, base 1968 (rtc1) | P2 |
-| ⬜ | Regulators audit | MT6358 fixed LDOs | yes | compare voltages with stock (open safety-audit item) | **critical** |
+| ✅ | Regulators audit | MT6358 + MT6370 rails | yes | every rail matches stock (voltage and on/off) after R1: VEMC pinned to stock's 3.0 V (was 3.3 V); VUSB/VMODEM/Vsram differences explained (`docs/power-stock.md`) | **critical** |
 | ✅ | microSD | msdc1, 4-bit, card-detect GPIO3 (high = card in) | yes (`mtk-sd`) | SDR104 at 192 MHz, VMCH 3.0 V, VMC 1.8 V as stock; mount works; hot-plug and deep sleep with a card in pass (data unchanged) | P2 |
 | ➖ | Debug UART | UART0 GPIO95/96 | yes | no reachable pads found | dropped |
 
