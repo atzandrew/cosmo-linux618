@@ -110,4 +110,4 @@ yet confirmed.
 | ✅ | Root filesystem | Debian trixie on userdata (gemini-debian `DEVICE=cosmo`): Plasma Wayland, greetd + tuigreet login, Cosmo services (sleep, Wi-Fi sleep hook, `cosmo-codi`) | P7 |
 | ✅ | Boot flow | initramfs → Debian on userdata; systemd takes the watchdog; tripwire to the rescue initramfs (both observed 2026-10-25) | P7 |
 | 🔶 | Clock | RTC read at boot (rtc1); NTP not checked | P2 |
-| ⬜ | Defconfig trim | drop unused arm64 defconfig drivers | medium |
+| ✅ | Defconfig trim | Cosmo-only `kernel/config/cosmo_defconfig` + `cosmo.config` (K1): Image.gz 15.2 -> 8.1 MB, 363 modules, clean build 4 min | medium |

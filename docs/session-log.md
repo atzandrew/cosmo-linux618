@@ -3787,3 +3787,46 @@ Image T1:
   resumes on first access (`ios` reads legacy until then), re-tunes to the
   same PAD_DS_TUNE 0x12c14, reads 263-265 MB/s after each wake, 291 MB/s
   afterwards; checksum unchanged.
+
+### K1 kernel config trim (2026-11-08): PASS (one open item)
+
+- Change: the build no longer starts from `make defconfig` (every arm64
+  platform). `kernel/config/cosmo_defconfig` is a Cosmo-only base
+  (savedefconfig, 619 lines); `cosmo.config` is merged on top as before
+  and every fragment line is still checked. `bin/build-kernel.sh` takes an
+  optional `KLOCAL=-k1` suffix so a test kernel gets its own
+  `/lib/modules/<release>`; with module versioning off, sharing one tree
+  between two configs would load mismatched modules without an error.
+- Dropped: every `ARCH_*` except MEDIATEK, ACPI, EFI, PCI, SATA/AHCI,
+  NVMe, MTD, Xen and virtio guest drivers, VFIO, SCSI SAS/UFS, platform
+  Ethernet NICs and their PHYs, other SoCs' clock/pinctrl (MT8183 kept),
+  PMICs, regulators, chargers, RTCs, MMC/USB controllers, panels, bridges,
+  GPU and sound drivers, ARM SCMI/SCPI/SMMU, Chrome EC, Qualcomm
+  remoteproc/GLINK. Kept: KVM (nVHE initialises on this unit), MTK SCP and
+  simpledrm (both in the DT), USB host classes, Bluetooth profiles.
+- Added as modules (not in h1 either): exFAT, NTFS3, ISO9660/UDF, NLS
+  UTF-8, WireGuard, nftables with NAT/masquerade, dm-crypt, UAS, RNDIS and
+  CDC EEM host, PL2303/CH341 serial, USB audio. zram/zsmalloc/lz4 as
+  modules (were hand-installed on the rootfs).
+- Checks before the flash: the 90 drivers bound on the device (h1,
+  `/sys/bus/*/drivers`) all present in the new vmlinux or modules (the
+  two others, megaraid_sas and atkbd, had no devices); no unresolved
+  module symbols; watchdog, PMIC keys, mtk-sd, ext4, devtmpfs, debugfs,
+  USB gadget Ethernet (rescue initramfs) and CMA built in.
+- Numbers, h1 -> k1: clean build on hydra 11 min 10 s -> 4 min 9 s
+  (81 -> 30 CPU-minutes); Image.gz 15.2 -> 8.1 MB; boot image 18.1 ->
+  11.0 MB; modules 1417 (81 MB) -> 363 (25 MB); kernel boot 0.89 ->
+  0.69 s; RAM used at the desktop 1206 -> 1021 MB.
+- Image `k1-boot.img` sha256 0bf64a04...6389 (Image.gz-dtb 6579cbb7...),
+  release 6.18.58-cosmo-k1, modules installed next to the h1 tree.
+- Result: greeter and Plasma, Wi-Fi, Bluetooth (keyboard), speaker and
+  headphones, microSD (SDR104), charger with PD PPS, lid, keys, 5 deep
+  sleeps with wake; no new kinds of kernel warning vs h1.
+- Open: right-port USB host after sleep. A full-speed device enumerated on
+  the right port, then after sleeps with it attached the port detached on
+  resume, `xhci-mtk: HC died`, and a re-plug did not enumerate until a
+  reboot. U4 recorded a mouse surviving deep sleep; the same failure has
+  been seen before. Next: the same sequence on h1 to tell whether the trim
+  is involved.
+- New known-good: `k1-boot.img` (way back: `h1-boot.img` plus the
+  6.18.58-cosmo module tree, still on the rootfs).

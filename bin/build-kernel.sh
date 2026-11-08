@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Build the Cosmo kernel: pinned upstream base + file-tree delta + config fragment.
+# Build the Cosmo kernel: pinned upstream base + file-tree delta + Cosmo-only
+# defconfig (kernel/config/cosmo_defconfig) + config fragment (cosmo.config).
 #
 #   bin/build-kernel.sh            # fetch base if needed, overlay delta, build
 #   bin/build-kernel.sh dtbs       # just the DTB (quick check)
@@ -26,9 +27,11 @@ else
 fi
 JOBS="${JOBS:-$(nproc)}"
 # LOCALVERSION= (set but empty) stops setlocalversion adding "-dirty": the
-# delta always leaves the base tree modified. The release stays
-# <version>-cosmo (CONFIG_LOCALVERSION in cosmo.config).
-MK=(make -C "$SRC" O="$OBJ" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" LOCALVERSION= -j"$JOBS")
+# delta always leaves the base tree modified. The release is
+# <version>-cosmo (CONFIG_LOCALVERSION in cosmo.config) plus KLOCAL, if set.
+# KLOCAL=-k1 gives a test kernel its own /lib/modules/<release> on the
+# device, so the previous kernel and its modules stay a working way back.
+MK=(make -C "$SRC" O="$OBJ" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" LOCALVERSION="${KLOCAL-}" -j"$JOBS")
 
 fetch_base() {
 	if [[ ! -d "$SRC/.git" ]]; then
@@ -53,7 +56,11 @@ apply_delta() {
 
 configure() {
 	mkdir -p "$OBJ"
-	"${MK[@]}" defconfig
+	# Cosmo-only base config (MT6771 platform, board drivers, plug-in USB
+	# classes, filesystems). Edit it with: make savedefconfig, then copy
+	# build/obj/defconfig back. Documented choices stay in cosmo.config.
+	cp "$ROOT/kernel/config/cosmo_defconfig" "$OBJ/.config"
+	"${MK[@]}" olddefconfig
 	"$SRC/scripts/kconfig/merge_config.sh" -m -O "$OBJ" \
 		"$OBJ/.config" "$ROOT/kernel/config/cosmo.config"
 	"${MK[@]}" olddefconfig
