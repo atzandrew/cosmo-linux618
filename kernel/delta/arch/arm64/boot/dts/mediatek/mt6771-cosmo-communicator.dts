@@ -727,6 +727,16 @@
 	non-removable;
 };
 
+/*
+ * eMMC VCC: stock runs VEMC at 3.0 V with zero trim (msdc_cust.c
+ * msdc_ldo_power VOL_3000, EMMC_VOL_ACTUAL). Mainline mmc picks the
+ * highest voltage the regulator allows, which was 3.3 V.
+ */
+&mt6358_vemc_reg {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+};
+
 &mmc1 {
 	/*
 	 * microSD. vendor cust_mt6771_msdc.dtsi &msdc1: 4-bit, 200 MHz,
