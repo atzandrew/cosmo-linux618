@@ -168,6 +168,20 @@ Next: [beta testing](beta-testing.md).
 | Hold the power key 3 s | Switches off |
 | Hold the power key about 10 s | Forced restart, if the Cosmo is stuck |
 
+## Rescue mode: open root shell over USB
+
+If a start does not finish (Debian never reports that it came up), the
+next start stays in a small rescue system instead of Debian; the start
+after that tries Debian again. In rescue mode the Cosmo shows boot
+messages on the screen and offers a **root shell with no password** over
+its USB-C port (`telnet 10.15.19.83` from the PC it is plugged into).
+
+- It is reachable only over the USB cable, not over Wi-Fi or Bluetooth.
+- Anyone who plugs into the Cosmo while it is in rescue mode gets full
+  access, including to your files on the data partition.
+- Do not leave the Cosmo plugged into a computer you do not trust while
+  it shows rescue messages. Hold the power key about 10 s to restart it.
+
 ## Going back to Android
 
 You need the backup from step 3.

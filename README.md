@@ -86,6 +86,31 @@ bin/build-kernel.sh        # Image.gz, DTB, modules → out/
 
 The first run clones the pinned stable tag into `build/src`.
 
+## Source code and licences
+
+The kernel and everything in this repository are GPL-2.0 (`LICENSE`).
+
+- **Kernel:** each release names the commit of this repository it was
+  built from; `kernel/BASE` in that commit pins the upstream stable tag.
+- **Rescue initramfs** (inside `boot.img`): `initramfs/` and
+  `bin/build-boot-img.sh` from the same commit, plus these binaries
+  copied unchanged from Fedora 44 aarch64 packages. Their source is in
+  the matching Fedora source packages (`dnf download --source <name>`,
+  or [src.fedoraproject.org](https://src.fedoraproject.org/)):
+  - busybox 1.37.0-7.fc44 (GPL-2.0)
+  - kexec-tools 2.0.32-3.fc44 (GPL-2.0)
+  - glibc 2.43-9.fc44, zlib-ng-compat 2.3.3-3.fc44, xz-libs 5.8.2-2.fc44,
+    libzstd 1.5.7-5.fc44 (libraries used by kexec)
+- **Root filesystem:** Debian trixie packages, built by
+  [gemini-debian](https://github.com/atzandrew/gemini-debian); their
+  source is in the Debian archive. Wi-Fi and Bluetooth firmware are not
+  shipped: on first use they are copied from the Cosmo's own Android
+  vendor partition.
+- `kernel/delta/drivers/misc/mediatek-connectivity/` comes from Planet's
+  GPL release of the Cosmo 4.4 kernel. Some of its files still carry
+  MediaTek's original headers; the code was published under the GPL as
+  part of that kernel.
+
 ## Documentation
 
 - `docs/install.md`: installing the beta, backup and going back to Android
