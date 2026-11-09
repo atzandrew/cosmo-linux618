@@ -3838,3 +3838,4 @@ Image T1:
   sleep.
 - Both added to `docs/beta-testing.md`; Bluetooth audio removed from
   the README's known issues.
+- Wi-Fi reconnects by itself after sleep (added to the beta checks).
