@@ -144,6 +144,9 @@ Then unplug the Cosmo.
 4. Log in on the login screen.
 5. Connect to Wi-Fi from the network icon in the panel.
 
+**Super key:** the Cosmo has none; **Fn+Alt** works as Super (Meta), e.g.
+to open the app launcher.
+
 **UK keyboard?** The keyboard is set up for the US Cosmo layout, with
 the Fn keys working. For the UK layout, run this in Konsole once and
 restart:
