@@ -36,7 +36,8 @@ works. Anything that fails is worth a report, even small things.
 - [ ] A microSD card shows up in the file manager
 
 **Cover screen**
-- [ ] The small outer screen shows the time and battery
+- [ ] With the lid closed, the small outer screen shows the time and
+      battery (it stays dark while the lid is open)
 
 **Apps**
 - [ ] Firefox, Thunderbird and LibreOffice open

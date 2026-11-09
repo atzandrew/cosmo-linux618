@@ -138,10 +138,21 @@ Then unplug the Cosmo.
 1. Hold the **power key** for about 3 seconds.
 2. The orange-state warning appears, then boot messages. The first start
    takes a little longer: Debian grows to fill the whole data partition.
-3. **Setup opens by itself.** Choose your language, keyboard, user name
-   and password. When it finishes, the Cosmo restarts.
+3. **Setup opens by itself.** Choose your language, user name and
+   password. When it finishes, the Cosmo restarts.
 4. Log in on the login screen.
 5. Connect to Wi-Fi from the network icon in the panel.
+
+**UK keyboard?** The keyboard is set up for the US Cosmo layout, with
+the Fn keys working. For the UK layout, run this in Konsole once and
+restart:
+
+```sh
+sudo sed -i 's/^XKBVARIANT=.*/XKBVARIANT="gb"/' /etc/default/keyboard
+```
+
+Choosing another layout in System Settings turns the Fn keys (volume,
+brightness, symbols) off.
 
 Next: [beta testing](beta-testing.md).
 
