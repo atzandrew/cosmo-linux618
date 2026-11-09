@@ -22,6 +22,9 @@ read [docs/install.md](docs/install.md) before flashing, and see
 [docs/beta-testing.md](docs/beta-testing.md) for what to test and how to
 report problems.
 
+**It is not a phone yet:** no calls, no SMS and no mobile data. The modem
+and SIM card slot do not work in this beta; use Wi-Fi.
+
 **Working**
 - Boot, display, GPU (panfrost, Mesa GLES 3.1), Plasma Wayland, SDDM login
 - Touchscreen, keyboard and keyboard backlight, power key, lid
@@ -45,7 +48,8 @@ report problems.
 - The bootloader shows its orange-state warning at every boot.
 
 **Not supported yet**
-- Modem and SIM, GPS
+- Modem: phone calls, SMS, mobile data, SIM card
+- GPS
 - Cameras
 - Screen rotation and other sensors
 - HDMI out, vibration, NFC, fingerprint reader

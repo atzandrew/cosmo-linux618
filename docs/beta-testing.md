@@ -55,8 +55,10 @@ You do not need to report these:
 - Wi-Fi is switched off while the Cosmo sleeps and comes back on waking.
 - After sleep, the **right** USB port may stop working until a restart.
 - The left USB port supplies power to devices only until the first sleep.
-- Phone calls, mobile data, cameras, GPS, screen rotation and the
-  fingerprint reader do not work yet.
+- **Not a phone yet:** no calls, SMS or mobile data (the modem and SIM
+  slot do not work).
+- Cameras, GPS, screen rotation and the fingerprint reader do not work
+  yet.
 - The bootloader shows the orange-state warning at every start.
 
 ## Reporting a problem

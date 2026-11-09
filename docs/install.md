@@ -14,8 +14,9 @@ Plasma, running a mainline Linux 6.18 kernel.
       [Check your screen](#2-check-your-screen).
 - [ ] **You have copied off everything you want to keep.** Installing
       erases the data partition: apps, photos, messages, files.
-- [ ] **You are fine without phone calls and mobile data.** The modem, SIM,
-      cameras and GPS do not work yet (see the README for the full list).
+- [ ] **You are fine without the phone part.** No calls, no SMS, no
+      mobile data: the modem and SIM card slot do not work yet. Cameras
+      and GPS do not work either (see the README for the full list).
 - [ ] **You have a Linux PC**, a USB-C cable, and about **20 GB free** on
       the PC (backup plus images).
 - [ ] **The Cosmo is charged to at least 50 %.**
