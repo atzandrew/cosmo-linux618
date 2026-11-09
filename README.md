@@ -56,6 +56,8 @@ and SIM card slot do not work in this beta; use Wi-Fi.
 - Cameras
 - Screen rotation and other sensors
 - HDMI out, vibration, NFC, fingerprint reader
+- WPA3 Wi-Fi (planned soon). Networks that offer both WPA2 and WPA3
+  connect over WPA2 automatically; WPA3-only networks do not work yet.
 
 **Screen variants: read before flashing.** Cosmos were made with two
 different screens. Only the **NT36672** screen is supported; units with
