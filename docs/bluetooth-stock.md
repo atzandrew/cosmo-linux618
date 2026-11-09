@@ -55,5 +55,7 @@ Gemini PDA port (gemini-nixos `docs/bluetooth-bringup.md`,
 
 - B1 (PASS 2026-11-04): modules only, `modprobe hci_stp` by hand. hci0 up,
   BR/EDR and LE scan, BLE mouse paired and working.
-- B2: BD address and radio settings from nvdata; pair HID, then A2DP.
-- B3: sleep with BT on and off; BT off across sleep in the hook if needed.
+- B2 (PASS): BD address from nvdata (B2a), loaded at boot (B2b), A2DP
+  audio through PipeWire (B2c, 2026-11-09).
+- B3 (PASS 2026-11-09): paired devices reconnect by themselves after
+  sleep.

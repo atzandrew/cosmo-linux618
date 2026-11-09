@@ -3830,3 +3830,11 @@ Image T1:
   is involved.
 - New known-good: `k1-boot.img` (way back: `h1-boot.img` plus the
   6.18.58-cosmo module tree, still on the rootfs).
+
+## 2026-11-09 — Bluetooth audio and sleep (B2c, B3)
+
+- B2c PASS: A2DP audio to Bluetooth headphones works well.
+- B3 PASS: paired Bluetooth devices reconnect by themselves after
+  sleep.
+- Both added to `docs/beta-testing.md`; Bluetooth audio removed from
+  the README's known issues.

@@ -84,7 +84,7 @@ yet confirmed.
 | | Block | Part / location | Mainline | Notes | Phase |
 |---|---|---|---|---|---|
 | ✅ | Wi-Fi | CONSYS `18070000`, WLAN gen3 | **port** | stock connectivity stack, Wi-Fi at boot (W1-W3, `docs/wifi-stock.md`); deep sleep with Wi-Fi on not supported | P5 |
-| 🔶 | Bluetooth | CONSYS (BTIF / `hci_stp`) | **port** | hci0 BR/EDR + LE, scan and BLE mouse work (B1, `docs/bluetooth-stock.md`); open: nvdata address, load at boot, A2DP, sleep | **critical** |
+| ✅ | Bluetooth | CONSYS (BTIF / `hci_stp`) | **port** | hci0 BR/EDR + LE, BLE mouse (B1), nvdata address (B2a), loaded at boot (B2b), A2DP audio (B2c), reconnects after sleep (B3); `docs/bluetooth-stock.md` | **critical** |
 | ➖ | GPS, FM | CONSYS | port | | — |
 | ➖ | Modem / SIM | MD1 | — | | — |
 | ➖ | NFC | NXP PN544 `@28` (i2c3) | yes (`pn544_i2c`) | | — |

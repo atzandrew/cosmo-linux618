@@ -19,6 +19,8 @@ works. Anything that fails is worth a report, even small things.
 - [ ] Wi-Fi connects, and Firefox opens a web page
 - [ ] Wi-Fi reconnects by itself after a restart
 - [ ] Bluetooth finds and pairs a device (mouse, keyboard or headphones)
+- [ ] Bluetooth headphones or a speaker play sound
+- [ ] A paired Bluetooth device reconnects by itself after sleep
 
 **Sound**
 - [ ] The speaker plays sound
