@@ -16,6 +16,14 @@
  *
  * Packet types as the stock DSI driver: command < 0xB0 as DCS, otherwise
  * as generic writes; all sent in low-power mode.
+ *
+ * Panel check: Cosmos shipped with an NT36672 or an SSD2092 panel. LK probes
+ * the panel and names the one it found in the /chosen "atag,videolfb" blob
+ * (the separate "atag,videolfb-lcmname" property is a stale vendor default).
+ * If that blob names another panel, the driver sends nothing to it and powers
+ * the device off: the panel stays as LK left it (lit, bias on), and nothing
+ * else could turn it off for sleep. Without the blob (e.g. after kexec, where
+ * the first kernel already checked) the driver carries on.
  */
 
 #include <linux/backlight.h>
@@ -23,7 +31,9 @@
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/reboot.h>
 #include <linux/regulator/consumer.h>
+#include <linux/string.h>
 
 #include <drm/drm_connector.h>
 #include <drm/drm_mipi_dsi.h>
@@ -384,11 +394,48 @@ static const struct drm_panel_funcs cosmo_panel_funcs = {
 	.get_orientation = cosmo_panel_get_orientation,
 };
 
+static bool unsupported_poweroff = true;
+module_param(unsupported_poweroff, bool, 0444);
+MODULE_PARM_DESC(unsupported_poweroff,
+		 "Power off when LK reports a panel other than the NT36672 (default: on)");
+
+/* 0: LK reports the NT36672 or says nothing; -ENODEV: another panel. */
+static int cosmo_panel_check_lk(struct device *dev)
+{
+	struct device_node *np;
+	const char *blob;
+	int len = 0;
+
+	np = of_find_node_by_path("/chosen");
+	blob = np ? of_get_property(np, "atag,videolfb", &len) : NULL;
+	of_node_put(np);
+
+	if (!blob || len <= 0) {
+		dev_warn(dev, "LK panel name not found (atag,videolfb); not checked\n");
+		return 0;
+	}
+	if (strnstr(blob, "nt36672", len))
+		return 0;
+
+	dev_emerg(dev, "LK reports %s, not the NT36672: this panel is not supported; not driving it\n",
+		  strnstr(blob, "ssd2092", len) ? "an SSD2092 panel" : "an unknown panel");
+	if (unsupported_poweroff) {
+		dev_emerg(dev, "powering off (unsupported panel)\n");
+		orderly_poweroff(true);
+	}
+	return -ENODEV;
+}
+
 static int cosmo_panel_probe(struct mipi_dsi_device *dsi)
 {
 	struct device *dev = &dsi->dev;
 	struct cosmo_panel *ctx;
 	int ret;
+
+	/* Before anything touches the panel, its supplies or its reset. */
+	ret = cosmo_panel_check_lk(dev);
+	if (ret)
+		return ret;
 
 	ctx = devm_drm_panel_alloc(dev, struct cosmo_panel, panel,
 				   &cosmo_panel_funcs, DRM_MODE_CONNECTOR_DSI);
