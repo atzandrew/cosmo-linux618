@@ -26,7 +26,8 @@ report problems.
 and SIM card slot do not work in this beta; use Wi-Fi.
 
 **Working**
-- Boot, display, GPU (panfrost, Mesa GLES 3.1), Plasma Wayland, SDDM login
+- Boot, display, GPU (panfrost, Mesa 26.1 from Debian backports, GLES 3.1),
+  Plasma Wayland, SDDM login
 - Touchscreen, keyboard and keyboard backlight, power key, lid
 - Wi-Fi, Bluetooth (pairing, mice and keyboards)
 - Speaker and headphones
@@ -46,6 +47,8 @@ and SIM card slot do not work in this beta; use Wi-Fi.
 - Bluetooth audio (headphones, speakers) is not tested yet.
 - No headset microphone, and plugging headphones in is not detected.
 - The bootloader shows its orange-state warning at every boot.
+- The GPU may log errors (and briefly stall) when a web page starts 3D
+  graphics (WebGL).
 
 **Not supported yet**
 - Modem: phone calls, SMS, mobile data, SIM card

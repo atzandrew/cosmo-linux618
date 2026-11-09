@@ -60,6 +60,8 @@ You do not need to report these:
 - Cameras, GPS, screen rotation and the fingerprint reader do not work
   yet.
 - The bootloader shows the orange-state warning at every start.
+- When a web page starts 3D graphics (WebGL), the GPU may log errors and
+  briefly stall. Report it if you see freezes or garbled pictures.
 
 ## Reporting a problem
 
