@@ -16,38 +16,50 @@ specific values, they are taken from the stock kernel and device tree.
 
 ## Status
 
-Most everyday functions work on the test unit. No prebuilt images yet;
-beta images are planned.
+**Beta.** Most everyday functions work on the test unit. Beta images
+are on the [releases page](https://github.com/atzandrew/cosmo-linux618/releases):
+read [docs/install.md](docs/install.md) before flashing, and see
+[docs/beta-testing.md](docs/beta-testing.md) for what to test and how to
+report problems.
 
 **Working**
-- Boot, display, GPU (panfrost, Mesa GLES 3.1), Plasma Wayland, graphical login
-- Touchscreen, keyboard and keyboard backlight, power key
-- Wi-Fi
+- Boot, display, GPU (panfrost, Mesa GLES 3.1), Plasma Wayland, SDDM login
+- Touchscreen, keyboard and keyboard backlight, power key, lid
+- Wi-Fi, Bluetooth (pairing, mice and keyboards)
 - Speaker and headphones
 - Charging, including USB-C PD fast charging; battery level
-- Deep sleep at stock power draw (~85 mA), wake on Esc or the power key
+- Deep sleep at stock power draw (~85 mA): closing the lid sleeps,
+  opening it, Esc or the power key wake
 - USB device mode on the left port; host mode on both ports (automatic on
   the right, selected by hand on the left)
+- microSD
 - Cover display shows time and battery
 - CPU frequency scaling, CPU idle power-down, thermal limits, RTC
 
 **Known issues**
-- After sleep, the right USB-C port and USB power output on the left port
-  stop working until a reboot.
-- Wi-Fi is switched off during sleep.
-- The lid does not sleep or wake the device yet.
+- After sleep, the right USB-C port may stop working until a restart.
+- USB power output on the left port stops after the first sleep.
+- Wi-Fi is switched off during sleep and back on at wake.
+- Bluetooth audio (headphones, speakers) is not tested yet.
+- No headset microphone, and plugging headphones in is not detected.
 - The bootloader shows its orange-state warning at every boot.
 
 **Not supported yet**
-- Modem and SIM, Bluetooth, GPS
+- Modem and SIM, GPS
 - Cameras
 - Screen rotation and other sensors
-- microSD, HDMI out, vibration, NFC, fingerprint reader
+- HDMI out, vibration, NFC, fingerprint reader
 
-**Hardware variants:** tested on a single unit with the NT36672 panel.
-Units with the SSD2092 panel (and Solomon touch controller) are not
-supported, and the CPU voltage tables have not yet been checked on other
-units. Do not flash this on a device you cannot recover with mtk.
+**Screen variants: read before flashing.** Cosmos were made with two
+different screens. Only the **NT36672** screen is supported; units with
+the **SSD2092** screen (and its Solomon touch controller) are not. The
+install guide shows how to check which one a unit has. The kernel refuses
+to drive any other screen and powers the device off, but **that refusal
+has never been tested on an SSD2092 unit**, as none was available: do not
+rely on it.
+
+Tested on a single unit. The CPU voltage tables have not been checked on
+other units. Do not flash this on a device you cannot recover with mtk.
 
 ## Build
 
@@ -67,6 +79,8 @@ The first run clones the pinned stable tag into `build/src`.
 
 ## Documentation
 
+- `docs/install.md`: installing the beta, backup and going back to Android
+- `docs/beta-testing.md`: what to test, known issues, reporting problems
 - `docs/bringup-checklist.md`: every hardware block and its state
 - `docs/hardware-map.md`, `docs/stock-reference.md`: hardware and stock values
 - `docs/session-log.md`: bring-up history and test results
