@@ -35,23 +35,29 @@ download:
 USB. Follow its README to install it, including its udev rules, so `mtk`
 works without root.
 
-**How every `mtk` command works:**
+On Arch Linux, mtkclient is in the AUR as
+[mtkclient](https://aur.archlinux.org/packages/mtkclient)
+(`yay -S mtkclient`).
 
-1. Switch the Cosmo **off** and **unplug** it.
-2. Start the `mtk` command on the PC. It waits for the device.
-3. Plug the Cosmo in. It connects within a few seconds.
-
-If it does not connect: unplug, hold the **power key for about 10 s**,
-and try again.
-
-Always give mtk **full paths** (`/home/you/cosmo/boot.img`, not
-`~/cosmo/boot.img`).
+> **Tips**
+>
+> Every `mtk` command works the same way:
+>
+> 1. Switch the Cosmo **off** and **unplug** it.
+> 2. Start the `mtk` command on the PC. It waits for the device.
+> 3. Plug the Cosmo in. It connects within a few seconds.
+>
+> If it does not connect: unplug, hold the **power key for about 10 s**,
+> and try again.
+>
+> Always give mtk **full paths** (`/home/you/cosmo/boot.img`, not
+> `~/cosmo/boot.img`).
 
 ## 2. Check your screen
 
-Only the **NT36672** screen is supported. On a unit with the **SSD2092**
-screen, Debian is meant to refuse to start the screen and switch the
-Cosmo off.
+Only the **NT36672** screen is supported. <ins>On a unit with the
+**SSD2092** screen, Debian is meant to refuse to start the screen and
+switch the Cosmo off.</ins>
 
 > **This safety check has never been tested on an SSD2092 unit**: we do
 > not have one. Do not rely on it. Check your screen below, and do not
@@ -103,8 +109,19 @@ place** (another disk or computer). Never share it: it holds your IMEI.
 
 ## 4. Check the downloads
 
+First, store the folder that holds the downloaded files in a variable.
+Change `$HOME/Downloads` if you saved them somewhere else. The next steps
+use this variable, so run them in the same terminal (if you open a new
+one, set it again):
+
 ```sh
-cd ~/Downloads
+COSMO_FILES="$HOME/Downloads"
+```
+
+Then check the files and decompress the Debian image:
+
+```sh
+cd "$COSMO_FILES"
 sha256sum -c SHA256SUMS            # every line must say OK
 zstd -d cosmo-debian-beta1.img.zst # makes cosmo-debian-beta1.img
 ```
@@ -123,11 +140,19 @@ seconds at every start. That is normal.
 
 ## 6. Install
 
-This writes the three images and erases the data partition. Change
-`/home/you/Downloads` to where your files are:
+This writes the three images and erases the data partition. It uses the
+`COSMO_FILES` variable from step 4; check that it still points to your
+files:
 
 ```sh
-mtk w boot,dtbo,userdata /home/you/Downloads/cosmo-boot-beta1.img,/home/you/Downloads/cosmo-dtbo-beta1.img,/home/you/Downloads/cosmo-debian-beta1.img
+ls "$COSMO_FILES"/cosmo-*-beta1.img
+```
+
+It must list `cosmo-boot-beta1.img`, `cosmo-debian-beta1.img` and
+`cosmo-dtbo-beta1.img`. Then install:
+
+```sh
+mtk w boot,dtbo,userdata "$COSMO_FILES/cosmo-boot-beta1.img","$COSMO_FILES/cosmo-dtbo-beta1.img","$COSMO_FILES/cosmo-debian-beta1.img"
 ```
 
 Writing takes several minutes. Wait until mtk reports that it wrote
