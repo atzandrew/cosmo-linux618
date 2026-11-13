@@ -65,7 +65,7 @@ and PLL offsets. Mainline has no `mt6771` anything; the board rides on
      across kexec and `reboot -f` all **observed** on the try11+ kernels.
    - **Root system (Debian on userdata):** init closes the watchdog fd and
      systemd takes it over (`RuntimeWatchdogSec=30s`); a boot that never
-     confirms itself (cosmo-boot-ok: sshd is running) sends the next
+     confirms itself (cosmo-boot-ok: multi-user.target reached) sends the next
      boot to the rescue initramfs; `cosmo.noroot` always stays there.
      Handover and tripwire **observed** 2026-10-25 (try20).
    Rules:

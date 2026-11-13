@@ -5,7 +5,8 @@ Paths mirror the device. Install as root with root ownership, e.g.
 then `systemctl daemon-reload` for units.
 
 - `etc/systemd/system/cosmo-boot-ok.service`, `usr/local/sbin/cosmo-boot-ok`:
-  clear the initramfs tripwire (COSMO-OK in `cache`) once sshd is running.
+  clear the initramfs tripwire (COSMO-OK in `cache`) once multi-user.target
+  is reached (no SSH or network dependency).
   Enabled for multi-user.target.
 - `usr/local/bin/cosmo-power` (+ `reboot`, `shutdown`, `poweroff`, `halt`
   links), `etc/sudoers.d/cosmo-power` (mode 0440): any user may reboot or
