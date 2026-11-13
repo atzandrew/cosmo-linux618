@@ -1,3 +1,5 @@
 build/
 out/
 *.o
+# Local photo and screenshot originals (README copies are in readmeimages/)
+images/
