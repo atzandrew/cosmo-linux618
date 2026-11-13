@@ -21,7 +21,8 @@ Plasma, running a mainline Linux 6.18 kernel.
       the PC (backup plus images).
 - [ ] **The Cosmo is charged to at least 50 %.**
 
-From the release page, download:
+From the [releases page](https://github.com/atzandrew/cosmo-linux618/releases/latest),
+download:
 
 - `cosmo-boot-beta1.img`
 - `cosmo-dtbo-beta1.img`

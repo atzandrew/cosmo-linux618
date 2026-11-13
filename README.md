@@ -1,5 +1,9 @@
 # cosmo-linux618
 
+![Cosmo Communicator running Debian with KDE Plasma](readmeimages/cosmo.jpg)
+
+**[Download and install](docs/install.md)**
+
 Mainline Linux **6.18 LTS** for the Planet Computers **Cosmo Communicator**
 (MediaTek MT6771 / Helio P70), replacing Gemian's vendor 4.4 kernel. The
 root filesystem is a fresh Debian trixie install built by
@@ -118,3 +122,11 @@ The kernel and everything in this repository are GPL-2.0 (`LICENSE`).
 - `docs/bringup-checklist.md`: every hardware block and its state
 - `docs/hardware-map.md`, `docs/stock-reference.md`: hardware and stock values
 - `docs/session-log.md`: bring-up history and test results
+
+## Screenshots
+
+![Plasma desktop](readmeimages/screenshot1.png)
+
+![Dolphin and Kate](readmeimages/screenshot2.png)
+
+![About this System](readmeimages/screenshot3.png)
