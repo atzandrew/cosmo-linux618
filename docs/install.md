@@ -8,9 +8,11 @@ Plasma, running a mainline Linux 6.18 kernel.
 > **Security warning: root shell over USB.** If Debian fails to start,
 > the next start goes into a rescue mode. While the Cosmo is in rescue
 > mode, any computer plugged into its USB-C port gets a **root shell with
-> no password**, with full access to your files. It cannot be reached
-> over Wi-Fi or Bluetooth. Do not leave the Cosmo plugged into a computer
-> you do not trust, and do not let others plug into it. See
+> no password**, with full access to the Cosmo's files. This is for
+> debugging and recovery. It cannot be reached over Wi-Fi or Bluetooth,
+> and there is no way to turn it off in this beta. Do not leave the Cosmo
+> plugged into a computer you do not trust, and do not let others plug
+> into it. See
 > [Rescue mode](#rescue-mode-open-root-shell-over-usb).
 
 ## Before you start
