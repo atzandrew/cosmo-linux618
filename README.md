@@ -20,14 +20,14 @@ specific values, they are taken from the stock kernel and device tree.
 
 ## Status
 
-**Beta.** Most everyday functions work on the test unit. Beta images
+**Beta.** Most everyday functions work on my device. Beta images
 are on the [releases page](https://github.com/atzandrew/cosmo-linux618/releases):
 read [docs/install.md](docs/install.md) before flashing, and see
 [docs/beta-testing.md](docs/beta-testing.md) for what to test and how to
 report problems.
 
-**It is not a phone yet:** no calls, no SMS and no mobile data. The modem
-and SIM card slot do not work in this beta; use Wi-Fi.
+**No mobile functionality.** Calls, SMS, mobile data and the SIM slot
+do not work yet; use Wi-Fi. Cameras and GPS do not work either.
 
 **Working**
 - Boot, display, GPU (panfrost, Mesa 26.1 from Debian backports, GLES 3.1),
@@ -71,8 +71,8 @@ to drive any other screen and powers the device off, but **that refusal
 has never been tested on an SSD2092 unit**, as none was available: do not
 rely on it.
 
-Tested on a single unit. The CPU voltage tables have not been checked on
-other units. Do not flash this on a device you cannot recover with mtk.
+**I have only tested on my device.** The CPU voltage tables have not been
+checked on other units. Do not flash this on a device you cannot recover with mtk.
 
 ## Build
 
