@@ -168,6 +168,19 @@
 			no-map;
 		};
 
+		/*
+		 * Mainline SCP pool. The ChromeOS MT8183 scp.img (linux-firmware)
+		 * is linked with its DRAM window at 0x50000000 ("bad phdr da
+		 * 0x50000000" with the pool elsewhere), so this is Kukui's fixed
+		 * region (mt8183-kukui.dtsi scp_mem_reserved). Free RAM on the
+		 * Cosmo (/proc/iomem 2026-11-16); LK loads nothing there.
+		 */
+		scp_fw_mem: memory@50000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x50000000 0 0x2900000>;
+			no-map;
+		};
+
 		/* LK reads /reserved-memory/reserve-memory-sspm_share (LK strings); vendor node verbatim */
 		reserve-memory-sspm_share {
 			compatible = "mediatek,reserve-memory-sspm_share";
@@ -1057,6 +1070,19 @@
 			output-low;
 		};
 	};
+};
+
+/*
+ * SCP (Cortex-M4 companion core). LK starts it with the stock sensor-hub
+ * firmware (scp1 partition); mainline mtk-scp resets it and loads the
+ * ChromeOS MT8183 image from linux-firmware (camera P1/DIP + video IPIs).
+ * Memory: scp_fw_mem at 0x50000000 (the firmware's link address);
+ * scp_mem_reserved stays for LK.
+ */
+&scp {
+	firmware-name = "mediatek/mt8183/scp.img";
+	memory-region = <&scp_fw_mem>;
+	status = "okay";
 };
 
 /*
