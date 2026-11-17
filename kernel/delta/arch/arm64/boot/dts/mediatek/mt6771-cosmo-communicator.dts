@@ -549,6 +549,20 @@
 			wakeup-event-action = <EV_ACT_DEASSERTED>;
 		};
 	};
+
+	/*
+	 * Vibrator motor on the MT6358 VIBR LDO. Stock (vibrator@0 in the
+	 * vendor board DTS): vib_vol = 9 = VOSEL 9 = 2.8 V, switched on and
+	 * off with RG_LDO_VIBR_EN; no PWM. Here the effect strength picks
+	 * the voltage (VIBR steps 1.2/1.3/1.5/1.8/2.0/2.8 V); full strength
+	 * is stock's 2.8 V, never higher.
+	 */
+	vibrator {
+		compatible = "regulator-haptic";
+		haptic-supply = <&mt6358_vibr_reg>;
+		min-microvolt = <1200000>;
+		max-microvolt = <2800000>;
+	};
 };
 
 /*
@@ -779,6 +793,29 @@
 	regulator-max-microvolt = <3000000>;
 };
 
+/* Vibrator supply: at most stock's 2.8 V (VOSEL 9), nothing else on the rail */
+&mt6358_vibr_reg {
+	regulator-min-microvolt = <1200000>;
+	regulator-max-microvolt = <2800000>;
+};
+
+/*
+ * Front camera (GC5035) supplies. Stock live DT (Gemian 2026-10-25):
+ * vcama_sub = VCAMA1, vcamd_sub = VCAMD, vcamio_sub = VCAMIO; imgsensor
+ * power table: AVDD 2.8 V, DVDD 1.2 V, DOVDD 1.8 V. VCAMA1 and VCAMD feed
+ * nothing else on stock; VCAMIO (fixed 1.8 V) is shared with the rear
+ * camera's I/O.
+ */
+&mt6358_vcama1_reg {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <2800000>;
+};
+
+&mt6358_vcamd_reg {
+	regulator-min-microvolt = <1200000>;
+	regulator-max-microvolt = <1200000>;
+};
+
 &pio {
 	/* Lid hall INT: stock hall_intpin_cfg + DWS gpio8 (input, pull-up) */
 	hall_pins: hall-pins {
@@ -979,6 +1016,85 @@
 				 <PINMUX_GPIO121__FUNC_GPIO121>;
 		};
 	};
+
+	/*
+	 * Sensor buses. Stock gives these to the SCP sensor hub (stock
+	 * mt_gpio: GPIO81/84 mode 1 pull-up, GPIO161-164 mode 2 =
+	 * SCP_SPI1); here the AP controllers drive them directly (mode 1).
+	 */
+	i2c1_pins: i2c1-pins {
+		pins-bus {
+			pinmux = <PINMUX_GPIO81__FUNC_SDA1>,
+				 <PINMUX_GPIO84__FUNC_SCL1>;
+			bias-pull-up;
+		};
+	};
+
+	spi1_pins: spi1-pins {
+		pins-bus {
+			pinmux = <PINMUX_GPIO161__FUNC_SPI1_A_MI>,
+				 <PINMUX_GPIO162__FUNC_SPI1_A_CSB>,
+				 <PINMUX_GPIO163__FUNC_SPI1_A_MO>,
+				 <PINMUX_GPIO164__FUNC_SPI1_A_CLK>;
+			bias-disable;
+		};
+	};
+
+	/*
+	 * Front camera: stock camera_pins_cam1_* (evb6771_64_emmc.dts):
+	 * MCLK GPIO100 = CMMCLK1 (stock 8 mA drive), PDN GPIO98, RST GPIO102
+	 * (both high = running).
+	 */
+	cam1_pins: cam1-pins {
+		pins-mclk {
+			pinmux = <PINMUX_GPIO100__FUNC_CMMCLK1>;
+			drive-strength = <8>;
+		};
+
+		pins-ctrl {
+			pinmux = <PINMUX_GPIO98__FUNC_GPIO98>,
+				 <PINMUX_GPIO102__FUNC_GPIO102>;
+			output-low;
+		};
+	};
+};
+
+/*
+ * Sensors. Stock drives them from the SCP sensor hub (scp1 firmware has
+ * drivers for BMI160, AF6133/AF6133E, STK3321, BMP280). On this unit i2c1
+ * answers at 0x0c (Voltafield AF6133E magnetometer, product code 0x68,
+ * own driver af6133e.c) and 0x48 (light/proximity, chip ID 0x12 = STK3311X); nothing at
+ * 0x76/0x77, so no barometer is fitted. BMI160 accel/gyro on spi1.
+ * No interrupts yet (polled).
+ */
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	clock-frequency = <400000>;
+	status = "okay";
+
+	magnetometer@c {
+		compatible = "voltafield,af6133e";
+		reg = <0x0c>;
+	};
+
+	light-sensor@48 {
+		compatible = "sensortek,stk3310";
+		reg = <0x48>;
+	};
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>;
+	mediatek,pad-select = <0>;	/* SPI1_A pads, GPIO161-164 */
+	status = "okay";
+
+	imu@0 {
+		compatible = "bosch,bmi160";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+	};
 };
 
 /*
@@ -1013,6 +1129,39 @@
 	 * Stock interrupt: EINT 12 level-low, GPIO12 pull-up (dtbo fragment@59
 	 * and aw9523pin). Reset: GPIO175, low = reset (aw9523_hwen_low).
 	 */
+	/*
+	 * Front camera GC5035 (stock: sensor 1 "sub", I2C write id 0x6e,
+	 * ID 0x5035, 2 lanes, MCLK 24 MHz). ChromeOS gc5035.c; DT shape from
+	 * ChromeOS mt8183-kukui-kodama-camera-gc5035.dtsi. The endpoint is not
+	 * linked yet (no seninf driver).
+	 */
+	camera@37 {
+		compatible = "galaxycore,gc5035";
+		reg = <0x37>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam1_pins>;
+
+		clocks = <&topckgen CLK_TOP_MUX_CAMTG2>;
+		clock-names = "mclk";
+		clock-frequency = <24000000>;
+		assigned-clocks = <&topckgen CLK_TOP_MUX_CAMTG2>;
+		assigned-clock-parents = <&topckgen CLK_TOP_UNIVP_192M_D8>;
+
+		resetb-gpios = <&pio 102 GPIO_ACTIVE_LOW>;
+		pwdn-gpios = <&pio 98 GPIO_ACTIVE_LOW>;
+
+		avdd28-supply = <&mt6358_vcama1_reg>;
+		dvdd12-supply = <&mt6358_vcamd_reg>;
+		iovdd-supply = <&mt6358_vcamio_reg>;
+
+		port {
+			gc5035_endpoint: endpoint {
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <438000000>;
+			};
+		};
+	};
+
 	keyboard@5b {
 		compatible = "awinic,aw9523-keypad";
 		reg = <0x5b>;
@@ -2249,7 +2398,8 @@
 /*
  * Idle pin levels as stock (live readback of all 180 pins, stock vs this
  * kernel, docs/session-log.md 2026-10-29). Nothing else drives these pins.
- * 101/102: camera resets, stock low. 177: stock high, set by the stock
+ * 101/102: camera resets, stock low (102 = front camera reset, now held
+ * low by the gc5035 node while the camera is off). 177: stock high, set by the stock
  * Type-C init (usb_typec.c fusb300_init). 111 (second speaker amp, stock
  * output low) is now held low by its aw8738 node (audio A1).
  */
@@ -2259,13 +2409,6 @@
 		gpios = <101 GPIO_ACTIVE_HIGH>;
 		output-low;
 		line-name = "cam-rst0-idle";
-	};
-
-	cam-rst1-hog {
-		gpio-hog;
-		gpios = <102 GPIO_ACTIVE_HIGH>;
-		output-low;
-		line-name = "cam-rst1-idle";
 	};
 
 	typec-177-hog {
