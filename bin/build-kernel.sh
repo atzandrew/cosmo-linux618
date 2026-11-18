@@ -31,6 +31,11 @@ JOBS="${JOBS:-$(nproc)}"
 # <version>-cosmo (CONFIG_LOCALVERSION in cosmo.config) plus KLOCAL, if set.
 # KLOCAL=-k1 gives a test kernel its own /lib/modules/<release> on the
 # device, so the previous kernel and its modules stay a working way back.
+# Commit the kernel is built from, taken now (the checkout may move during
+# the build). Saved next to the modules: gemini-debian's image build reads it
+# for /etc/gemini/build-info instead of asking git at image time.
+KREV="$(git -C "$ROOT" rev-parse --short HEAD)"
+[[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=no)" ]] || KREV="$KREV +uncommitted changes"
 MK=(make -C "$SRC" O="$OBJ" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" LOCALVERSION="${KLOCAL-}" -j"$JOBS")
 
 fetch_base() {
@@ -94,6 +99,7 @@ cat "$OUT/Image.gz" "$OUT/$(basename "$DTB")" > "$OUT/Image.gz-dtb"
 rm -rf "$OUT/modroot"
 "${MK[@]}" INSTALL_MOD_PATH="$OUT/modroot" INSTALL_MOD_STRIP=1 modules_install >/dev/null
 rm -f "$OUT"/modroot/lib/modules/*/build "$OUT"/modroot/lib/modules/*/source
+echo "$KREV" > "$OUT/modroot/cosmo-linux618-rev"
 echo "modules: $(du -sh "$OUT/modroot" | cut -f1) in out/modroot"
 echo "built $(cat "$OBJ/include/config/kernel.release")"
 sha256sum "$OUT/Image.gz-dtb"
