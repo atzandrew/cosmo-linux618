@@ -73,21 +73,27 @@ switch the Cosmo off.</ins>
 > not have one. Do not rely on it. Check your screen below, and do not
 > install if it is not the NT36672.
 
-The Cosmo's
-bootloader writes the screen's name into its own log, on the `expdb`
-partition. Reading it changes nothing on the Cosmo, and works whether it
-runs Android or Gemian:
+The Cosmo's bootloader reads an ID from the screen at every start and
+writes it into its own log, on the `expdb` partition. Reading it changes
+nothing on the Cosmo, and works whether it runs Android or Gemian:
 
 ```sh
 mtk r expdb /home/you/cosmo-expdb.bin
-grep -a -o -i 'nt36672\|ssd2092' /home/you/cosmo-expdb.bin | sort -u
+grep -a -o 'NT36672 id = 0x[0-9a-f]*, id1=0x[0-9a-f]*\|ssd2092 id = 0x[0-9a-f]*' /home/you/cosmo-expdb.bin | sort | uniq -c
 ```
 
 | It prints | Meaning |
 |---|---|
-| `nt36672` | Supported. Carry on. |
-| `ssd2092` | **Not supported. Stop here.** |
-| nothing, or both | Unknown. **Stop**, and ask on the issue tracker. |
+| `NT36672 id = 0x80, id1=0x70` | Supported. Carry on. |
+| `ssd2092 id = ` with anything other than `0x00000000` | **Not supported. Stop here.** |
+| nothing, or only IDs of `0x0` | Unknown. **Stop**, and ask on the issue tracker. |
+
+Lines with an ID of `0x0` are failed reads and can show up next to the
+good line; ignore them if `NT36672 id = 0x80, id1=0x70` is there.
+
+Do not just search the log for the screen names: the NT36672 driver also
+prints `SSD2092` in one of its messages, so both names appear on a
+supported unit.
 
 Running Gemian? This shows the same from a terminal on the Cosmo:
 
