@@ -79,7 +79,7 @@ nothing on the Cosmo, and works whether it runs Android or Gemian:
 
 ```sh
 mtk r expdb /home/you/cosmo-expdb.bin
-grep -a -o 'NT36672 id = 0x[0-9a-f]*, id1=0x[0-9a-f]*\|ssd2092 id = 0x[0-9a-f]*' /home/you/cosmo-expdb.bin | sort | uniq -c
+grep -a -o -E 'NT36672 id = 0x[0-9a-f]*, id1=0x[0-9a-f]*|ssd2092 id = 0x[0-9a-f]*' /home/you/cosmo-expdb.bin | sort | uniq -c
 ```
 
 | It prints | Meaning |
@@ -98,7 +98,7 @@ supported unit.
 Running Gemian? This shows the same from a terminal on the Cosmo:
 
 ```sh
-grep -a -o -i 'nt36672\|ssd2092' /proc/device-tree/chosen/atag,videolfb
+grep -a -o -i -E 'nt36672|ssd2092' /proc/device-tree/chosen/atag,videolfb
 ```
 
 ## 3. Back up (do not skip)
