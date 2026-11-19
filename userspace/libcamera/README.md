@@ -7,15 +7,17 @@
 | `gc5035.yaml` | tuning file, `/usr/share/libcamera/ipa/simple/gc5035.yaml` |
 | `configuration.yaml` | global configuration (GPU software ISP), `/etc/libcamera/configuration.yaml` |
 
-Build (arm64 host, ~5 minutes on 8 cores):
+Build (arm64 host, ~5 minutes on 8 cores), from this directory, into the
+repository's `out/libcamera/` where gemini-debian's Cosmo image build
+picks the packages up:
 
-    mkdir -p out
-    podman run --rm -v $PWD:/cosmo:ro -v $PWD/out:/out \
+    mkdir -p ../../out/libcamera
+    podman run --rm -v $PWD:/cosmo:ro -v $PWD/../../out/libcamera:/out \
         --tmpfs /build:rw,exec,size=12g docker.io/library/debian:trixie \
         sh /cosmo/build-libcamera.sh
 
-Install on the Cosmo: `libcamera0.7`, `libcamera-ipa`, `libcamera-tools`,
-`libcamera-v4l2`, `gstreamer1.0-libcamera` from `out/`; PipeWire and
+Installed by the image build (or by hand): `libcamera0.7`, `libcamera-ipa`,
+`libcamera-tools`, `libcamera-v4l2`, `gstreamer1.0-libcamera`. PipeWire and
 WirePlumber come from trixie-backports (with `libspa-0.2-libcamera`).
 
 The patches are meant for upstream; once merged, the stock libcamera
