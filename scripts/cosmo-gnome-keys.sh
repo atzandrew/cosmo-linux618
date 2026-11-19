@@ -5,6 +5,12 @@ set -eu
 
 [ "$(id -u)" -eq 0 ] || { echo "Run with sudo."; exit 1; }
 
+# dconf-cli is not part of a minimal GNOME install (--no-install-recommends).
+if ! command -v dconf >/dev/null 2>&1; then
+    echo "Installing dconf-cli..."
+    apt-get install -y dconf-cli
+fi
+
 REV=f7736f5163abb3d6103a50d3c5fcb8ff6ec7ccef
 URL=https://raw.githubusercontent.com/atzandrew/gemini-debian/$REV/overlay-cosmo/usr/share/X11/xkb/symbols/cosmo
 XKB=/usr/share/X11/xkb/symbols/cosmo
