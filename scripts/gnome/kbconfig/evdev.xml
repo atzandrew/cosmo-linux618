@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xkbConfigRegistry SYSTEM "xkb.dtd">
+<!-- Cosmo Communicator keyboard layout entry for libxkbregistry.
+     Installed to /etc/xkb/rules/evdev.xml by cosmo-gnome-keys.sh.
+     The symbols file is /usr/share/X11/xkb/symbols/cosmo. -->
+<xkbConfigRegistry version="1.1">
+  <modelList/>
+  <layoutList>
+    <layout>
+      <configItem>
+        <name>cosmo</name>
+        <shortDescription>cosmo</shortDescription>
+        <description>Cosmo English (UK)</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>us</name>
+            <description>Cosmo English (US)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+  </layoutList>
+  <optionList/>
+</xkbConfigRegistry>
