@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config VIDEO_MTK_SENINF
+	tristate "MediaTek MT8183/MT6771 camera sensor interface (seninf)"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	depends on VIDEO_DEV && OF
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  MIPI CSI-2 receiver and sensor interface mux of the MT8183/MT6771
+	  camera block (ChromeOS chromeos-5.10 mtk_seninf.c).
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called mtk_seninf.

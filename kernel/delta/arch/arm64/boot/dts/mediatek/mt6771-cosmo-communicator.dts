@@ -1158,12 +1158,18 @@
 	/*
 	 * Front camera GC5035 (stock: sensor 1 "sub", I2C write id 0x6e,
 	 * ID 0x5035, 2 lanes, MCLK 24 MHz). ChromeOS gc5035.c; DT shape from
-	 * ChromeOS mt8183-kukui-kodama-camera-gc5035.dtsi. The endpoint is not
-	 * linked yet (no seninf driver).
+	 * ChromeOS mt8183-kukui-kodama-camera-gc5035.dtsi. Linked to seninf
+	 * CSI1 (stock HAL libcameracustom.so: sub = CSI port 1, MCLK1).
 	 */
 	camera@37 {
 		compatible = "galaxycore,gc5035";
 		reg = <0x37>;
+		/*
+		 * Front-facing, mounted unrotated: stock libcameracustom.so
+		 * camera table, sub sensor dir = 1 (front), orient = 0.
+		 */
+		orientation = <0>;
+		rotation = <0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cam1_pins>;
 
@@ -1182,6 +1188,7 @@
 
 		port {
 			gc5035_endpoint: endpoint {
+				remote-endpoint = <&seninf_csi1_in>;
 				data-lanes = <1 2>;
 				link-frequencies = /bits/ 64 <438000000>;
 			};
@@ -1547,9 +1554,6 @@
 	};
 
 	power-domain@MT8183_POWER_DOMAIN_DISP {
-		/delete-property/ #address-cells;
-		/delete-property/ #size-cells;
-		/delete-node/ power-domain@MT8183_POWER_DOMAIN_CAM;
 		/delete-node/ power-domain@MT8183_POWER_DOMAIN_ISP;
 		/delete-node/ power-domain@MT8183_POWER_DOMAIN_VDEC;
 		/delete-node/ power-domain@MT8183_POWER_DOMAIN_VENC;
@@ -2502,6 +2506,80 @@
 				 <PINMUX_GPIO141__FUNC_AUD_SYNC_MISO>,
 				 <PINMUX_GPIO142__FUNC_AUD_DAT_MISO0>,
 				 <PINMUX_GPIO143__FUNC_AUD_DAT_MISO1>;
+		};
+	};
+};
+
+/*
+ * Camera sensor interface (seninf). Stock: seninf_top@1a040000, IRQ SPI
+ * 251, CSI RX analog at 0x11c80000 (csi0a..csi2b, 0x1000 each). ChromeOS
+ * mtk_seninf.c (MT8183, same block). Port N = CSI port N; the front camera
+ * is on CSI1 with 2 lanes (stock HAL sensor table).
+ * The CAM power domain is kept for this node (genpd switches it off when
+ * seninf is idle and in suspend).
+ */
+&{/soc} {
+	seninf: seninf@1a040000 {
+		compatible = "mediatek,mt8183-seninf";
+		reg = <0 0x1a040000 0 0x8000>,
+		      <0 0x11c80000 0 0x6000>;
+		reg-names = "base_reg", "rx_reg";
+		interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_LOW>;
+		power-domains = <&spm MT8183_POWER_DOMAIN_CAM>;
+		clocks = <&camsys CLK_CAM_SENINF>,
+			 <&topckgen CLK_TOP_MUX_SENINF>;
+		clock-names = "CLK_CAM_SENINF", "CLK_TOP_MUX_SENINF";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@1 {
+				reg = <1>;
+
+				seninf_csi1_in: endpoint {
+					remote-endpoint = <&gc5035_endpoint>;
+					data-lanes = <1 2>;
+				};
+			};
+
+			/*
+			 * Source: cam mux 0 -> CAMSV (raw capture). P1 cannot
+			 * run on this board: stock ATF DEVAPC blocks the SCP
+			 * (domain 3) from cam_b, and the SCP firmware programs P1.
+			 */
+			port@4 {
+				reg = <4>;
+
+				seninf_camsv_out: endpoint {
+					remote-endpoint = <&camsv_in>;
+				};
+			};
+		};
+	};
+
+	/*
+	 * CAMSV (raw capture, no ISP): stock mt6771.dts camsv1@1a050000,
+	 * IRQ 258, clock CAMSYS_CAMSV0_CGPDN (= mainline CLK_CAM_CAMSV0).
+	 * larb6: the driver clears its M4U enable bits (no SMI/M4U driver),
+	 * so CAMSV DMA uses physical CMA addresses (CMA is below 4 GiB).
+	 */
+	camsv0: camsv@1a050000 {
+		compatible = "mediatek,mt6771-camsv";
+		reg = <0 0x1a050000 0 0x1000>,
+		      <0 0x1a001000 0 0x1000>;
+		reg-names = "camsv", "larb6";
+		interrupts = <GIC_SPI 258 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&camsys CLK_CAM_CAM>,
+			 <&camsys CLK_CAM_CAMTG>,
+			 <&camsys CLK_CAM_CAMSV0>;
+		clock-names = "cam", "camtg", "camsv";
+		power-domains = <&spm MT8183_POWER_DOMAIN_CAM>;
+
+		port {
+			camsv_in: endpoint {
+				remote-endpoint = <&seninf_camsv_out>;
+			};
 		};
 	};
 };

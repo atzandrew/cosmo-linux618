@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config VIDEO_MTK_CAMSV
+	tristate "MediaTek MT6771 CAMSV raw capture"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	depends on VIDEO_DEV && OF
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEOBUF2_DMA_CONTIG
+	help
+	  Raw capture through the CAMSV engine (seninf -> CAMSV -> memory,
+	  no ISP processing) on MT6771/MT8183-class SoCs. Port of the
+	  MT8365 ISP3.0 CAMSV driver.
