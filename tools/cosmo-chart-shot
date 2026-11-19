@@ -1,0 +1,79 @@
+#!/bin/sh
+# cosmo-chart-shot - capture a colour-chart calibration set from the Cosmo front camera.
+#
+#   cosmo-chart-shot <label>        e.g. cosmo-chart-shot daylight
+#   cosmo-chart-shot -n <label>     skip the preview window
+#
+# A live preview (qcam) opens first: frame the chart, then close the window.
+# After a 5 second countdown the capture starts.
+#
+# Output: ~/camera-calib/<date>-<label>/
+#   processed.ppm            last frame through libcamera (auto exposure/white balance)
+#   raw-<factor>.rggb8       raw 2592x1944 RGGB 8-bit frames at fixed exposures (AE x factor)
+#   info.txt                 label, exposure, gains, metadata
+#
+# PipeWire is paused while it runs (a few seconds of no audio) and restarted at the end.
+# Hold the chart still from "capturing" until "done".
+set -u
+preview=1
+if [ "${1:-}" = "-n" ]; then preview=0; shift; fi
+label=${1:-unlabelled}
+out="$HOME/camera-calib/$(date +%Y%m%d-%H%M%S)-$label"
+mkdir -p "$out"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+
+restore() {
+	systemctl --user start pipewire.socket pipewire-pulse.socket pipewire pipewire-pulse wireplumber 2>/dev/null
+}
+trap restore EXIT INT TERM
+systemctl --user stop wireplumber pipewire pipewire.socket pipewire-pulse pipewire-pulse.socket 2>/dev/null
+
+sensor=$(media-ctl -d /dev/media0 -e "gc5035 4-0037" 2>/dev/null)
+[ -n "$sensor" ] || { echo "gc5035 subdev not found" >&2; exit 1; }
+
+if [ "$preview" = 1 ]; then
+	echo "Preview: frame the chart (all patches, no glare), then CLOSE the preview window."
+	qcam -c /base/soc/i2c@11008000/camera@37 -s role=viewfinder,width=1296,height=972 >/dev/null 2>&1
+fi
+for n in 5 4 3 2 1; do printf "%s... " "$n"; sleep 1; done
+echo
+echo "capturing (hold the chart still)..."
+
+# 1. Let libcamera's auto exposure and white balance settle; keep the last processed frame.
+tmp=$(mktemp -d)
+timeout 60 cam -c1 -C40 --metadata -s width=1296,height=972,pixelformat=BGR888 \
+	-F"$tmp/frame-#.ppm" > "$out/cam.log" 2>&1
+last=$(ls "$tmp"/frame-*.ppm 2>/dev/null | tail -n1)
+[ -n "$last" ] && mv "$last" "$out/processed.ppm"
+rm -rf "$tmp"
+exp=$(v4l2-ctl -d "$sensor" -C exposure | awk '{print $2}')
+again=$(v4l2-ctl -d "$sensor" -C analogue_gain | awk '{print $2}')
+{
+	echo "label: $label"
+	echo "date: $(date -Iseconds)"
+	echo "ae exposure (lines): $exp"
+	echo "ae analogue_gain index: $again"
+	for k in ExposureTime AnalogueGain ColourGains ColourTemperature; do
+		grep -E "^[[:space:]]+$k = " "$out/cam.log" | tail -n1 | tr -d '\t'
+	done
+} > "$out/info.txt"
+
+# 2. Raw frames at fixed exposure (AE value x 0.35 / 0.7 / 1.0), same gain, digital gain 1x.
+M="media-ctl -d /dev/media0"
+$M -l '"gc5035 4-0037":0 -> "1a040000.seninf":1 [1]'
+$M -V '"gc5035 4-0037":0 [fmt:SRGGB10_1X10/2592x1944]'
+$M -V '"1a040000.seninf":1 [fmt:SRGGB10_1X10/2592x1944]'
+$M -V '"1a050000.camsv":0 [fmt:SRGGB10_1X10/2592x1944]'
+v4l2-ctl -d /dev/video0 --set-fmt-video=width=2592,height=1944,pixelformat=RGGB
+for f in 0.35 0.7 1.0; do
+	e=$(awk -v e="$exp" -v f="$f" 'BEGIN { v = int(e * f / 4) * 4; if (v < 4) v = 4; print v }')
+	v4l2-ctl -d "$sensor" -c exposure="$e",analogue_gain="$again",digital_gain=64
+	timeout 15 v4l2-ctl -d /dev/video0 --stream-mmap=3 --stream-count=4 --stream-to="$out/raw4.tmp" 2>/dev/null
+	size=$((2592 * 1944))
+	dd if="$out/raw4.tmp" of="$out/raw-$f.rggb8" bs=$size skip=3 count=1 2>/dev/null
+	rm -f "$out/raw4.tmp"
+	echo "raw x$f: exposure $e lines" >> "$out/info.txt"
+done
+
+echo "done: $out"
+ls -la "$out"

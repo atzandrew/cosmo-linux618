@@ -143,4 +143,7 @@ the device now runs Planet Gemian from `boot` + `userdata`.
 | `docs/cpufreq.md` | CPU DVFS and idle: stock path, our OPP table, steps |
 | `docs/stock-reference.md` | stock values from Gemian on this unit: CPU OPP/voltage tables, eMMC mode, bound I2C/SPI devices |
 | `docs/session-log.md` | dated log of every session |
+| `docs/camera.md` | front camera: GC5035 -> seninf -> CAMSV, why not the ISP, libcamera patches and tuning |
+| `userspace/libcamera/` | libcamera patches, Debian package build, GC5035 tuning, libcamera configuration |
+| `tools/cosmo-chart-shot` | colour-chart calibration capture (processed + raw frames) |
 | `build/`, `out/` | build tree and artifacts (gitignored) |

@@ -68,14 +68,15 @@ yet confirmed.
 | ✅ | GPU | Mali-G72 MP3 | yes (panfrost) | Mesa from trixie, GLES 3.1; stock segment-4 OPP table 300-900 MHz from efuse (G2, G3); Plasma Wayland runs on it; performance pass (benchmarks, Mesa, devfreq, thermal) open | P4, **high** |
 | ⬜ | HDMI out | SiI9022 `@39` + EDID `@50` (i2c3) | yes (`sii902x` bridge) | needs a display output path to feed it | low |
 | ⬜ | Video decode/encode | vdec/venc | yes (mt8183) | | later |
-| ➖ | Cameras | main `@40` (i2c2), main2 `@10` + sub `@35` (i2c4), AF/EEPROMs | **new** | sensor models unknown | — |
+| ✅ | Front camera | GC5035 `@37` (i2c4) -> CSI1 -> seninf -> CAMSV (`1a050000`) | **port** + new | libcamera simple pipeline + software ISP (patched libcamera, `userspace/libcamera/`), PipeWire; 720p30 from the 2x2 binned mode; P1/ISP unusable (stock ATF DEVAPC blocks the SCP); colour matrix pending calibrated AWB; `docs/camera.md` | P6 |
+| ⬜ | Rear camera | main `@40` (i2c2), AF, EEPROM | **new** | Samsung S5K2X7 24 MP, 4 lanes; no mainline driver | — |
 | ➖ | Flash LED | MT6370 `fled1/2` | yes (`leds-mt6370-flash`) | only useful with cameras | — |
 
 ## Audio
 
 | | Block | Part / location | Mainline | Notes | Phase |
 |---|---|---|---|---|---|
-| ✅ | SoC audio + codec | MT8183 AFE + MT6358 codec | yes + delta | playback works (A1); AFE clock-gate fix in `mt8183-afe-pcm.c`; microphone not done; hiss while a stream is open | P6 |
+| ✅ | SoC audio + codec | MT8183 AFE + MT6358 codec | yes + delta | playback works (A1); AFE clock-gate fix in `mt8183-afe-pcm.c`; UCM profile `cosmo` (HiFi, Speaker at the stock -2 dB HP-buffer drive); `mt6358.c` reports the stored HP/lineout gain; microphone not done; hiss while a stream is open | P6 |
 | ✅ | Speaker amp | two GPIO amps (GPIO153, GPIO111) | yes (DT) | fed from the MT6358 headphone buffers as stock (A2); no RT5509 fitted | P6 |
 | 🔶 | Headset jack | MT6358 ACCDET | check | headphone playback works; plug detection (ACCDET) and headset mic not done | P6 |
 

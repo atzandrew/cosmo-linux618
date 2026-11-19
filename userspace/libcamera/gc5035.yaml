@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: CC0-1.0
+# GC5035 (Cosmo Communicator front camera), libcamera simple pipeline,
+# software ISP. Install as /usr/share/libcamera/ipa/simple/gc5035.yaml.
+# - BlackLevel: from the GC5035 sensor helper (64 at 10 bits).
+# - Ccm: identity. A fitted matrix exists (docs/camera.md) but amplifies the
+#   grey-world AWB errors; it stays off until the AWB is calibrated. The Ccm
+#   entry is still needed: it enables the Saturation control.
+# - Adjust: contrast 1.3, saturation 1.3 (needs the Cosmo libcamera patch 3).
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - BlackLevel:
+  - Awb:
+  - Ccm:
+      ccms:
+        - ct: 3400
+          ccm: [ 1, 0, 0,
+                 0, 1, 0,
+                 0, 0, 1 ]
+  - Adjust:
+      contrast: 1.3
+      saturation: 1.3
+  - Agc:
+...

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: CC0-1.0
+# libcamera global configuration for the Cosmo Communicator.
+# Software ISP on the GPU (Mali-G72, panfrost). Needs the Cosmo libcamera
+# build with whole-texel GPU sampling (+cosmo8 or later): upstream 0.7.1
+# samples on texel boundaries, which tints the border and leaves single-line
+# seams at non-integer scales; the CPU path ("cpu") avoids that but costs
+# ~55% more CPU and renders bluer.
+%YAML 1.1
+---
+version: 1
+configuration:
+  software_isp:
+    mode: gpu
+...
