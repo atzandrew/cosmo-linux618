@@ -3839,3 +3839,490 @@ Image T1:
 - Both added to `docs/beta-testing.md`; Bluetooth audio removed from
   the README's known issues.
 - Wi-Fi reconnects by itself after sleep (added to the beta checks).
+
+## 2026-11-18 — Camera M3 (seninf streams) and M4 start (ISP pass 1 port)
+
+### dr10 (flashed 2026-11-18; pre-flash check NOT written before the flash)
+
+- Logged after the fact: dr10 added a new kernel config
+  (`CONFIG_VIDEO_MTK_SENINF=m`) and went out under the standing debug
+  approval without the written check this file requires. Risk was low
+  (module only, camera rails already proven in M1, no panel, PMIC-key,
+  watchdog, reset or input change), but the rule was missed.
+- Change: dr9 DTS (seninf node, gc5035 <-> seninf CSI1, CAM power domain
+  kept) + ChromeOS 5.10 `mtk_seninf.c` ported to 6.18 in
+  `kernel/delta/drivers/media/platform/mediatek/seninf/`, plus a TEST-ONLY
+  debugfs hook (`/sys/kernel/debug/mtk-seninf/{stream,status}`, strip before
+  commit). Release 6.18.58-cosmo-dr10; image dr10-boot.img SHA256
+  5367f8e24ca3827b02424366b62a0826852049b4b0a7bfc693d8d628718751bb
+  (Image.gz-dtb 98604c78…). Packed from dr9-boot.img's ramdisk and
+  cmdline via bin/mkbootimg.py (dr9 repack byte-identical first).
+- Driver fixes found on the device: lane count was only stored in the async
+  bound callback (needs a bound P1), so `SENINF3_CSI2_CTL` lane bits were 0
+  and nothing arrived; now stored at DT parse time. `remove()` did not
+  unregister the async notifier (rmmod + modprobe gave -EEXIST); fixed.
+- Result M3 PASS: GC5035 CSI1 -> SENINF_3 -> mux0. `CSI2_DBG_PORT` packet
+  counter climbs during a frame and restarts each frame; with the sensor in
+  standby (0x3e = 0x01, seninf left on) it freezes at 0x799 = 1945 (1944
+  lines, 2592x1944 mode) and status stays 0; streaming again restarts it.
+  `CSI2_INT_STATUS` 0x44 on every read, +0x9000 on reads spanning a frame
+  boundary; bit meanings not verified (no bitfield source found).
+- Found: larb6 (camera DMA ports) has `SMI_LARB_NONSEC_CON` bit 0 (M4U
+  enable) set on all ports read (0-19) with the CAM domain on; larb3 ports
+  0-4 too. larb0 display ports 0-4 read 0x2 (bit 0 clear), matching the
+  display's physical scanout. Read via /dev/mem, `python3` mmap.
+
+### dr11 pre-flash check (ISP pass 1, first boot only, no streaming)
+
+- Change: ChromeOS 5.10 `isp_50/cam` (P1) ported to 6.18 in
+  `kernel/delta/drivers/media/platform/mediatek/isp-p1/`
+  (`CONFIG_VIDEO_MEDIATEK_ISP_PASS1=m`, module mtk-cam-isp): async API,
+  media_pipeline_start/stop on pads, min_queued_buffers, active sensor found
+  through seninf's enabled sink link (entity stream_count is gone), void
+  remove, ChromeOS-only MTISP fourccs defined in mtk_cam.h,
+  dma_unmap_resource for the two dma_map_resource mappings. Board addition:
+  optional `larb6` reg; runtime resume clears larb6 bit 0 on ports 0-30
+  (other bits kept). DT: camisp@1a000000 (stock cam1..4 addresses and IRQs
+  253-256, CAM_CAM/CAM_CAMTG clocks, CAM domain, mediatek,scp, no iommus)
+  linked to seninf port@4.
+- Image dr11-boot.img SHA256
+  3ac27bdd88d9a75a7d28e12e5504d2802517c766b9edb5c6d0421676cf0323f8
+  (Image.gz-dtb 40366e83…), release still 6.18.58-cosmo-dr10; its modules
+  installed on the device (depmod) before the flash.
+- Risk flags: new kernel config (module). Probe only maps registers, gets
+  the SCP and takes 2 MiB from the SCP pool (scp_fw_mem, 41 MiB); no P1,
+  larb or SCP-ISP message is touched until a stream is started by hand. No
+  panel, bias, PMIC-key, watchdog, reset or input change, so no
+  watchdog-test boot is required.
+- Escapes: power-key reset and init-owned watchdog unchanged from the
+  observed kernel family (try11+); systemd handover and cosmo-boot-ok
+  tripwire unchanged (try20). The camera stack is modules only.
+- Rollback: beta1-boot.img (release kernel 6.18.58-cosmo, its modules
+  untouched on the device).
+- Pass: boots to the desktop; mtk-cam-isp probes, /dev/media0 shows
+  gc5035 -> seninf -> P1 entities and video nodes; SCP still running;
+  sensors still read. Fail: boot hang (escapes), probe errors, SCP crash.
+
+### dr11 result (2026-11-18)
+
+- Boot OK. P1 probe failed first: 6.18 media_entity_pads_init() checks pad
+  flags, ChromeOS set them after the call (fixed for the subdev and video
+  pads, module only). SCP stayed offline: the fresh release rootfs has no
+  mediatek/mt8183/scp.img and the kernel has no compressed-firmware
+  loader (`# CONFIG_FW_LOADER_COMPRESS is not set`); hand-installed
+  /usr/lib/firmware/mediatek/mt8183/scp.img (from a linux-firmware-mediatek
+  20261019 scp.img.zst, decompressed, sha256 401e9c02…). PACKAGING GAP:
+  the rootfs must ship it.
+- With both fixed: media0 graph gc5035 -> seninf:1 -> seninf:4 -> P1:11 ->
+  "main stream" /dev/video1 (+ meta nodes). seninf pads must be set to
+  SRGGB10_1X10/2592x1944 (one media-ctl -V per pad), else STREAMON EPIPE.
+- Non-request QBUF on the image node hit an out-of-bounds write
+  (mtk_isp_enqueue indexes meta counters by node_id - META_OUT_0); guarded,
+  image buffers need the Request API. Test tool p1req (Request API) on the
+  device: SCP acks frames 1-3, but no P1 interrupt ever; cam_a/b/c
+  (0x1a004000/6000/8000) INT_EN, CQ_THR0_BASEADDR, TG_SEN_MODE, TG_VF_CON
+  all 0 during the stream; larb6 NONSEC_CON ports 0, 1, 2, 12, 30 read 0
+  (bit clear works); seninf receiving (mux DEBUG_2 0x0a200798). The kernel
+  only writes CQ_THR0_BASEADDR from the SOF IRQ; first programming is the
+  SCP's job on ISP_CMD_STREAM, and it did not happen.
+
+### dr12 pre-flash check (SCP console log via cros-ec)
+
+- Change: `CONFIG_CHROME_PLATFORMS=y`, `CROS_EC`, `CROS_EC_PROTO`,
+  `CROS_EC_RPMSG`, `MFD_CROS_EC_DEV`, `CROS_EC_DEBUGFS` (=m); every other
+  cros-ec default switched off in cosmo.config (HW prober (built-in),
+  PCHG charger, chardev, lightbar, sensorhub, sysfs, VBC, USB-PD notify,
+  LEDs, hwmon). Config diff vs dr11 = exactly these 6 lines. DT: &scp child
+  `cros-ec-rpmsg` (google,cros-ec-rpmsg, as mt8183-kukui.dtsi). Camera
+  modules unchanged from dr11 + fixes above (still -DDEBUG, TEST ONLY).
+- Image dr12-boot.img SHA256
+  815fe9c103e240f570d3267f4c557ed112d5f701e277a9cdf4c55592a9409e46
+  (Image.gz-dtb 7481e750…), release 6.18.58-cosmo-dr10; full module tree
+  from this build installed + depmod before the flash.
+- Risk flags: new kernel config (modules + a menu bool). cros-ec sends host
+  commands to the SCP firmware only; no subdrivers are built, so no
+  charger, keyboard, Type-C or sensor function is taken over. No panel,
+  bias, PMIC-key, watchdog, reset or input change; no watchdog-test boot
+  needed.
+- Escapes: power-key reset and init-owned watchdog unchanged (observed
+  try11+); systemd handover + cosmo-boot-ok tripwire unchanged (try20).
+- Rollback: beta1-boot.img (release kernel, modules untouched).
+- Pass: boots to desktop; cros-ec probes on the rpmsg channel ("No handler
+  for ipi id = 13" gone); /sys/kernel/debug/cros_ec/console_log readable;
+  SCP running; sensors read. Fail: boot hang, cros-ec errors, SCP crash.
+
+### dr12 result (2026-11-18): PASS (SCP log), P1 still no frames
+
+- Boot OK; cros-ec-rpmsg registered ("CrOS System Control Processor MCU
+  detected"), ipi-13 messages gone, SCP running, /sys/kernel/debug/cros_scp/
+  console_log readable (returns only lines new since the last read).
+- p1req (3 requests): SCP log shows CQ init (CQ at 0x50800000, SCP view
+  0x30800000), camTgCtlConfig crop 0xA20x0x798 (2592x1944, continuous,
+  pixmode 1), ISP_CMD_STREAM:1, then `[P1][E]cmos_en is still off,start
+  fail`. Matches the AP read of cam_b TG_SEN_MODE = 0 (dr11). Full log:
+  bring-up notes.
+- Open: who sets TG CMOS_EN before stream-on. Leads, unverified: the
+  ChromeOS kernel only sets it in system resume (mtk_isp_pm_resume); the
+  firmware may expect it set by the AP, or its own TG writes may not land
+  (SCP access to camsys registers: bus remap / DEVAPC, set up by coreboot on
+  Kukui, by preloader/ATF here).
+
+### dr13 (2026-11-19): AP CMOS_EN write, module-only test (no flash)
+
+- Change (TEST ONLY): mtk_isp_stream() sets cam_b TG_SEN_MODE.CMOS_EN
+  from the AP before ISP_CMD_STREAM on, logs the readback. Only
+  mtk-cam-isp.ko rebuilt and insmod'ed by hand on dr12.
+- Result: AP write lands (TG_SEN_MODE 0 -> 1). /dev/mem read mid-stream,
+  after the firmware's check: 0x1a006230 = 1 (cam_a 0x1a004230 = 0).
+  SCP still logs `cmos_en is still off,start fail` 1.6 ms after
+  ISP_CMD_STREAM:1. The SCP's read of the cam_b register does not
+  return the real value: SCP -> camsys access (bus remap, DEVAPC or
+  similar) is the open question.
+
+### dr13 result (2026-11-19): DEVAPC blocks the SCP from camsys (no flash)
+
+- Module-only test on dr12: AP write of cam_b TG_SEN_MODE.CMOS_EN lands
+  and stays 1; the SCP firmware still reports "cmos_en is still off".
+- Read-only checks: SCP remap = Kukui values (0x105c0120/124/128 =
+  07060504/02010008/10090a03, DISABLE_REMAP 0); SCP DRAM writes land
+  (CQ descriptors at 0x50800000); its TG crop writes do not (GRAB
+  registers at reset values).
+- DEVAPC reporting (APC_CON 0x10207F00 set to 0x80000000 by hand, then
+  restored to 0x4): VIO_STA word 8 bit 8 = slave 264 CAMSYS_CAM_B;
+  shift readout: WRITE, domain 3, master 0x26, address 0x1a00619c.
+  Cleared and one capture: the same violation returned.
+- Kukui TF-A puts the SCP in domain 1 (devapc set_master_domain) and
+  leaves CAM_A/B/C open to it; the stock MT6771 ATF does not. The master
+  domain registers (DEVAPC AO 0x1000E000) are secure-world only. P1 via
+  the SCP is closed on this board without an ATF change.
+
+### dr14 pre-flash check (CAMSV raw path, test DTB)
+
+- Change: DTB only (kernel Image.gz = dr12, release 6.18.58-cosmo-dr10,
+  same ramdisk and cmdline; dr12 repack verified byte-identical first).
+  New node camsv@1a050000 ("mediatek,mt6771-camsv": stock camsv1 reg,
+  IRQ SPI 258, clocks CLK_CAM_CAM/CAMTG/CAMSV0, CAM power domain, larb6
+  reg); seninf port@4 (cam mux 0) now links to CAMSV; camisp (P1)
+  status = "disabled". Decompiled DTB diff vs dr12: only these nodes.
+  Driver: kernel/delta/drivers/media/platform/mediatek/camsv (MT8365
+  ISP3.0 CAMSV v8 port), built OUT OF TREE (M=), no kernel config
+  change; the module is copied to the device and loaded by hand only.
+- Image dr14-boot.img SHA256
+  e151f0473acea0bc38de7f960c152e99909c0e12feb910f10cc7e45b4d8eff4e
+  (Image.gz-dtb d9abedce…).
+- Risk flags: new DTB node in camsys (module not autoloaded: not in the
+  module tree). No panel, bias, PMIC-key, watchdog, reset, input or
+  kernel config change; no watchdog-test boot needed. When loaded, the
+  driver writes larb6 M4U-bypass bits (as P1 did) and, only on stream
+  start, CAMSV registers at partly DERIVED offsets (FMT_SEL, CLK_EN, PAK,
+  TG GRAB/PATH_CFG, IMGO sizes); a wrong offset could hang camsys or
+  send DMA astray (watchdog/power-key reset recovers).
+- Escapes: power-key reset and init-owned watchdog unchanged (observed
+  try11+); systemd handover + cosmo-boot-ok tripwire unchanged (try20).
+- Rollback: dr12-boot.img (P1 path) or beta1-boot.img.
+- Pass (boot): desktop; mtk_cam_isp not bound (camisp disabled).
+  Pass (probe, insmod): /dev/media + video node for mtk-camsv, seninf
+  bound, debugfs regs dump readable; reset values consistent with the
+  derived layout (TG GRAB 0x238/0x23C = 7fff0000/3fff0000 as on cam_a/b).
+  Then one stream test. Fail: boot hang, probe error, dump hang.
+
+### dr14 result (2026-11-19): CAMSV raw capture PASS (front camera, 8-bit + 10-bit)
+
+- Boot OK; P1 not bound (camisp disabled); mtk-camsv loads by hand after
+  videobuf2_v4l2 + videobuf2_dma_contig (not auto-loaded as deps of an
+  out-of-tree insmod). media0: gc5035 -> seninf:1 -> seninf:4 -> camsv
+  -> /dev/video0; plain mmap streaming (no Request API).
+- Reset-value dump: TG GRAB 0x238/0x23C = 7fff0000/3fff0000, MODULE_EN
+  0x510 = 0x40000000 (DB_EN), SW_CTL 0x520 = 0x2, 0x53C = 0x20150120
+  (looks like a version/date register). IMGO block does NOT follow
+  MT8365: it follows stock isp_50 P1 IMGO (XSIZE +0x10, YSIZE +0x14,
+  STRIDE +0x18, CON +0x1C = 0x80000080 at reset, CON2/CON3 +0x20/+0x24).
+  Fixed; all programmed values read back (FMT_SEL 0x514, INT_EN 0x518,
+  CLK_EN 0x530, PAK 0x54C, PATH_CFG 0x240 are real R/W registers).
+- PAK modes (GC5035 colour bars, RG/GB red bar row): MT6771 0 = 8-bit,
+  1 = 10-bit, 2 = 12-bit, 3 = 14-bit (reverse of MT8365). Packed output
+  is MediaTek packing (little-endian bit stream, MSB-aligned to the mode
+  width), not MIPI. Formats now: MTISP 10-bit (MBRA etc., PAK 1, bpl
+  3240) PASS; Sxxxx8 from the 10-bit bus (FMT_SEL RAW_10 + PAK 0, bpl
+  2592, 8 MSBs) PASS; PAK disabled with 16-bit lines FAILS (IMGO errors).
+- First real frame: ceiling and light, correct geometry, no white balance
+  (notes only). Sensor digital_gain defaults to 1023 (max).
+- Hang: PAK 0 with a 3240-byte line (length mismatch) gave an IMGO_ERR
+  flood; the next command never returned, screen frozen, no panic, and
+  the watchdog did NOT reset the board within ~3 min (power-key reset
+  worked). Driver now stops the IMGO DMA and IRQs after 8 IMGO errors
+  per stream; a later RG10 mismatch stopped cleanly, no hang.
+- OPEN: why the watchdog did not fire on that hang (escape rule 5).
+
+### libcamera on dr14 (2026-11-19, no flash)
+
+- Debian trixie libcamera 0.4.0-7 rebuilt with one simple-pipeline entry
+  { "mtk-camsv", {}, true } (software ISP on) as 0.4.0-7+cosmo1, in a
+  debian:trixie arm64 container (~5 min); 5 missing deps
+  (lttng-ust x3, libevent-core/-pthreads) fetched there. Installed on
+  the device by hand.
+- seninf fix: source (cam mux) pads now carry the selected sink port's
+  format and sink set_fmt propagates to them (libcamera needs it).
+  CAMSV enum_fmt lists every fourcc for a bus code; the non-working
+  unpacked 16-bit formats are gone.
+- cam -l: 'gc5035' listed (pipeline gc5035 -> seninf:4 -> camsv -> video).
+  cam -C5 1296x972 SRGGB8: 29.9 fps, no IMGO errors. Software ISP off:
+  "Could not open any dma-buf provider" (no DMABUF_HEAPS/UDMABUF; udmabuf
+  cannot be built out of tree: memfd_fcntl is not exported).
+
+### dr15 pre-flash check (dma-buf heaps + CAMSV in tree)
+
+- Change: kernel config (cosmo.config): CONFIG_DMABUF_HEAPS=y,
+  DMABUF_HEAPS_SYSTEM=y, DMABUF_HEAPS_CMA=y (+ DMABUF_HEAPS_CMA_LEGACY=y,
+  Kconfig default), CONFIG_VIDEO_MTK_CAMSV=m (driver now in
+  drivers/media/platform/mediatek/camsv, hooked into Kconfig/Makefile).
+  seninf format-propagation fix in the module. DTB identical to dr14
+  (decompiled diff empty). Same ramdisk and cmdline.
+- Image dr15-boot.img SHA256
+  8d8a808464ab8f270986160cff3cba493598d0d257ef5603aab331806cfd04a8
+  (Image.gz-dtb 2a0cd359…), release 6.18.58-cosmo-dr15; module tree
+  installed on the device + depmod before the flash (dr10 tree kept).
+- Risk flags: new kernel config (heaps are allocator-only; the CMA heap
+  exposes the existing 256 MB CMA to userspace). mtk-camsv now autoloads
+  and probes at boot (runtime-suspended until a stream starts). No panel,
+  bias, PMIC-key, watchdog, reset or input change; no watchdog-test boot
+  needed.
+- Escapes: power-key reset and init-owned watchdog unchanged (observed
+  try11+); systemd handover + cosmo-boot-ok tripwire unchanged (try20).
+  NOTE: the watchdog did not fire on the CAMSV IMGO-flood hang today
+  (power key did); that hang path is now guarded in the driver.
+- Rollback: dr14-boot.img (dr10 module tree) or beta1-boot.img.
+- Pass: boots to desktop; /dev/dma_heap/{system,linux,cma} present;
+  mtk-camsv probed; cam -l lists gc5035 with the software ISP enabled
+  (no DmaBufAllocator error); cam capture in a processed format (RGB/
+  YUV). Fail: boot hang, heap/probe errors.
+
+### dr15 result (2026-11-19): PASS, front camera through libcamera + PipeWire
+
+- Boot OK, release 6.18.58-cosmo-dr15. /dev/dma_heap/{system,
+  default_cma_region,reserved}; mtk-camsv autoloads, seninf binds gc5035.
+- libcamera (0.4.0-7+cosmo1): software ISP on (no DmaBufAllocator error).
+  cam 1296x972 BGR888 (output 1292x972): ~29.5 fps, neutral white
+  balance, AGC converges; full 2588x1944 ABGR8888 ~20 fps (CPU debayer).
+- Normal user: heaps are root 0600 by default -> software ISP disabled.
+  Fix: udev rule SUBSYSTEM=="dma_heap", GROUP="video", MODE="0660"
+  (hand-installed as /etc/udev/rules.d/70-cosmo-dma-heap.rules).
+- PipeWire 1.4.2: libspa-0.2-libcamera (trixie, unmodified) -> node
+  "gc5035" Video/Source (default). gst pipewiresrc 60 frames 640x480
+  RGBA OK (~30 fps) once the client sets media.type=Video (bare
+  pipewiresrc does not; WirePlumber 0.5.8 find-best-target.lua asserts on
+  a nil media.type -> "target not found"). wpctl also lists a raw v4l2
+  device "mtk-camsv" (PipeWire v4l2 monitor) next to the libcamera one.
+
+### GC5035 gain fixes + libcamera sensor helper (2026-11-19, dr15, module only)
+
+- gc5035.c: digital gain default 1023 (~16x) -> 64 (1x = 0xb1/0xb2 0x01/0x00,
+  as the stock driver). Back-to-back capture (same scene): neighbour-pixel
+  noise 2.68 -> 0.86, light fixture no longer clipped.
+- gc5035.c: analogue_gain control is now an index 0..16 into the stock gain
+  table (0xb6 codes 0,1,2,3,8..20; gain x256 256..3994, ~1.19x/step); the
+  ChromeOS driver wrote 0..31 raw into 0xb6 (codes 4-7, 21+ unused by stock).
+  Exponential fit gain = 2^(0.2471*index), max error 1.5%.
+- libcamera 0.4.0-7+cosmo2: + CameraSensorHelperGc5035 (black level 64 @
+  10 bit = 4096, AnalogueGainExp{1.0, 0.2471}) + gc5035 sensor properties
+  (1.12 um cells, colour bars = 1, delays 2 = GC05A2/GC08A3 guess). Soft
+  IPA uses it for black level and gain conversion; same-scene result equal
+  to cosmo1 (exposure max 1992, gain index 9). Remaining look = 0.4 soft
+  ISP limits (no CCM, fixed gamma). trixie-backports has libcamera 0.7.1.
+
+### libcamera 0.7.1 + PipeWire 1.6.9 (2026-11-19, PipeWire from backports)
+
+- libcamera 0.7.1-1~bpo13+1+cosmo1 (trixie-backports source + the two Cosmo
+  patches; container build). Built with SoftISP GPU: cam uses
+  EGL/GLES 3.1 on the Mali-G72 (Mesa 26.1.6), XRGB8888 output; 1296x972 at
+  20 fps (exposure-limited in that light). AWB neutral (0.4 had a magenta
+  cast); contrast unchanged (no tuning file yet). Faint coloured line on
+  the top/left edge of GPU output. New deps: libpisp1, libpisp-common,
+  libboost-log1.83.0.
+- PipeWire 1.4.2's libcamera plugin does not build against libcamera 0.7
+  (string_view camera model, Span planes) and pins libspa-0.2-modules to
+  its exact version -> PipeWire 1.6.9 + WirePlumber 0.5.12 from
+  trixie-backports (19 packages incl. new onnxruntime/dnnl/xnnpack deps of
+  libspa-0.2-modules). No local PipeWire/WirePlumber configs in the image.
+  After restart: Built-in Audio sink present (state kept), camera node via
+  libcamera 0.7.1; gst pipewiresrc 640x480 RGBA, 60 frames in 2.4 s (with
+  media.type set). Audio/BT/sleep retest pending.
+
+### Camera tuning pass 1 (2026-11-19, libcamera 0.7.1+cosmo2)
+
+- Black level check: darkest raw pixels per channel ~15-17 of 255 (8-bit)
+  = ~64 at 10 bits, as the helper says. The "haze" is the default tone
+  curve, not a black-level error.
+- Same-scene contrast series (cam --script): 1.0 p1 luma 49, 1.3 -> 21,
+  1.6 -> 3 (crushed). Saturation (needs a Ccm entry; identity for now):
+  1.3 gives warmer, more natural skin, chroma spread +30%.
+- 0.7.1 cannot set Adjust defaults from YAML: libcamera patch 3 (cosmo2)
+  reads optional Adjust "contrast"/"saturation" (clamped 0..2) as the
+  starting knobs; apps can still override. gc5035.yaml (installed by hand
+  in /usr/share/libcamera/ipa/simple/):
+  BlackLevel, Awb, Ccm identity, Adjust 1.3/1.3, Agc. Verified: frame
+  metadata Contrast 1.3 / Saturation 1.3 with no app controls.
+- GPU debayer edge artefact: column 0/1 (and row 0) blue-heavy (col0 B 178
+  vs R/G ~105); CPU path crops to 1292 wide. libcamera DebayerEGL border
+  sampling; cosmetic, upstream-able fix later.
+
+### dr16 pre-flash check (camera fixes)
+
+- Change: DTB only adds orientation = <0> (front) and rotation = <0> to
+  camera@37 (stock libcameracustom.so table: sub dir 1 = front, orient 0;
+  file offset 0x1b7908 = VA 0x1c7908 via PT_LOAD). Kernel config and
+  Image.gz identical to dr15 (release 6.18.58-cosmo-dr15). Modules:
+  gc5035 (v4l2_fwnode_device_parse + v4l2_ctrl_new_fwnode_properties ->
+  CAMERA_ORIENTATION/SENSOR_ROTATION controls; get_selection for
+  NATIVE_SIZE/CROP_BOUNDS/CROP_DEFAULT = 2592x1944, per-mode CROP left out:
+  1280x720 crop window undocumented), mtk-camsv (min_queued_buffers 1 so
+  the first delivered frame is sequence 0). Both installed into the dr15
+  module tree on the device + depmod before the flash.
+- Image dr16-boot.img SHA256 4b538212b1cfc07088a465f41d0869fbd3880bd691211a38368e77446db45fbc
+- Risk flags: DTB property + camera modules only. No panel, bias, PMIC-key,
+  watchdog, reset, input or kernel config change.
+- Escapes: unchanged (power key observed today; watchdog did not fire on
+  the CAMSV IMGO-flood hang, guarded since).
+- Rollback: dr15-boot.img (same module tree; the new modules work with it
+  too).
+- Pass: boot; cam -l without the location/rotation/rectangle warnings;
+  first frame sequence 0; capture OK.
+
+### dr16 result (2026-11-19): PASS, camera fixes
+
+- Boot OK. gc5035 exposes camera_orientation = Front, camera_sensor_rotation
+  = 0 (from the DT). First delivered frame is sequence 0 (CAMSV
+  min_queued_buffers = 1).
+- gc5035 get_selection: NATIVE_SIZE/CROP_BOUNDS/CROP_DEFAULT = 2592x1944;
+  CROP (active) = full array for the 2592x1944 and 1296x972 (2x2 binned)
+  modes, -EINVAL for 1280x720 (window undocumented). Module-only follow-up
+  (same Image.gz-dtb). libcamera cam: no WARN/ERROR lines left.
+- libcamera 0.7.1+cosmo3 (patch 4): GPU debayer samples the input inset by
+  2 px (even offset keeps the Bayer phase). Cause: libcamera picks the
+  2592x1944 mode and the GPU scales to 1296x972, so the outer output
+  pixels interpolated from the raw image edge. Column 0 blue excess +72 ->
+  +1.8 (= interior). Static client-side coordinate array (GL reads it at
+  draw time).
+
+### 10-bit input (2026-11-19): works, no visible gain at this light, +43% CPU
+
+- CAMSV unpacked output: PAK bypass (MODULE_EN PAK_SEL) + FMT_SEL IMGO_BUS_SIZE_16
+  + STRIDE BUS_SIZE_EN|BUS_SIZE_16 = 16-bit words with the 10-bit data in bits
+  13:4 (internal bus 14 bits, MSB-aligned; colour bars 1020 -> 0x3fc0). Without
+  PAK_SEL: IMGO errors (guard stopped it). Exposed as standard Sxxxx14 (RG14...),
+  listed before 8-bit. Raw check at fixed exposure: 14-bit/64 == 8-bit per
+  channel (R 37.12/37.22, G 38.32/38.41, B 26.97/27.08), low 4 bits always 0.
+- libcamera patch 5 (+cosmo5): unpacked 14-bit input on CPU (debayer14, stats14)
+  and GPU (RAW14 fetch from a GL_RG texture: (lo*255 + hi*65280)/16383).
+  Upstream 0.7.1 bug found: stats for unpacked >8-bit input are summed in raw
+  units but AWB subtracts an 8-bit black level -> wrong AWB at 10/12 bit (mild)
+  and 14 bit (B gain 1.69 vs 2.07). Our stats14 sums in 8-bit units.
+- 2x2 same-light test (+cosmo5): 8-bit vs 14-bit identical AE/AWB (B 2.07/2.10)
+  and output (GPU luma p50 105 both, neutral). Shadow crops identical (noise
+  2.79 vs 2.77; no histogram gaps either way): sensor noise >> 8-bit step here.
+- Cost: cam 100 frames CPU user 2.88 s (8-bit) vs 4.12 s (14-bit), same 20 fps.
+- Separate 0.7.1 behaviour: CPU soft ISP output brighter (p50 184 vs 105) and
+  blue-leaning vs GPU at BOTH depths (not ours). TEST knob mtk-camsv
+  allow_14bit (sysfs, hides the 14-bit formats).
+
+### Binned-mode brightness = AGC gain stall (2026-11-19, fixed; modules + libcamera)
+
+- Symptom: binned 720p darker than full. Cause (both modes): soft IPA AGC saw MSV
+  1.19-1.35 (target 2.5 +-0.2) and asked for ~x1.1 gain steps, but gc5035's
+  analogue_gain was an index into the 17 coarse stock steps (x1.19 each); the
+  requested gain was truncated back to the same code every frame -> gain stuck
+  at ~2x.
+- Fix (stock behaviour, gc5035mipiraw_Sensor.c set_gain): analogue_gain is now
+  the total gain x256 (256..3994); the driver writes the largest stock step <=
+  it to 0xb6 and the remainder (x digital_gain control / 64) to 0xb1/0xb2.
+  libcamera GC5035 helper: AnalogueGainLinear{1, 0, 0, 256} (+cosmo6).
+- Result: AGC converges (MSV 2.46-2.70), gain 4.4-5.4x in this light; binned
+  luma 152-155 = full 147-160; binned noise 2.0 vs 4.8.
+- GPU debayer artefacts found while testing: libcamera 0.7.1 DebayerEGL samples
+  on texel boundaries; with scale 2 the border is tinted, at non-integer scales
+  (1296x972 -> 1280x720) single rows/columns get the wrong Bayer phase (dashed
+  lines). The old "2 px inset" patch made the scale non-integer and caused the
+  same seams in full mode (and the 0.7.2 column line); replaced by a
+  border-wrap shader patch (+cosmo7), which is not sufficient (top-edge tint,
+  binned seams remain). Real fix: snap sampling to texel centres (upstream).
+- Workaround in place: /etc/libcamera/configuration.yaml software_isp mode cpu.
+  CPU path crops instead of scaling: 720p30 clean (row/col dev < 2.2), CPU user
+  4.27 s vs 2.76 s per 100 frames (GPU).
+
+### GPU debayer sampling fix (2026-11-19, libcamera +cosmo8): PASS
+
+- Patch 4 v3 (replaces the inset and border-wrap attempts): in bayer_unpacked.frag
+  pick one input texel per output pixel, p = floor(center.zw - firstRed + 0.25),
+  take the Bayer phase from p and fetch the centre and all neighbours at texel
+  centres around p (wrap by +-2 texels outside the image). Upstream derived the
+  phase from floor() but sampled at continuous positions; at 2:1 the position
+  sits exactly on texel boundaries, at other scales it crosses them.
+  glslangValidator: compiles (ES 100; plain, RAW14, SWAP_BLUE variants).
+- Result (GPU path, both modes): row/column colour deviation interior <= 1.9,
+  edges <= 3.0 (cosmo7: up to 57 / 79). AGC converges (MSV 2.35-2.42), 20/30 fps.
+  Colour neutral-warm (B/G 0.91-0.92 under warm room light).
+- /etc/libcamera/configuration.yaml back to software_isp mode gpu (CPU path is
+  ~55% more CPU and renders bluer in 0.7.1).
+
+### libcamera 0.7.2 + colour matrix (2026-11-19)
+
+- 0.7.2-0cosmo2 (upstream 0.7.2 + current patch set) installed: no line artefacts
+  (row/col dev <= 6.5), highlights stay white under a CCM (0.7.2 clamp), noise
+  unchanged with the CCM. AGC/AWB normal. Kept installed.
+- Fitted CCM (colour-only, chart3) makes whites yellow-green (wall B/G 0.918
+  identity, 0.856 at 75%, 0.829 at 100%). Cause: the simple IPA's grey-world AWB
+  misses by 10-20% depending on the scene (chart3 greys B/G ~1.2 after AWB, today's
+  wall 0.92) and a CCM with B-row ~2.4 amplifies any WB error ~2-2.5x. Fitting the
+  CCM to one capture's AWB state (V1/V2, ccm-awbfit.json) bakes in that scene's
+  error. Decision: identity CCM + contrast/saturation 1.3 stays; the CCM needs a
+  calibrated AWB (per-CT white points, as rpi/rkisp1 IPAs) first.
+
+### Speaker loudness (2026-11-19): generic PipeWire profile muted the speaker drive
+
+- Symptom: speaker very quiet. The AW8738 amps are fed from the MT6358 HP outputs
+  (stock SPK_PATH_HP); stock drives them at Headset_PGA_GAIN -2 dB (Gemian capture
+  2026-10-31 cap-spk). With no UCM (alsa-ucm-conf not installed), WirePlumber used
+  the generic analog-output path, which treats "Headphone" as a separate jack and
+  sets its gain to minimum (-10 dB) and its switch off -> speaker 8 dB below stock
+  at any desktop volume.
+- Fix: alsa-ucm-conf + /usr/share/alsa/ucm2/conf.d/cosmo/{cosmo,HiFi}.conf (HiFi
+  verb = playback route; Speaker device: 'Headphone Volume' 8,8 = -2 dB, Speaker
+  Switch on, PCM 0; software volume on top). PipeWire: profile HiFi, sink
+  "Built-in Audio Speaker"; codec stays at -2 dB across idle. Test tone audible
+  at 60%.
+- Kernel (module, sound/soc/codecs/mt6358.c now in kernel/delta): HP/lineout
+  volume controls report the stored gain (priv->ana_gain) instead of the
+  powered-down register (-10 dB), so mixers and alsactl store/restore see the
+  real setting.
+- Side note: libcamera's format enumeration triggers the kernel WARN "Unknown
+  pixelformat 0x4152424d" (MBRA) in v4l_enum_fmt: CAMSV driver should fill the
+  description for the MTISP fourccs.
+
+### dr17 pre-flash check (cleanup before commit)
+
+- Change: test-only code removed and the P1 path dropped. Kernel config:
+  CONFIG_VIDEO_MEDIATEK_ISP_PASS1 and the SCP-console test block
+  (CHROME_PLATFORMS, CROS_EC, CROS_EC_PROTO, CROS_EC_RPMSG, MFD_CROS_EC_DEV,
+  CROS_EC_DEBUGFS) removed -> back to the dr11 state for those. DT: camisp node
+  and the &scp cros-ec-rpmsg child removed (decompiled diff vs dr16: only those).
+  Drivers: seninf debugfs stream/status test hook and -DDEBUG removed; CAMSV
+  debugfs register dump removed; CAMSV enum_fmt names the MTISP formats (no more
+  "Unknown pixelformat 0x4152424d" WARN); comments no longer point at isp-p1.
+  Module tree 6.18.58-cosmo-dr17 installed on the device + depmod.
+- Image dr17-boot.img SHA256
+  a1f96b905d9507f9800f57e19bb5eb2ff597730d7ff65e15ad5364f99259d45a
+- Risk flags: new kernel config (removals only); no panel, bias, PMIC-key,
+  watchdog, reset or input change.
+- Escapes: power-key reset (observed this week) and the init-owned watchdog
+  (observed try11+; did not fire on the CAMSV IMGO-flood hang, guarded since).
+- Rollback: dr16-boot.img (dr15 module tree kept).
+- Pass: boot; camera through libcamera/PipeWire (gc5035 listed, frames, no
+  enum_fmt WARN in dmesg); speaker profile active; Wi-Fi, BT, sensors as before.
+
+### dr17 result (2026-11-19): PASS
+
+- Boot OK (6.18.58-cosmo-dr17); dmesg has no WARNING/Oops and no "Unknown
+  pixelformat" after libcamera enumerates the formats.
+- Camera: cam 1280x720 at 29.9 fps, no errors; PipeWire source delivers frames.
+- Audio: HiFi UCM profile active, "Built-in Audio Speaker", codec at -2 dB.
+- Wi-Fi connected; Bluetooth hci0 powers on/off; IIO sensors present.
