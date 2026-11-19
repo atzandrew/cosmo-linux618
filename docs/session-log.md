@@ -4326,3 +4326,20 @@ Image T1:
 - Camera: cam 1280x720 at 29.9 fps, no errors; PipeWire source delivers frames.
 - Audio: HiFi UCM profile active, "Built-in Audio Speaker", codec at -2 dB.
 - Wi-Fi connected; Bluetooth hci0 powers on/off; IIO sensors present.
+
+### Bluetooth: BLE mice paired but never connected (2026-11-19, hci_stp)
+
+- Symptom: LE mice paired and bonded, then disconnected within seconds; no
+  input device. btmon: LE connect, SMP pairing and encryption succeed, but
+  the host sends no ATT/GATT traffic and drops the link ~2 s after pairing.
+- Cause: every HCI power-off switches the WMT BT function off, which resets
+  the MT6631, including its BD address. cosmo-bt sets the nvdata address once
+  through mgmt (Set Public Address -> one HCI_CONFIG power-on); later
+  power-ons left the chip default 00:00:46:07:88:01, while bluetoothd's ATT
+  listener stayed bound to 00:03:AA:C7:F4:6D, so LE connections got no GATT
+  channel. Desktops power the adapter off/on routinely (saved state, toggle).
+- Fix: hci_stp sets HCI_QUIRK_NON_PERSISTENT_SETUP and a setup hook that
+  re-programs hdev->public_addr (vendor command 0xfc1a) on every power-on.
+- Test: address 00:03:AA:C7:F4:6D after load and after a power cycle (was the
+  chip default before); a BLE mouse pairs after a power cycle and works.
+  Bonds made while the adapter had the default address need re-pairing once.

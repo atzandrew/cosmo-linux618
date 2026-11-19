@@ -363,6 +363,24 @@ static int hci_stp_set_bdaddr(struct hci_dev *hdev, const bdaddr_t *bdaddr)
 	return 0;
 }
 
+/*
+ * The MT6631 loses its state, including the BD address, when the WMT BT
+ * function is switched off (every HCI power-off). The core programs a
+ * mgmt-set public address only on the power-on that follows the change,
+ * so after the next power cycle the chip came back with its default
+ * address; bluetoothd's ATT listener stayed bound to the old one and new
+ * LE connections never got a GATT channel (BLE mice paired, then dropped).
+ * Setup runs on every power-on (HCI_QUIRK_NON_PERSISTENT_SETUP) and
+ * re-programs the stored address.
+ */
+static int hci_stp_setup(struct hci_dev *hdev)
+{
+	if (!bacmp(&hdev->public_addr, BDADDR_ANY))
+		return 0;
+
+	return hci_stp_set_bdaddr(hdev, &hdev->public_addr);
+}
+
 /* ---- module ---- */
 
 static int __init hci_stp_init(void)
@@ -391,6 +409,8 @@ static int __init hci_stp_init(void)
 	hdev->flush = hci_stp_flush;
 	hdev->send = hci_stp_send_frame;
 	hdev->set_bdaddr = hci_stp_set_bdaddr;
+	hdev->setup = hci_stp_setup;
+	hci_set_quirk(hdev, HCI_QUIRK_NON_PERSISTENT_SETUP);
 
 	hu->tx_thread = kthread_run(hci_stp_tx_thread, hu, "hci_stpd");
 	if (IS_ERR(hu->tx_thread)) {
