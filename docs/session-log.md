@@ -4343,3 +4343,47 @@ Image T1:
 - Test: address 00:03:AA:C7:F4:6D after load and after a power cycle (was the
   chip default before); a BLE mouse pairs after a power cycle and works.
   Bonds made while the adapter had the default address need re-pairing once.
+
+### IOMMU C1: display through the M4U (2026-11-20)
+
+- Problem: the display ran without the M4U (LK leaves larb0 ports 0-4 with
+  the MMU off and scans out physical addresses). mediatek-drm could import
+  only physically contiguous (CMA) buffers, so every panfrost buffer KWin
+  offered failed: `mtk_gem_prime_import_sg_table: sg_table is not
+  contiguous` plus `swiotlb buffer is full` from the OVL device, a short
+  burst in every Plasma session and thousands per minute while plasmashell
+  redrew nonstop (the first-login Kickoff loop, fixed in gemini-debian
+  75ba76c: skel scale 2.25).
+- Stock: display through the M4U (DISP_OPT_USE_M4U, vendor m4u driver),
+  boot framebuffer kept readable with direct-mapping IOVA regions
+  (pseudo_reserve_dm). Vendor SMI tables in smi_configuration_mt6771.c.
+- Change: DT enables iommu, smi_common and larb0 (other larbs stay off;
+  CAMSV keeps larb6 in bypass itself), gives OVL0/OVL_2L0/RDMA0 their
+  iommus back and adds /lk-scanout@7df70000 (LK's mblock-7-framebuffer
+  range, 0x7df70000 + 0x1f90000) with iommu-addresses for OVL0/OVL_2L0
+  (1:1 map), referenced by memory-region. mtk_iommu.c: get_resv_regions
+  also calls iommu_dma_get_resv_regions (reads iommu-addresses); map,
+  unmap, iova_to_phys, iotlb_sync and sync_map return early before the
+  first attach (no page table/bank yet; the core maps direct regions
+  before attach and retries after attach when that fails). mtk-smi.c: the
+  MT8183 common and larb0 resume paths write back LK's values (read on the
+  device with the display running: common L1LEN 0xb, 0x230-0x23c
+  f21d1f00/06080608/05070507/05070507, DCM 0x4ff, DUMMY 0x1; larb0 0x024
+  0x00370246, SW_FLAG 0x1, OSTD 0x200-0x208 0x1f1f), so cosmo-smi-restore
+  is disabled in DT (it would read larb0 with its clock gated). Kernel
+  config unchanged.
+- Found on the way: lk-scanout first sat in /reserved-memory -> boot
+  stopped on LK's orange screen ~20 s, watchdog reset, kernel never printed
+  (c1, c1b). Outside /reserved-memory LK boots it (c1c). Then (MTK_IOMMU=m,
+  loaded by hand with panic_on_oops=0): NULL dereference in
+  mtk_iommu_iova_to_phys, then in mtk_iommu_iotlb_sync, both from
+  iommu_create_device_direct_mappings before attach -> the guards above.
+- Result (c1-boot.img, 6.18.58-cosmo-c1, sha256 ede34c89...): M4U probes at
+  0.32 s, OVL0/OVL_2L0/RDMA0 in iommu group 0; picture normal from LK
+  through SDDM; 0 import/swiotlb errors and no IOMMU faults (13 test
+  logins incl. the Kickoff loop, 3 deep sleeps, camera, WebGL); 3/3 deep
+  sleeps with picture back, SMI registers back to the values above after
+  sleep (larb0 display ports 0x1 = MMU on; bus select 0x4414 = mainline);
+  camera 5 frames ~20 fps; WebGL (get.webgl.org) smooth, no panfrost
+  errors. Suspend refuses (mtu3 ip sleep failed, -EBUSY) while a PC uses the
+  USB gadget link: test sleep with the cable unplugged.

@@ -106,6 +106,24 @@
 	};
 
 	/*
+	 * IOMMU C1: LK's display buffers (mblock-7-framebuffer, which LK
+	 * reserves no-map itself: console framebuffer 0x7df70000 and the
+	 * OVL layer 3 overlay at 0x7e878000). OVL still scans them out when
+	 * its larb0 ports switch to the M4U, so they are mapped 1:1 (iova =
+	 * pa) in the display's IOMMU domain, as stock reserves its
+	 * direct-mapping regions. Deliberately NOT under /reserved-memory:
+	 * a second node there over LK's mblock range stops the boot before
+	 * the kernel prints anything (C1, 2026-11-20; likely LK's own
+	 * overlap check, as the Gemini's duplicate no-map node). The IOMMU
+	 * code only follows memory-region and reads reg + iommu-addresses.
+	 */
+	lk_scanout: lk-scanout@7df70000 {
+		reg = <0 0x7df70000 0 0x1f90000>;
+		iommu-addresses = <&ovl0 0 0x7df70000 0 0x1f90000>,
+				  <&ovl_2l0 0 0x7df70000 0 0x1f90000>;
+	};
+
+	/*
 	 * 6 GiB at 0x40000000 (Gemian 4.4 /sys/firmware/fdt, 2026-10-25). LK
 	 * looks this node up by the exact path /memory and rewrites it ("DTS:
 	 * /memory node is not found create new memory node", and while(1) on
@@ -1530,8 +1548,13 @@
  * Display D2: mainline mediatek-drm main path OVL0 -> OVL_2L0 -> RDMA0 ->
  * COLOR -> CCORR -> AAL -> GAMMA -> DITHER -> DSI0 -> NT36672 panel.
  *
- * M4U stays as LK left it: without iommus the display scans out
- * physical buffers from CMA, as LK does.
+ * IOMMU C1: the display reads memory through the M4U, as stock
+ * (DISP_OPT_USE_M4U). LK leaves larb0 ports 0-4 with the MMU off and
+ * scans out physical addresses; without the M4U only physically
+ * contiguous (CMA) buffers could be imported, so every GPU (panfrost)
+ * buffer KWin offered failed ("sg_table is not contiguous", swiotlb
+ * full). LK's framebuffer stays readable through the switch via the
+ * lk_scanout direct mapping.
  *
  * Sleep D1: the scpsys power controller manages the DISP domain.
  * Its probe powers on every listed domain, so CONN (the Wi-Fi driver
@@ -1566,16 +1589,13 @@
 };
 
 &ovl0 {
-	/delete-property/ iommus;
+	memory-region = <&lk_scanout>;
 };
 
 &ovl_2l0 {
-	/delete-property/ iommus;
+	memory-region = <&lk_scanout>;
 };
 
-&rdma0 {
-	/delete-property/ iommus;
-};
 
 /*
  * Panel: NT36672 (LK ID 0x8070), stock timings and sequences in the
@@ -1758,17 +1778,11 @@
 	status = "disabled";
 };
 
-&iommu {
-	status = "disabled";
-};
-
-&smi_common {
-	status = "disabled";
-};
-
-&larb0 {
-	status = "disabled";
-};
+/*
+ * IOMMU C1: M4U, SMI common and larb0 (display) on. The other larbs
+ * (video, camera, ISP) stay off: their engines are not used through the
+ * M4U yet, and the CAMSV driver puts larb6's ports in bypass itself.
+ */
 
 &larb1 {
 	status = "disabled";
@@ -1811,6 +1825,12 @@
 	 * MMU off) before DISP powers off in suspend, restores them after.
 	 */
 	smi-restore@14019000 {
+		/*
+		 * IOMMU C1: off. The mtk-smi drivers own these registers now
+		 * and write LK's values back on every resume (mtk-smi.c); this
+		 * node would read larb0 with its clock gated.
+		 */
+		status = "disabled";
 		compatible = "planet,cosmo-smi-restore";
 		reg = <0 0x14019000 0 0x1000>, <0 0x14017000 0 0x1000>;
 		power-domains = <&spm MT8183_POWER_DOMAIN_DISP>;
