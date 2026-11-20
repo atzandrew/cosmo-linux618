@@ -19,6 +19,27 @@
             <description>Cosmo English (US)</description>
           </configItem>
         </variant>
+        <variant>
+          <configItem>
+            <name>de</name>
+            <description>Cosmo German</description>
+            <languageList><iso639Id>ger</iso639Id></languageList>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>ch-de</name>
+            <description>Cosmo Swiss German</description>
+            <languageList><iso639Id>ger</iso639Id></languageList>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>at</name>
+            <description>Cosmo Austrian</description>
+            <languageList><iso639Id>ger</iso639Id></languageList>
+          </configItem>
+        </variant>
       </variantList>
     </layout>
   </layoutList>
