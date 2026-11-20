@@ -27,7 +27,7 @@ read [docs/install.md](docs/install.md) before flashing, and see
 report problems.
 
 **No mobile functionality.** Calls, SMS, mobile data and the SIM slot
-do not work yet; use Wi-Fi. Cameras and GPS do not work either.
+do not work yet; use Wi-Fi. GPS and the rear camera do not work either.
 
 **Working**
 - Boot, display, GPU (panfrost, Mesa 26.1 from Debian backports, GLES 3.1),
@@ -36,6 +36,7 @@ do not work yet; use Wi-Fi. Cameras and GPS do not work either.
 - Wi-Fi, Bluetooth (pairing, mice, keyboards and audio; reconnects
   after sleep)
 - Speaker and headphones
+- Front camera (through libcamera and PipeWire)
 - Charging, including USB-C PD fast charging; battery level
 - Deep sleep at stock power draw (~85 mA): closing the lid sleeps,
   opening it, Esc or the power key wake
@@ -57,8 +58,9 @@ do not work yet; use Wi-Fi. Cameras and GPS do not work either.
 **Not supported yet**
 - Modem: phone calls, SMS, mobile data, SIM card
 - GPS
-- Cameras
-- Screen rotation and other sensors
+- Rear camera
+- Screen rotation (the motion, light and compass sensors have drivers, but
+  the desktop does not use them)
 - HDMI out, vibration, NFC, fingerprint reader
 - WPA3 Wi-Fi (planned soon). Networks that offer both WPA2 and WPA3
   connect over WPA2 automatically; WPA3-only networks do not work yet.
@@ -107,9 +109,12 @@ The kernel and everything in this repository are GPL-2.0 (`LICENSE`).
     libzstd 1.5.7-5.fc44 (libraries used by kexec)
 - **Root filesystem:** Debian trixie packages, built by
   [gemini-debian](https://github.com/atzandrew/gemini-debian); their
-  source is in the Debian archive. Wi-Fi and Bluetooth firmware are not
-  shipped: on first use they are copied from the Cosmo's own Android
-  vendor partition.
+  source is in the Debian archive. The SCP firmware comes from Debian's
+  `firmware-mediatek`. Wi-Fi and Bluetooth firmware are not shipped: on
+  first use they are copied from the Cosmo's own Android vendor partition.
+- **libcamera** (front camera): upstream libcamera 0.7.2 with the Cosmo
+  patches, built as Debian packages by `userspace/libcamera/` in this
+  repository (LGPL-2.1+).
 - `kernel/delta/drivers/misc/mediatek-connectivity/` comes from Planet's
   GPL release of the Cosmo 4.4 kernel. Some of its files still carry
   MediaTek's original headers; the code was published under the GPL as

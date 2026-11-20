@@ -25,8 +25,8 @@ Plasma, running a mainline Linux 6.18 kernel.
 - [ ] **You have copied off everything you want to keep.** Installing
       erases the data partition: apps, photos, messages, files.
 - [ ] **You are fine without the phone part.** No calls, no SMS, no
-      mobile data: the modem and SIM card slot do not work yet. Cameras
-      and GPS do not work either (see the README for the full list).
+      mobile data: the modem and SIM card slot do not work yet. GPS and
+      the rear camera do not work either (see the README for the full list).
 - [ ] **You have a Linux PC**, a USB-C cable, and about **20 GB free** on
       the PC (backup plus images).
 - [ ] **The Cosmo is charged to at least 50 %.**
@@ -34,9 +34,9 @@ Plasma, running a mainline Linux 6.18 kernel.
 From the [releases page](https://github.com/atzandrew/cosmo-linux618/releases/latest),
 download:
 
-- `cosmo-boot-beta1.img`
+- `cosmo-boot-beta1.2.img`
 - `cosmo-dtbo-beta1.img`
-- `cosmo-debian-beta1.img.zst`
+- `cosmo-debian-beta1.2.img.zst`
 - `SHA256SUMS`
 
 ## 1. Install mtkclient (on the PC)
@@ -138,8 +138,8 @@ Then check the files and decompress the Debian image:
 
 ```sh
 cd "$COSMO_FILES"
-sha256sum -c SHA256SUMS            # every line must say OK
-zstd -d cosmo-debian-beta1.img.zst # makes cosmo-debian-beta1.img
+sha256sum -c --ignore-missing SHA256SUMS   # every line must say OK
+zstd -d cosmo-debian-beta1.2.img.zst # makes cosmo-debian-beta1.2.img
 ```
 
 ## 5. Unlock the bootloader (once)
@@ -161,14 +161,14 @@ This writes the three images and erases the data partition. It uses the
 files:
 
 ```sh
-ls "$COSMO_FILES"/cosmo-*-beta1.img
+ls "$COSMO_FILES"/cosmo-*.img
 ```
 
-It must list `cosmo-boot-beta1.img`, `cosmo-debian-beta1.img` and
+It must list `cosmo-boot-beta1.2.img`, `cosmo-debian-beta1.2.img` and
 `cosmo-dtbo-beta1.img`. Then install:
 
 ```sh
-mtk w boot,dtbo,userdata "$COSMO_FILES/cosmo-boot-beta1.img","$COSMO_FILES/cosmo-dtbo-beta1.img","$COSMO_FILES/cosmo-debian-beta1.img"
+mtk w boot,dtbo,userdata "$COSMO_FILES/cosmo-boot-beta1.2.img","$COSMO_FILES/cosmo-dtbo-beta1.img","$COSMO_FILES/cosmo-debian-beta1.2.img"
 ```
 
 Writing takes several minutes. Wait until mtk reports that it wrote

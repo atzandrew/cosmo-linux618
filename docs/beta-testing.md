@@ -60,8 +60,8 @@ You do not need to report these:
 - The left USB port supplies power to devices only until the first sleep.
 - **Not a phone yet:** no calls, SMS or mobile data (the modem and SIM
   slot do not work).
-- Cameras, GPS, screen rotation and the fingerprint reader do not work
-  yet.
+- The rear camera, GPS, screen rotation and the fingerprint reader do
+  not work yet.
 - The bootloader shows the orange-state warning at every start.
 - When a web page starts 3D graphics (WebGL), the GPU may log errors and
   briefly stall. Report it if you see freezes or garbled pictures.
