@@ -1,0 +1,23 @@
+#!/bin/sh
+# cosmo-frametrace NAME WORKLOAD...   (run as root on the Cosmo)
+# Records DRM vblank/flip, GPU scheduler, CPU/GPU frequency and scheduler
+# events system-wide while WORKLOAD runs as the desktop user; writes
+# /var/tmp/ft/NAME.txt (trace-cmd report) and NAME.pid (pidstat).
+# The desktop user is FT_USER, else the owner of the running kwin_wayland.
+# FT_ROOT=1 runs WORKLOAD as root instead (for uinput feeders).
+set -eu
+NAME=$1; shift
+D=/var/tmp/ft; mkdir -p "$D"
+U=${FT_USER:-$(ps -o user= -p "$(pgrep -o -x kwin_wayland)")}; UID_=$(id -u "$U")
+ENV="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$UID_/bus WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$UID_"
+pidstat -u -t -p "$(pgrep -d, -x 'kwin_wayland|plasmashell|Xwayland')" 1 > "$D/$NAME.pid" &
+PS=$!
+trace-cmd record -q -C mono -b 16384 -o "$D/$NAME.dat" \
+  -e drm:drm_vblank_event -e drm:drm_vblank_event_queued -e drm:drm_vblank_event_delivered \
+  -e gpu_scheduler -e power:cpu_frequency -e devfreq -e thermal \
+  -e sched:sched_switch \
+  $([ "${FT_ROOT-}" = 1 ] || echo "runuser -u $U --") env $ENV sh -c "$*" >/dev/null 2>&1
+kill $PS 2>/dev/null || true
+trace-cmd report -i "$D/$NAME.dat" > "$D/$NAME.txt" 2>/dev/null
+cat /sys/class/devfreq/13040000.gpu/trans_stat > "$D/$NAME.gpufreq" 2>/dev/null || true
+echo "$D/$NAME.txt $(wc -l < "$D/$NAME.txt") lines"
