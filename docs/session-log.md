@@ -4387,3 +4387,72 @@ Image T1:
   camera 5 frames ~20 fps; WebGL (get.webgl.org) smooth, no panfrost
   errors. Suspend refuses (mtu3 ip sleep failed, -EBUSY) while a PC uses the
   USB gadget link: test sleep with the cable unplugged.
+
+## 2026-11-20 — Plasma frame-pacing profiling: tr1 tracing kernel
+
+### tr1 pre-flash check
+
+- Purpose: test-only kernel for frame-pacing profiling (DRM vblank and
+  flip-event delivery, drm_sched job queue/run/done, dma_fence, CPU/GPU
+  frequency, sched_switch). Not for release.
+- Change: Beta1.2 (afaebca) + kernel config CONFIG_FTRACE=y,
+  CONFIG_ENABLE_DEFAULT_TRACERS=y, CONFIG_FUNCTION_TRACER=n. Resulting
+  .config vs the running Beta1.2 kernel: only tracing options added
+  (TRACING, EVENT_TRACING, TRACEPOINTS, RING_BUFFER, NOP/CONTEXT_SWITCH
+  tracers, PROBE/UPROBE/EPROBE/DYNAMIC_EVENTS, BPF_EVENTS) plus toolchain
+  version lines (Dragon cross gcc 16.2.0). No source, DT or other config
+  change. No function tracer, so no mcount patching of the hot path.
+- Release 6.18.58-cosmo-tr1 (own module tree, installed on the device +
+  depmod; 6.18.58-cosmo untouched). Image.gz-dtb 11f126b6…; packed with
+  Beta1.2's ramdisk and cmdline via bin/mkbootimg.py (Beta1.2 repack
+  byte-identical first). tr1-boot.img SHA256
+  f805e2b19319f8d295f422e301af30c346a4ef6d26d403d4564e432d7e2cda3b
+- Risk flags: new kernel config (additions, tracing only). No panel, bias,
+  PMIC-key, watchdog, reset, input or voltage change.
+- Escapes: power-key reset (observed, try11+ and since) and the
+  init/systemd-owned watchdog (observed try11+, try20); unchanged code.
+- Rollback: readytoflash/release-beta1.2/cosmo-boot-beta1.2.img.
+- Pass: boots to Plasma as 6.18.58-cosmo-tr1; /sys/kernel/tracing has
+  drm, gpu_scheduler, power, devfreq events; Wi-Fi, sound, BT as Beta1.2.
+
+### tr1 result (2026-11-20): PASS
+
+- Boots 6.18.58-cosmo-tr1 to Plasma; /sys/kernel/tracing has drm,
+  gpu_scheduler, power, devfreq, thermal, sched, dma_fence events;
+  Wi-Fi, speaker sink, Bluetooth up.
+
+### Plasma frame pacing (tr1, DRM flip events)
+
+- Vblank IRQ fires twice per refresh (120 Hz by DRM seq; pairs <2 ms
+  apart): the LK-left OVL INTEN state. Flip seq deltas of 2 = on time.
+- Overview x3: 21 % late frames; GPU at 900 MHz throughout, ~16-18 ms
+  GPU per frame (fill-bound at 1080x2160, linear AR24 scanout, no AFBC
+  on this OVL). At a fixed 300 MHz: ~47 ms per frame (20 fps).
+- Cursor-only motion: ~no GPU work (hardware cursor plane-3).
+- Window drag (Meta-drag Konsole, uinput at 125 Hz): simple_ondemand
+  2.4 % and 34.2 % late (same test twice; clock swinging 300-900 MHz),
+  fixed 900 MHz 1.6 % / 2.0 %, fixed 300 MHz 0.4 %. KWin per-frame GPU
+  time up to ~14 ms at 300 MHz. Cause: clock changes, not low clock.
+- A udev rule holding min_freq at 900 MHz removed the drops but kept the
+  GPU at 900 MHz (0.900 V) whenever it is awake. Not kept: the clock should
+  rise only when there is drawing to do. The default simple_ondemand
+  (300-900 MHz) stays. A better-behaved devfreq policy (raise at once,
+  lower slowly) is a possible later change.
+- Overview cost: KWin's Overview draws a FastBlur (radius 64) of the
+  wallpaper on every frame, with no option to turn it off (same in KWin
+  master). Accepted as is.
+- Input latency: cursor motion to flip ~8 ms, window drag to flip ~22 ms
+  median (about one frame). No extra buffering and no tearing.
+- Start menu (Kickoff): plasmashell's main thread is busy for 0.6-0.9 s
+  after each open and close, ~2.4 s CPU per open+close. perf (DWARF):
+  KSvg::FrameSvg::mask() is rebuilt about 15 times per open+close,
+  ~140 ms each (frame image decoded from the KSvg cache, premultiplied,
+  scaled at scale 2.25, turned into a QRegion). Triggers: every Kirigami
+  colour setter on a focus change (FrameSvgItem::setColor ->
+  repaintNeeded -> FrameSvg::clearCache drops the cached masks ->
+  maskChanged -> PlasmaWindow re-reads the mask), plus
+  physicalDpiChanged when the window appears and goes away. KSvg 6.13;
+  6.18 batches the colours (one rebuild per change), not fixed upstream.
+  Turning off the inactive colour effects saved only ~14 % (reverted).
+  Upstream KDE behaviour; no patch shipped.
+- Tools: tools/frame-pacing/.
