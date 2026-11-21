@@ -52,8 +52,6 @@ do not work yet; use Wi-Fi. GPS and the rear camera do not work either.
 - Wi-Fi is switched off during sleep and back on at wake.
 - No headset microphone, and plugging headphones in is not detected.
 - The bootloader shows its orange-state warning at every boot.
-- The GPU may log errors (and briefly stall) when a web page starts 3D
-  graphics (WebGL).
 
 **Not supported yet**
 - Modem: phone calls, SMS, mobile data, SIM card
