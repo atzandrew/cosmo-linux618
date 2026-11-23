@@ -21,6 +21,12 @@
         </variant>
         <variant>
           <configItem>
+            <name>uk-ps16</name>
+            <description>Cosmo English (UK, dead keys on Z)</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
             <name>de</name>
             <description>Cosmo German</description>
             <languageList><iso639Id>ger</iso639Id></languageList>

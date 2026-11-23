@@ -9,7 +9,7 @@ set -eu
 
 VARIANT=${1:-us}
 case "$VARIANT" in
-    us|gb)       SHOT='<Mod5>r' ;;
+    us|gb|uk-ps16) SHOT='<Mod5>r' ;;
     # German-language layouts: Print is on Fn+Z, Fn+R types a bar.
     de|ch-de|at) SHOT='<Mod5>z' ;;
     *) echo "Unknown layout '$VARIANT'. Use one of: us gb de ch-de at."; exit 1 ;;
@@ -24,8 +24,8 @@ if ! command -v dconf >/dev/null 2>&1; then
     apt-get install -y dconf-cli
 fi
 
-REV=239d23aefebc3ccae75722f33fb9335adb8bac27
-SHA=581f6af947cad9d2520395f845cd361bea05345e79a7366ed18a4154b8867747
+REV=ef3884eef63eb30251642944ed58a58601a74c5a
+SHA=c9c0c21e3d5c0f3ec1f85e12bc2e983f74af4820cccc2e47fe6a7a6923a01ba2
 URL=https://raw.githubusercontent.com/atzandrew/gemini-debian/$REV/overlay-cosmo/usr/share/X11/xkb/symbols/cosmo
 XKB=/usr/share/X11/xkb/symbols/cosmo
 
