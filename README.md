@@ -60,8 +60,10 @@ do not work yet; use Wi-Fi. GPS and the rear camera do not work either.
 - Screen rotation (the motion, light and compass sensors have drivers, but
   the desktop does not use them)
 - HDMI out, vibration, NFC, fingerprint reader
-- WPA3 Wi-Fi (planned soon). Networks that offer both WPA2 and WPA3
-  connect over WPA2 automatically; WPA3-only networks do not work yet.
+- WPA3-only Wi-Fi networks. Networks that offer both WPA2 and WPA3
+  connect over WPA2 automatically (the first try takes about 30 s).
+  WPA3 is a future goal that may not be possible: the original Wi-Fi
+  driver and firmware never supported it, not even on stock Android.
 
 **Screen variants: read before flashing.** Cosmos were made with two
 different screens. Only the **NT36672** screen is supported; units with

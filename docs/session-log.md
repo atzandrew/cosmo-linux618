@@ -4599,3 +4599,23 @@ Image T1:
 - Unplug on hj4: "jack unplugged"; ACCDET back to idle (CON01 0x4, CON02
   0x808, CON12 0); both jack controls off; sink back to Speaker (user:
   sound on the speakers); Headset Microphone source gone. PASS.
+
+## 2026-11-24: WPA3 (SAE) on the Cosmo: not in the driver, mixed networks fixed
+
+- The gen3 WLAN driver (delta drivers/misc/mediatek-connectivity/wlan/gen3)
+  has no SAE code at all; neither has the stock 4.4 vendor driver
+  (drivers/misc/mediatek/connectivity/wlan/core/gen3). 802.11w (PMF) is on
+  in both (config.h CFG_SUPPORT_802_11W 1 for non-x86). wpa_supplicant 2.10
+  on the device lists no "sae" in the interface KeyMgmt capabilities.
+  Real WPA3 would need a newer MediaTek driver and probably newer CONNSYS
+  firmware; none found for MT6771. Not pursued for Beta 2.
+- Mixed WPA2/WPA3 networks: Plasma still saves new profiles as key-mgmt
+  sae. gemini-wifi-fixup (gemini-debian) rewrites them to wpa-psk. Its
+  immediate retry ran as root; with the password in the user's wallet
+  (psk-flags 1) that failed with "no secrets" and the user had to click
+  again (2026-11-09). Test 2026-11-24 (LogosWiFi forgotten and rejoined from
+  Plasma): rewrite at +1 s, the SAE attempt timed out at +26 s, and
+  NetworkManager's own auto-activation connected at +30 s with the wallet
+  password; a retry run as the profile owner from the service was refused
+  by polkit ("Not authorized to control networking"). Fix: retry only when
+  the password is stored system-wide (psk-flags 0).
