@@ -13,7 +13,7 @@ the stock kernel tree.
 | Codec | MT6358 analog, `sound/soc/mediatek/codec/mt6358/mtk-soc-codec-6358.c` | `sound/soc/codecs/mt6358.c`, node `mt6358codec` in `mt6358.dtsi` |
 | Speaker amps | two pulse-mode GPIO amps, GPIO153 and GPIO111 | `sound/soc/codecs/aw8738.c` (same pulse sequence) |
 | Machine driver | vendor `mt-snd-card` | none fits as is (mt8183 boards use I2S amps) |
-| Headset detect | `drivers/misc/mediatek/accdet/mt6771/accdet.c` | no MT6358 ACCDET driver (only `mt6359-accdet`) |
+| Headset detect | `drivers/misc/mediatek/accdet/mt6771/accdet.c` | `sound/soc/codecs/mt6358-accdet.c` (Cosmo, ported from stock) |
 
 ## AFE
 
@@ -96,7 +96,31 @@ the stock kernel tree.
   `<0x500 0x500 1 0x1f0 0x800 0x800 0x20 0x44>`, three-key thresholds
   `<0 0x50 0xdc 0x190>`, four-key `<0 0x3a 0x79 0xc0 0x190>`.
 - Stock driver: accdet/mt6771/accdet.c (2776 lines). Mainline has no
-  MT6358 ACCDET; mt6359-accdet.c is the closest base.
+  MT6358 ACCDET, and mt6359-accdet.c has a different register map, so
+  `mt6358-accdet.c` follows the stock sequence (2026-11-24):
+  - Config: CONFIG_ACCDET_EINT_IRQ + CONFIG_ACCDET_SUPPORT_EINT0, SW mode
+    (HW_MODE_SUPPORT undefined), level-low EINT0 inside the PMIC.
+  - Idle registers equal a Gemian dump with nothing plugged in: ACCDET_CON01
+    0x4, CON02 0x808, CON03/04 0x4ff, CON05 0x81f0, CON13 0, CON15 0x2671,
+    CON24 0xc018, AUDENC_ANA_CON6 0x60, CON10 0x64, CON11 0x807,
+    AUD_TOP_INT_CON0 0x60.
+  - Plug-in enables the ACCDET unit (CON01 EN, CON02 0x7 + PWM idle). This
+    also connects MICBIAS1 to the headset mic: with the unit off the headset
+    mic records ~25 dB too quiet. CON14 AB state 01 = headset with mic,
+    00 = headphones (unit off again after 6 s, stock micbias_timer).
+  - Mainline mt6358.c writes ACCDET_CON13 = 0x700e ("accdet s/w enable");
+    stock leaves 0. Removed in the Cosmo codec delta.
+  - Mainline `enum mt6358_irq_top_status_shift` has no XPP entry: stock
+    TOP_INT_STATUS0 has XPP at bit 6, AUD at 7, MISC at 8 (upmu_hw.h
+    PMIC_INT_STATUS_*_TOP_SHIFT). Without it, ACCDET interrupts are never
+    dispatched and the level-high PMIC line loops. Fixed in the delta
+    (include/linux/mfd/mt6358/core.h); an upstream bug.
+  - Not a wake source: both IRQs are masked over suspend; a plug change in
+    sleep is handled at resume.
+- Headset mic level: stock Audio_PGA1_Setting 3 (18 dB, Gemian amixer).
+  With the Apple headset that is ~-57 dBFS for speech; the image uses the
+  24 dB maximum plus a 150 % default input volume (-37 dBFS RMS, -22 peak).
+- Headset buttons are not handled yet (stock thresholds above).
 
 ## Suspend
 

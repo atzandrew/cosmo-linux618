@@ -7,14 +7,22 @@
  * amplifiers (aw8738, added as aux devices), and the headphone jack is on
  * the MT6358 headphone outputs. The board routing comes from the device
  * tree ("audio-routing"), the amplifiers from "audio-aux-devs".
+ *
+ * Jack detection: the MT6358 ACCDET (mediatek,accdet phandle) reports into
+ * "Headphone Jack" / "Headset Mic Jack"; UCM switches devices from those.
  */
 
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 
+#include "../../codecs/mt6358-accdet.h"
 #include "mt8183-afe-common.h"
+
+static struct snd_soc_component *cosmo_accdet;
+static struct snd_soc_jack cosmo_hp_jack;
 
 static int cosmo_playback_startup(struct snd_pcm_substream *substream)
 {
@@ -129,12 +137,42 @@ static struct snd_soc_dai_link cosmo_dai_links[] = {
 static const struct snd_soc_dapm_widget cosmo_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Speaker", NULL),
 	SND_SOC_DAPM_HP("Headphone", NULL),
+	SND_SOC_DAPM_MIC("Headset Mic", NULL),
+	SND_SOC_DAPM_MIC("Built-in Mic", NULL),
 };
 
 static const struct snd_kcontrol_new cosmo_snd_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Speaker"),
 	SOC_DAPM_PIN_SWITCH("Headphone"),
+	SOC_DAPM_PIN_SWITCH("Headset Mic"),
+	SOC_DAPM_PIN_SWITCH("Built-in Mic"),
 };
+
+/*
+ * One jack, two pins: "Headphone Jack" and "Headset Mic Jack" controls for
+ * UCM. The Headset Mic pin is only enabled while a headset is plugged in.
+ */
+static struct snd_soc_jack_pin cosmo_jack_pins[] = {
+	{ .pin = "Headphone",	.mask = SND_JACK_HEADPHONE },
+	{ .pin = "Headset Mic",	.mask = SND_JACK_MICROPHONE },
+};
+
+static int cosmo_late_probe(struct snd_soc_card *card)
+{
+	int ret;
+
+	if (!cosmo_accdet)
+		return 0;
+
+	ret = snd_soc_card_jack_new_pins(card, "Headset Jack", SND_JACK_HEADSET,
+					 &cosmo_hp_jack, cosmo_jack_pins,
+					 ARRAY_SIZE(cosmo_jack_pins));
+	if (ret)
+		return dev_err_probe(card->dev, ret,
+				     "Headset Jack create failed\n");
+
+	return mt6358_accdet_enable_jack_detect(cosmo_accdet, &cosmo_hp_jack);
+}
 
 static struct snd_soc_card cosmo_card = {
 	.name = "cosmo",
@@ -146,7 +184,31 @@ static struct snd_soc_card cosmo_card = {
 	.controls = cosmo_snd_controls,
 	.num_controls = ARRAY_SIZE(cosmo_snd_controls),
 	.fully_routed = true,
+	.late_probe = cosmo_late_probe,
 };
+
+static int cosmo_get_accdet(struct device *dev)
+{
+	struct device_node *np;
+	struct platform_device *accdet_pdev;
+
+	cosmo_accdet = NULL;
+	np = of_parse_phandle(dev->of_node, "mediatek,accdet", 0);
+	if (!np)
+		return 0;
+
+	accdet_pdev = of_find_device_by_node(np);
+	of_node_put(np);
+	if (!accdet_pdev)
+		return -EPROBE_DEFER;
+
+	cosmo_accdet = snd_soc_lookup_component(&accdet_pdev->dev, NULL);
+	put_device(&accdet_pdev->dev);
+	if (!cosmo_accdet)
+		return dev_err_probe(dev, -EPROBE_DEFER,
+				     "waiting for the ACCDET component\n");
+	return 0;
+}
 
 static int cosmo_sound_probe(struct platform_device *pdev)
 {
@@ -162,6 +224,10 @@ static int cosmo_sound_probe(struct platform_device *pdev)
 				     "property 'mediatek,platform' missing\n");
 
 	card->dev = &pdev->dev;
+
+	ret = cosmo_get_accdet(&pdev->dev);
+	if (ret)
+		goto out;
 
 	for_each_card_prelinks(card, i, dai_link) {
 		if (!dai_link->platforms->name)

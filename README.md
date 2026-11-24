@@ -35,7 +35,8 @@ do not work yet; use Wi-Fi. GPS and the rear camera do not work either.
 - Touchscreen, keyboard and keyboard backlight, power key, lid
 - Wi-Fi, Bluetooth (pairing, mice, keyboards and audio; reconnects
   after sleep)
-- Speaker and headphones
+- Speaker and headphones; plugging headphones in switches the sound over
+  by itself; headset microphone
 - Front camera (through libcamera and PipeWire)
 - Charging, including USB-C PD fast charging; battery level
 - Deep sleep at stock power draw (~85 mA): closing the lid sleeps,
@@ -50,7 +51,6 @@ do not work yet; use Wi-Fi. GPS and the rear camera do not work either.
 - After sleep, the right USB-C port may stop working until a restart.
 - USB power output on the left port stops after the first sleep.
 - Wi-Fi is switched off during sleep and back on at wake.
-- No headset microphone, and plugging headphones in is not detected.
 - The bootloader shows its orange-state warning at every boot.
 
 **Not supported yet**

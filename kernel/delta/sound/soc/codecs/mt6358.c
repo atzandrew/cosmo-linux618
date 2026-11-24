@@ -2354,9 +2354,11 @@ static void mt6358_codec_init_reg(struct mt6358_priv *priv)
 			   RG_AUDLOLSCDISABLE_VAUDP15_MASK_SFT,
 			   0x1 << RG_AUDLOLSCDISABLE_VAUDP15_SFT);
 
-	/* accdet s/w enable */
-	regmap_update_bits(priv->regmap, MT6358_ACCDET_CON13,
-			   0xFFFF, 0x700E);
+	/*
+	 * Cosmo: no "accdet s/w enable" (ACCDET_CON13 = 0x700e). It forces the
+	 * ACCDET comparators and mic bias on in software; the Cosmo runs the
+	 * ACCDET block (mt6358-accdet) and stock leaves CON13 at 0.
+	 */
 
 	/* gpio miso driving set to 4mA */
 	regmap_write(priv->regmap, MT6358_DRV_CON3, 0x8888);

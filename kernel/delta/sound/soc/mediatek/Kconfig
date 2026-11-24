@@ -145,6 +145,7 @@ config SND_SOC_MT6771_COSMO
 	depends on SND_SOC_MT8183
 	select SND_SOC_MT6358
 	select SND_SOC_AW8738
+	select SND_SOC_MT6358_ACCDET
 	help
 	  This adds the ASoC machine driver for the Planet Computers Cosmo
 	  Communicator: MT6358 codec, line-out to two GPIO speaker

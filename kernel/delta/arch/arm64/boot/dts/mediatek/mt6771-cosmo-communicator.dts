@@ -636,6 +636,15 @@
 		 */
 		cosmo,charge-full-microamp-hours = <4050000>;
 	};
+
+	/*
+	 * Headset plug detection: MT6358 ACCDET on the PMIC-internal EINT0
+	 * (stock CONFIG_ACCDET_SUPPORT_EINT0, level low; dtbo fragment@13,
+	 * docs/audio-stock.md "Headset detect"). Values are in the driver.
+	 */
+	mt6358_accdet: accdet {
+		compatible = "mediatek,mt6358-accdet";
+	};
 };
 
 /*
@@ -2498,13 +2507,17 @@
 	sound: sound {
 		compatible = "planet,cosmo-communicator-sound";
 		mediatek,platform = <&afe>;
+		mediatek,accdet = <&mt6358_accdet>;
 		audio-routing =
 			"Amp1 IN", "Headphone L Ext Spk Amp",
 			"Amp2 IN", "Headphone R Ext Spk Amp",
 			"Speaker", "Amp1 OUT",
 			"Speaker", "Amp2 OUT",
 			"Headphone", "Headphone L",
-			"Headphone", "Headphone R";
+			"Headphone", "Headphone R",
+			/* docs/audio-stock.md "Microphones" */
+			"AIN0", "Built-in Mic",
+			"AIN1", "Headset Mic";
 		audio-aux-devs = <&speaker_amp1>, <&speaker_amp2>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&aud_pins_default>;

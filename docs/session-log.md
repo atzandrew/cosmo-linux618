@@ -4456,3 +4456,146 @@ Image T1:
   Turning off the inactive colour effects saved only ~14 % (reverted).
   Upstream KDE behaviour; no patch shipped.
 - Tools: tools/frame-pacing/.
+
+## 2026-11-24: headphone jack detection J1 (hj1, MT6358 ACCDET EINT0)
+
+### hj1 pre-flash check
+
+- Change: new driver sound/soc/codecs/mt6358-accdet.c (CONFIG_SND_SOC_MT6358_ACCDET=m,
+  selected by SND_SOC_MT6771_COSMO): register sequence from the vendor
+  drivers/misc/mediatek/accdet/mt6771/accdet.c (EINT0, SW mode, level low,
+  dtbo fragment@13 values); reports "Headphone Jack" (SND_JACK_HEADPHONE).
+  EINT0 masked over suspend (mt6358-irq sub-IRQs wake deep sleep), state
+  re-read on resume. MFD cell mt6358-accdet (ACCDET/EINT0/EINT1 IRQs). Codec:
+  the mainline "accdet s/w enable" write ACCDET_CON13 = 0x700e removed (stock
+  value 0, Gemian idle dump ~/cosmo-backup/gemian-audio-20261031/idle-ana.txt).
+  Machine driver: mediatek,accdet phandle + Headphone Jack in late_probe. DT:
+  &pmic accdet node, sound mediatek,accdet. UCM (device, test copy; Beta1.2
+  copy in /root/HiFi.conf.beta12): Headphones device, JackControl
+  "Headphone Jack", priority 200, conflicts with Speaker.
+- Release 6.18.58-cosmo-hj1 (own module tree, installed + depmod).
+  Image.gz-dtb 493d8abe…; packed with Beta1.2's ramdisk and cmdline via
+  bin/mkbootimg.py (Beta1.2 repack byte-identical first). hj1-boot.img SHA256
+  ef9ae10a736d20903d9e7986ad861562ee1432614a41d02223db0c78b0fdc17b
+- Risk flags: new kernel config (one new module). PMIC register writes in the
+  audio/ACCDET block only (0x2220 bit 1, 0x2394, 0x239c, 0x239e, 0x250a-0x2538);
+  MICBIAS1 power bit stays off. No panel, bias, PMIC-key, watchdog, reset,
+  input or voltage change.
+- Escapes: power-key reset (observed, try11+ and since) and the init/systemd
+  watchdog (observed try11+, try20); unchanged code.
+- Rollback: readytoflash/release-beta1.2/cosmo-boot-beta1.2.img + restore
+  /root/HiFi.conf.beta12.
+- Pass (fixed in advance): boots to Plasma as 6.18.58-cosmo-hj1; ACCDET
+  registers match the Gemian idle dump (CON01 0x4, CON02 0x808, CON13 0,
+  CON15 0x2671, CON24 0xc018, ANA_CON6 0x60, CON10 0x64, CON11 0x807);
+  plug/unplug x5: "Headphone Jack" follows each time and PipeWire switches
+  Speaker <-> Headphones by itself; nothing plugged = speaker as Beta1.2;
+  plug change during lid-close sleep detected after wake; no wake from the jack.
+
+### hj1 result (2026-11-24): FAIL (fix found)
+
+- Boots 6.18.58-cosmo-hj1; "cosmo Headphone Jack" input created; ACCDET
+  digital registers = Gemian idle dump (CON01 0x4, CON02 0x808, CON03/04
+  0x4ff, CON05 0x81f0, CON13 0, CON15 0x2671, CON24 0xc018, ANA_CON6 0x60).
+- Wrong: ANA_CON10 0x60 (stock 0x64) and ANA_CON11 0 (stock 0x807): the
+  update_bits masks left out the bits being set. Fixed in the driver.
+- Blocker: EINT0 pending (ACCDET_CON12 0x4, AUD_TOP_INT_STATUS0 0x40) but
+  ACCDET_EINT0 count 0; TOP_INT_STATUS0 (0x19e) = 0x80 and mt6358-irq
+  (EINT 182) looping ~14k/s. Vendor upmu_hw.h: TOP_INT_STATUS0 bit 6 = XPP,
+  7 = AUD, 8 = MISC; mainline enum mt6358_irq_top_status_shift has no XPP,
+  so AUD = 6 and MISC = 7: AUD interrupts are never dispatched. Fix: delta
+  include/linux/mfd/mt6358/core.h adds MT6358_XPP_TOP (upstream bug).
+- Loop stopped by unbinding mt6358-accdet (rate 0 after).
+
+### hj2 pre-flash check
+
+- Change vs hj1: MT6358_XPP_TOP added to the top-status enum (AUD -> bit 7,
+  MISC -> bit 8, as vendor upmu_hw.h); ACCDET ANA_CON10/11 masks fixed.
+  Release name unchanged (6.18.58-cosmo-hj1; module tree replaced + depmod).
+  Image.gz-dtb 1a999047…, hj2-boot.img SHA256
+  00f63913494949b839662d72987199798f673a388b96d76823fddc6e7f72ca0d
+- Risk flags as hj1, plus: MISC-group PMIC interrupts now read bit 8 (none
+  requested on the Cosmo). PSC group (power key) unchanged at bit 2.
+- Escapes, rollback, pass criteria: as hj1, plus ANA_CON10 0x64, ANA_CON11
+  0x807 and mt6358-irq rate near 0 when idle.
+
+### hj2 result (2026-11-24): PASS (jack detection, step 1)
+
+- Boots 6.18.58-cosmo-hj1 (hj2-boot.img). ACCDET registers = Gemian idle
+  dump incl. ANA_CON10 0x64, ANA_CON11 0x807; TOP_INT_STATUS0 0; mt6358-irq
+  0 per 3 s idle.
+- Plug/unplug x5: 10 ACCDET_EINT0 interrupts, "jack plugged"/"unplugged"
+  in order; PipeWire switches Speaker <-> Headphones by itself (Speaker
+  Switch off while plugged = amps off); per-port volume kept.
+- 2 s 440 Hz tone with headphones in: heard in the headphones only (user).
+- Sleep: lid closed, headphones plugged in while asleep, lid opened. Deep
+  sleep, r12 0x40 = lid wake (not the jack); "jack plugged" 32 ms after
+  resume; sound on the headphones only (user).
+- Side note: with USB to Dragon the suspend attempts before failed with the
+  known mtu3 "ip sleep failed" -EBUSY (14 failures); unplugged = deep OK.
+
+### Headset mic, first capture (hj2, 2026-11-24): all-zero samples
+
+- By hand: Mic Type Mux ACC, PGA L Mux AIN1, ADC L Mux Left Preamplifier,
+  PGA Volume 2, UL1_CH1/CH2 ADDA on; arecord hw:0,3 30 s while the user
+  counted into the Apple headset mic: every sample 0. DAPM: AIN1 "in 0
+  out 0" (Off): the card is fully_routed and nothing routes to AIN0/1/2, so
+  the capture path never powers.
+
+### hj3 pre-flash check
+
+- Change vs hj2: machine driver widgets "Headset Mic" + "Built-in Mic"
+  (with pin switches); DT audio-routing "AIN0" <- "Built-in Mic", "AIN1" <-
+  "Headset Mic" (docs/audio-stock.md "Microphones"). Release name unchanged
+  (6.18.58-cosmo-hj1, module tree replaced + depmod). Image.gz-dtb
+  53e51cc8…, hj3-boot.img SHA256
+  0ab8e32cfdf29627b61ade4a3a2c1c1d79a7ebdb027dfbf3310d2c465d2f493e
+- Risk flags: routing only; no new config, no register change beyond what
+  DAPM does for capture (MICBIAS0/1 as stock values 0x21 / 0x61).
+- Escapes, rollback: as hj1.
+- Pass: AIN1 reachable in DAPM; headset-mic recording has speech-level
+  RMS while the user counts, near-silence otherwise; jack detection as hj2.
+
+### hj3 result (2026-11-24): routing PASS, level far too low
+
+- AIN1 "On in 1 out 1" while recording, ANA_CON10 0x0061 (stock value).
+  User counted into the Apple headset mic: L RMS 10-23 vs ~2 silent (about
+  -64 dBFS); R 0 (R ADC not routed). Cause (read from stock): MICBIAS1 reaches
+  the headset through the ACCDET unit, which stock enables on plug-in
+  (enable_accdet: CON01 EN, CON02 0x7 + PWM idle). Our stage-1 driver left
+  the unit off; mainline's dropped CON13 0x700e had forced it on in SW.
+
+### hj4 pre-flash check
+
+- Change vs hj3: mt6358-accdet enables the ACCDET unit on plug-in as stock
+  (seq init, CON02 PWM idle 0x700 + 0x807, ANA_CON10 LOWP, CON01 EN); ACCDET
+  IRQ reads CON14 AB state: 01 = headset (SND_JACK_HEADSET, CON09
+  DEBOUNCE3*30, CON06 0x400 as stock), 00 = headphones; headphones-only turns
+  the unit off after 6 s (stock micbias_timer); plug-out = stock
+  disable_accdet. ACCDET IRQ requested, both IRQs masked over suspend.
+  Machine driver: jack pins Headphone + Headset Mic ("Headphone Jack",
+  "Headset Mic Jack"). UCM (device test copy): Headset capture device, AIN1
+  to both ADCs, PGA 3 (18 dB), JackControl "Headset Mic Jack".
+- Release 6.18.58-cosmo-hj4 (own module tree). Image.gz-dtb a54e9262…,
+  hj4-boot.img SHA256
+  e71992e8a9c3543da4f35693890125882826b87c18619adcf4dc00493e83e611
+- Risk flags: as hj1 (PMIC ACCDET/audio block only; MICBIAS1 in ACCDET
+  low-power PWM while a headset is plugged in, as stock).
+- Escapes, rollback: as hj1.
+- Pass: headset -> "headset with mic" + Headset Microphone source in
+  PipeWire; counting gives speech-level RMS (> ~-40 dBFS); headphones-only
+  plug (if available) -> no mic; speaker unplugged as before.
+
+### hj4 result (2026-11-24): headset mic PASS
+
+- Boots 6.18.58-cosmo-hj4 with the Apple headset in: "jack plugged", then
+  "headset with mic" 80 ms later; Headphone Jack + Headset Mic Jack on;
+  PipeWire default source "Headset Microphone".
+- Levels (user counting, pw-record): PGA 18 dB (stock Audio_PGA1_Setting 3,
+  Gemian idle-amixer) quiet speech -57 dBFS; PGA 24 dB -48 dBFS RMS / -30
+  peak; + source volume 150 % (3.375 linear) normal voice -37 dBFS RMS,
+  -22 dBFS peak, floor -63, no clipping. UCM PGA 4,4; WirePlumber
+  device.routes.default-source-volume = 3.375 for fresh installs (gemini-debian).
+- Unplug on hj4: "jack unplugged"; ACCDET back to idle (CON01 0x4, CON02
+  0x808, CON12 0); both jack controls off; sink back to Speaker (user:
+  sound on the speakers); Headset Microphone source gone. PASS.
