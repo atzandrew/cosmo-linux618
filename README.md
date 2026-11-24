@@ -38,7 +38,8 @@ do not work yet; use Wi-Fi. GPS and the rear camera do not work either.
 - Speaker and headphones; plugging headphones in switches the sound over
   by itself; headset microphone
 - Front camera (through libcamera and PipeWire)
-- Charging, including USB-C PD fast charging; battery level
+- Charging, including USB-C PD fast charging; battery level; a short
+  vibration when a charger is plugged in
 - Deep sleep at stock power draw (~85 mA): closing the lid sleeps,
   opening it, Esc or the power key wake
 - USB device mode on the left port; host mode on both ports (automatic on
@@ -59,7 +60,9 @@ do not work yet; use Wi-Fi. GPS and the rear camera do not work either.
 - Rear camera
 - Screen rotation (the motion, light and compass sensors have drivers, but
   the desktop does not use them)
-- HDMI out, vibration, NFC, fingerprint reader
+- HDMI out, NFC, fingerprint reader
+- Vibration for notifications (the vibrator works; the desktop has no
+  haptics support)
 - WPA3-only Wi-Fi networks. Networks that offer both WPA2 and WPA3
   connect over WPA2 automatically (the first try takes about 30 s).
   WPA3 is a future goal that may not be possible: the original Wi-Fi
